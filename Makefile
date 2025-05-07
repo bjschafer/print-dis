@@ -9,6 +9,9 @@ OS          ?= $(shell go env GOOS)
 GOOS        ?= $(OS)
 PACKAGE_DIR ?= packages
 
+# Track all Go source files
+GO_SOURCES := $(shell find . -name "*.go")
+
 .PHONY: check
 check: test lint
 
@@ -28,7 +31,7 @@ clean:
 	rm -rf ./bin
 	rm -rf $(PACKAGE_DIR)
 
-bin/print-dis:
+bin/print-dis: $(GO_SOURCES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) go build -o bin/print-dis $(BUILD_FLAGS) ./main.go
 
 .PHONY: package
