@@ -16,7 +16,7 @@ function displayPrintRequests(printRequests) {
     fileLink.className = "file-link";
 
     row.innerHTML = `
-      <td>${request.id}</td>
+      <td title="${request.id}">${request.id}</td>
       <td>${request.user_id}</td>
       <td></td>
       <td>
@@ -85,6 +85,39 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Add event listener for status filter
   statusFilter.addEventListener("change", loadPrintRequests);
+
+  // Add click handler for copying IDs
+  document.addEventListener("click", (e) => {
+    const idCell = e.target.closest("td[title]");
+    if (idCell) {
+      const id = idCell.getAttribute("title");
+      // Create a temporary input element
+      const tempInput = document.createElement("input");
+      tempInput.value = id;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+
+      try {
+        // Try to copy using execCommand
+        const successful = document.execCommand("copy");
+        if (successful) {
+          // Show feedback
+          const originalText = idCell.textContent;
+          idCell.textContent = "✓ Copied!";
+          idCell.style.color = "#28a745";
+          setTimeout(() => {
+            idCell.textContent = originalText;
+            idCell.style.color = "#6c757d";
+          }, 1000);
+        }
+      } catch (err) {
+        console.error("Failed to copy ID:", err);
+      } finally {
+        // Clean up
+        document.body.removeChild(tempInput);
+      }
+    }
+  });
 });
 
 let currentRequestId = null;
@@ -135,6 +168,39 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Add event listener for status filter
   statusFilter.addEventListener("change", loadPrintRequests);
+
+  // Add click handler for copying IDs
+  document.addEventListener("click", (e) => {
+    const idCell = e.target.closest("td[title]");
+    if (idCell) {
+      const id = idCell.getAttribute("title");
+      // Create a temporary input element
+      const tempInput = document.createElement("input");
+      tempInput.value = id;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+
+      try {
+        // Try to copy using execCommand
+        const successful = document.execCommand("copy");
+        if (successful) {
+          // Show feedback
+          const originalText = idCell.textContent;
+          idCell.textContent = "✓ Copied!";
+          idCell.style.color = "#28a745";
+          setTimeout(() => {
+            idCell.textContent = originalText;
+            idCell.style.color = "#6c757d";
+          }, 1000);
+        }
+      } catch (err) {
+        console.error("Failed to copy ID:", err);
+      } finally {
+        // Clean up
+        document.body.removeChild(tempInput);
+      }
+    }
+  });
 
   // Handle confirm button click
   confirmButton.addEventListener("click", async () => {
