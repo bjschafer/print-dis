@@ -21,7 +21,7 @@ type PrintRequest struct {
 	UserID    string             `json:"user_id" db:"user_id"`
 	FileLink  string             `json:"file_link" db:"file_link"`
 	Notes     string             `json:"notes" db:"notes"`
-	SpoolID   *string            `json:"spool_id,omitempty" db:"spool_id"` // Optional Spoolman spool ID
+	SpoolID   *int               `json:"spool_id,omitempty" db:"spool_id"` // Optional Spoolman spool ID
 	Color     *string            `json:"color,omitempty" db:"color"`       // Optional color preference
 	Material  *string            `json:"material,omitempty" db:"material"` // Optional material preference
 	Status    PrintRequestStatus `json:"status" db:"status"`

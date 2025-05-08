@@ -10,10 +10,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bjschafer/print-dis/internal/api"
 	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/database"
 	"github.com/bjschafer/print-dis/internal/handlers"
 	"github.com/bjschafer/print-dis/internal/services"
+	"github.com/bjschafer/print-dis/internal/spoolman"
 )
 
 func main() {
@@ -68,8 +70,22 @@ func main() {
 	// Create service layer
 	printRequestService := services.NewPrintRequestService(db)
 
+	// Initialize Spoolman if enabled
+	var spoolmanService *spoolman.Service
+	if cfg.Spoolman.Enabled {
+		spoolmanClient := spoolman.New(cfg.Spoolman.Endpoint)
+		spoolmanService = spoolman.NewService(spoolmanClient)
+		slog.Info("Spoolman integration enabled", "endpoint", cfg.Spoolman.Endpoint)
+	} else {
+		slog.Info("Spoolman integration disabled")
+	}
+
 	// Create handlers
 	printRequestHandler := handlers.NewPrintRequestHandler(printRequestService)
+	var spoolmanHandler *api.SpoolmanHandler
+	if spoolmanService != nil {
+		spoolmanHandler = api.NewSpoolmanHandler(spoolmanService)
+	}
 
 	// Create a new server
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
@@ -77,7 +93,11 @@ func main() {
 		Addr: addr,
 	}
 
-	// Set up routes
+	// Serve static files
+	fs := http.FileServer(http.Dir("static"))
+	http.Handle("/", fs)
+
+	// Set up API routes
 	http.HandleFunc("/api/print-requests", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
@@ -100,6 +120,33 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+
+	// Add Spoolman routes if enabled
+	if spoolmanHandler != nil {
+		http.HandleFunc("/api/spoolman/spools", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				spoolmanHandler.GetSpools(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+
+		http.HandleFunc("/api/spoolman/spool", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				spoolmanHandler.GetSpool(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+
+		http.HandleFunc("/api/spoolman/materials", func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet {
+				spoolmanHandler.GetMaterials(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		})
+	}
 
 	// Add route for status updates
 	http.HandleFunc("/api/print-requests/status", func(w http.ResponseWriter, r *http.Request) {

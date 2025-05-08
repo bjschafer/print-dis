@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Print Job Submission</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Submit Print Job</h1>
+      <form id="printJobForm">
+        <div class="form-group">
+          <label for="submitter">Submitter:</label>
+          <input type="text" id="submitter" name="submitter" required />
+        </div>
+
+        <div class="form-group">
+          <label for="fileLink">File Link:</label>
+          <input
+            type="url"
+            id="fileLink"
+            name="fileLink"
+            required
+            pattern="https?://.+"
+            title="Please enter a valid URL starting with http:// or https://"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="spoolmanEnabled">Use Spoolman:</label>
+          <input type="checkbox" id="spoolmanEnabled" name="spoolmanEnabled" />
+        </div>
+
+        <div id="spoolmanFields" style="display: none">
+          <div class="form-group">
+            <label for="spoolmanSpool">Spool:</label>
+            <select id="spoolmanSpool" name="spoolmanSpool">
+              <option value="">Select a spool...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="spoolmanMaterial">Material:</label>
+            <select id="spoolmanMaterial" name="spoolmanMaterial">
+              <option value="">Select a material...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Color Preview:</label>
+            <div id="colorPreview" class="color-preview"></div>
+          </div>
+        </div>
+
+        <div id="manualFields">
+          <div class="form-group">
+            <label for="color">Color (optional):</label>
+            <input type="text" id="color" name="color" />
+          </div>
+
+          <div class="form-group">
+            <label for="material">Material (optional):</label>
+            <input type="text" id="material" name="material" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="notes">Notes:</label>
+          <textarea id="notes" name="notes" rows="3"></textarea>
+        </div>
+
+        <button type="submit">Submit Print Job</button>
+      </form>
+
+      <div id="status" class="status"></div>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -11,9 +11,10 @@ import (
 
 // Config holds all configuration for the application
 type Config struct {
-	Server ServerConfig
-	DB     DBConfig
-	Log    LogConfig
+	Server   ServerConfig
+	DB       DBConfig
+	Log      LogConfig
+	Spoolman SpoolmanConfig
 }
 
 // ServerConfig holds server-related configuration
@@ -36,6 +37,12 @@ type DBConfig struct {
 // LogConfig holds logging-related configuration
 type LogConfig struct {
 	Level string // "debug", "info", "warn", "error"
+}
+
+// SpoolmanConfig holds Spoolman-related configuration
+type SpoolmanConfig struct {
+	Enabled  bool
+	Endpoint string
 }
 
 // Load loads configuration from multiple sources in the following order:
@@ -90,6 +97,10 @@ func Load() (*Config, error) {
 		Log: LogConfig{
 			Level: v.GetString("log.level"),
 		},
+		Spoolman: SpoolmanConfig{
+			Enabled:  v.GetBool("spoolman.enabled"),
+			Endpoint: v.GetString("spoolman.endpoint"),
+		},
 	}
 
 	return config, nil
@@ -111,6 +122,10 @@ func setDefaults(v *viper.Viper) {
 
 	// Log defaults
 	v.SetDefault("log.level", "info")
+
+	// Spoolman defaults
+	v.SetDefault("spoolman.enabled", false)
+	v.SetDefault("spoolman.endpoint", "http://localhost:8000")
 }
 
 // setupFlags sets up command-line flags
@@ -134,6 +149,10 @@ func setupFlags(v *viper.Viper) {
 	// Log flags
 	flags.String("log-level", v.GetString("log.level"), "Log level (debug, info, warn, error)")
 
+	// Spoolman flags
+	flags.Bool("spoolman-enabled", v.GetBool("spoolman.enabled"), "Enable Spoolman integration")
+	flags.String("spoolman-endpoint", v.GetString("spoolman.endpoint"), "Spoolman API endpoint")
+
 	// Parse flags
 	flags.Parse(os.Args[1:])
 
@@ -148,4 +167,6 @@ func setupFlags(v *viper.Viper) {
 	v.BindPFlag("db.database", flags.Lookup("db-path"))
 	v.BindPFlag("db.ssl_mode", flags.Lookup("db-ssl-mode"))
 	v.BindPFlag("log.level", flags.Lookup("log-level"))
+	v.BindPFlag("spoolman.enabled", flags.Lookup("spoolman-enabled"))
+	v.BindPFlag("spoolman.endpoint", flags.Lookup("spoolman-endpoint"))
 }

@@ -29,7 +29,7 @@ type CreatePrintRequestRequest struct {
 	UserID   string  `json:"user_id"`
 	FileLink string  `json:"file_link"`
 	Notes    string  `json:"notes"`
-	SpoolID  *string `json:"spool_id,omitempty"`
+	SpoolID  *int    `json:"spool_id,omitempty"`
 	Color    *string `json:"color,omitempty"`
 	Material *string `json:"material,omitempty"`
 }
