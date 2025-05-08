@@ -23,6 +23,10 @@ lint:
 test:
 	go test -race -cover -ldflags=$(LDFLAGS) ./...
 
+.PHONY: generate
+generate:
+	GOARCH=$(ARCH) GOOS=$(OS) go generate -v ./...
+
 .PHONY: build
 build: bin/print-dis
 
@@ -31,7 +35,7 @@ clean:
 	rm -rf ./bin
 	rm -rf $(PACKAGE_DIR)
 
-bin/print-dis: $(GO_SOURCES)
+bin/print-dis: $(GO_SOURCES) generate
 	GOARCH=$(GOARCH) GOOS=$(GOOS) go build -o bin/print-dis $(BUILD_FLAGS) ./main.go
 
 .PHONY: package

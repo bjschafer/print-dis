@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 
 	"github.com/bjschafer/print-dis/internal/models"
 	"github.com/jmoiron/sqlx"
@@ -13,21 +14,37 @@ import (
 
 type sqliteClient struct {
 	baseClient
+	logger *slog.Logger
 }
 
 func newSQLiteClient(cfg *Config) (DBClient, error) {
+	logger := slog.Default()
+	logger.Info("connecting to SQLite database",
+		"database", cfg.Database,
+	)
+
 	db, err := sqlx.Open("sqlite3", cfg.Database)
 	if err != nil {
+		logger.Error("failed to open SQLite database",
+			"error", err,
+			"database", cfg.Database,
+		)
 		return nil, fmt.Errorf("failed to open SQLite database: %w", err)
 	}
 
 	// Initialize the database schema
 	if err := initSQLiteSchema(db); err != nil {
+		logger.Error("failed to initialize SQLite schema",
+			"error", err,
+		)
 		db.Close()
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 
-	return &sqliteClient{baseClient{db: db}}, nil
+	return &sqliteClient{
+		baseClient: baseClient{db: db},
+		logger:     logger,
+	}, nil
 }
 
 func initSQLiteSchema(db *sqlx.DB) error {
@@ -68,7 +85,7 @@ func initSQLiteSchema(db *sqlx.DB) error {
 			spool_id TEXT,
 			color TEXT,
 			material TEXT,
-			status TEXT NOT NULL,
+			status INTEGER NOT NULL,
 			created_at TIMESTAMP NOT NULL,
 			updated_at TIMESTAMP NOT NULL
 		)`,
@@ -370,6 +387,12 @@ func (c *sqliteClient) CreatePrintRequest(ctx context.Context, request *models.P
 			id, user_id, file_link, notes, spool_id, color, material, status, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
+	c.logger.Debug("executing create print request query",
+		"id", request.ID,
+		"user_id", request.UserID,
+		"status", request.Status,
+	)
+
 	_, err := c.db.ExecContext(ctx, query,
 		request.ID,
 		request.UserID,
@@ -383,8 +406,13 @@ func (c *sqliteClient) CreatePrintRequest(ctx context.Context, request *models.P
 		request.UpdatedAt,
 	)
 	if err != nil {
+		c.logger.Error("failed to create print request",
+			"error", err,
+			"id", request.ID,
+		)
 		return fmt.Errorf("failed to create print request: %w", err)
 	}
+
 	return nil
 }
 
@@ -394,11 +422,22 @@ func (c *sqliteClient) GetPrintRequest(ctx context.Context, id string) (*models.
 		FROM print_requests
 		WHERE id = ?`
 
+	c.logger.Debug("executing get print request query", "id", id)
+
 	request := &models.PrintRequest{}
 	err := c.db.GetContext(ctx, request, query, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			c.logger.Debug("print request not found", "id", id)
+			return nil, nil
+		}
+		c.logger.Error("failed to get print request",
+			"error", err,
+			"id", id,
+		)
 		return nil, fmt.Errorf("failed to get print request: %w", err)
 	}
+
 	return request, nil
 }
 
@@ -408,6 +447,12 @@ func (c *sqliteClient) UpdatePrintRequest(ctx context.Context, request *models.P
 		SET user_id = ?, file_link = ?, notes = ?, spool_id = ?, color = ?,
 			material = ?, status = ?, updated_at = ?
 		WHERE id = ?`
+
+	c.logger.Debug("executing update print request query",
+		"id", request.ID,
+		"user_id", request.UserID,
+		"status", request.Status,
+	)
 
 	_, err := c.db.ExecContext(ctx, query,
 		request.UserID,
@@ -421,17 +466,30 @@ func (c *sqliteClient) UpdatePrintRequest(ctx context.Context, request *models.P
 		request.ID,
 	)
 	if err != nil {
+		c.logger.Error("failed to update print request",
+			"error", err,
+			"id", request.ID,
+		)
 		return fmt.Errorf("failed to update print request: %w", err)
 	}
+
 	return nil
 }
 
 func (c *sqliteClient) DeletePrintRequest(ctx context.Context, id string) error {
 	query := `DELETE FROM print_requests WHERE id = ?`
+
+	c.logger.Debug("executing delete print request query", "id", id)
+
 	_, err := c.db.ExecContext(ctx, query, id)
 	if err != nil {
+		c.logger.Error("failed to delete print request",
+			"error", err,
+			"id", id,
+		)
 		return fmt.Errorf("failed to delete print request: %w", err)
 	}
+
 	return nil
 }
 
@@ -441,10 +499,20 @@ func (c *sqliteClient) ListPrintRequests(ctx context.Context) ([]*models.PrintRe
 		FROM print_requests
 		ORDER BY created_at DESC`
 
+	c.logger.Debug("executing list print requests query")
+
 	requests := []*models.PrintRequest{}
 	err := c.db.SelectContext(ctx, &requests, query)
 	if err != nil {
+		c.logger.Error("failed to query print requests",
+			"error", err,
+		)
 		return nil, fmt.Errorf("failed to query print requests: %w", err)
 	}
+
+	c.logger.Debug("retrieved print requests",
+		"count", len(requests),
+	)
+
 	return requests, nil
 }

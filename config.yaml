@@ -1,0 +1,18 @@
+# Server configuration
+server:
+  host: "0.0.0.0" # Host to bind the server to
+  port: "8080" # Port to bind the server to
+
+# Database configuration
+db:
+  type: "sqlite" # Database type (sqlite or postgres)
+  host: "localhost" # Database host (for PostgreSQL)
+  port: 5432 # Database port (for PostgreSQL)
+  user: "postgres" # Database user (for PostgreSQL)
+  password: "" # Database password (for PostgreSQL)
+  database: "print-dis.db" # Database path (for SQLite) or name (for PostgreSQL)
+  ssl_mode: "disable" # Database SSL mode (for PostgreSQL)
+
+# Log configuration
+log:
+  level: "info" # Log level (debug, info, warn, error)

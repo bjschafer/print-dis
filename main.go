@@ -2,78 +2,66 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/database"
 	"github.com/bjschafer/print-dis/internal/handlers"
 	"github.com/bjschafer/print-dis/internal/services"
 )
 
 func main() {
-	// Define command-line flags
-	host := flag.String("host", getEnv("HOST", "0.0.0.0"), "Host to bind the server to")
-	port := flag.String("port", getEnv("PORT", "8080"), "Port to bind the server to")
-	dbType := flag.String("db-type", getEnv("DB_TYPE", "sqlite"), "Database type (sqlite or postgres)")
-	dbPath := flag.String("db-path", getEnv("DB_PATH", "print-dis.db"), "Database path (for SQLite) or name (for PostgreSQL)")
-	dbHost := flag.String("db-host", getEnv("DB_HOST", "localhost"), "Database host (for PostgreSQL)")
-	dbPort := flag.Int("db-port", getEnvInt("DB_PORT", 5432), "Database port (for PostgreSQL)")
-	dbUser := flag.String("db-user", getEnv("DB_USER", "postgres"), "Database user (for PostgreSQL)")
-	dbPass := flag.String("db-pass", getEnv("DB_PASS", ""), "Database password (for PostgreSQL)")
-	dbSSLMode := flag.String("db-ssl-mode", getEnv("DB_SSL_MODE", "disable"), "Database SSL mode (for PostgreSQL)")
-	showHelp := flag.Bool("help", false, "Show help information")
-	showHelpShort := flag.Bool("h", false, "Show help information (shorthand)")
-
-	// Custom usage message
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
-		fmt.Fprintln(os.Stderr, "Options:")
-		flag.PrintDefaults()
-		fmt.Fprintln(os.Stderr, "\nEnvironment Variables:")
-		fmt.Fprintln(os.Stderr, "  HOST        Host to bind the server to (default: 0.0.0.0)")
-		fmt.Fprintln(os.Stderr, "  PORT        Port to bind the server to (default: 8080)")
-		fmt.Fprintln(os.Stderr, "  DB_TYPE     Database type (sqlite or postgres) (default: sqlite)")
-		fmt.Fprintln(os.Stderr, "  DB_PATH     Database path (for SQLite) or name (for PostgreSQL) (default: print-dis.db)")
-		fmt.Fprintln(os.Stderr, "  DB_HOST     Database host (for PostgreSQL) (default: localhost)")
-		fmt.Fprintln(os.Stderr, "  DB_PORT     Database port (for PostgreSQL) (default: 5432)")
-		fmt.Fprintln(os.Stderr, "  DB_USER     Database user (for PostgreSQL) (default: postgres)")
-		fmt.Fprintln(os.Stderr, "  DB_PASS     Database password (for PostgreSQL)")
-		fmt.Fprintln(os.Stderr, "  DB_SSL_MODE Database SSL mode (for PostgreSQL) (default: disable)")
-		fmt.Fprintln(os.Stderr, "\nExample:")
-		fmt.Fprintln(os.Stderr, "  ./print-dis --port 3000")
-		fmt.Fprintln(os.Stderr, "  HOST=localhost PORT=3000 ./print-dis")
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load configuration: %v\n", err)
+		os.Exit(1)
 	}
 
-	// Parse flags
-	flag.Parse()
-
-	// Show help if requested
-	if *showHelp || *showHelpShort {
-		flag.Usage()
-		os.Exit(0)
+	// Set up log level
+	var level slog.Level
+	switch cfg.Log.Level {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		fmt.Fprintf(os.Stderr, "Invalid log level: %s\n", cfg.Log.Level)
+		os.Exit(1)
 	}
+
+	// Initialize logger
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: level,
+	}))
+	slog.SetDefault(logger)
 
 	// Create database configuration
 	dbConfig := &database.Config{
-		Type:     *dbType,
-		Host:     *dbHost,
-		Port:     *dbPort,
-		User:     *dbUser,
-		Password: *dbPass,
-		Database: *dbPath,
-		SSLMode:  *dbSSLMode,
+		Type:     cfg.DB.Type,
+		Host:     cfg.DB.Host,
+		Port:     cfg.DB.Port,
+		User:     cfg.DB.User,
+		Password: cfg.DB.Password,
+		Database: cfg.DB.Database,
+		SSLMode:  cfg.DB.SSLMode,
 	}
 
 	// Create database client
 	db, err := database.NewDBClient(dbConfig)
 	if err != nil {
-		log.Fatalf("Failed to create database client: %v", err)
+		slog.Error("failed to create database client", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
@@ -84,7 +72,7 @@ func main() {
 	printRequestHandler := handlers.NewPrintRequestHandler(printRequestService)
 
 	// Create a new server
-	addr := *host + ":" + *port
+	addr := cfg.Server.Host + ":" + cfg.Server.Port
 	server := &http.Server{
 		Addr: addr,
 	}
@@ -105,6 +93,23 @@ func main() {
 		case http.MethodDelete:
 			printRequestHandler.DeletePrintRequest(w, r)
 		default:
+			slog.Warn("invalid method for print requests endpoint",
+				"method", r.Method,
+				"path", r.URL.Path,
+			)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Add route for status updates
+	http.HandleFunc("/api/print-requests/status", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPatch {
+			printRequestHandler.UpdatePrintRequestStatus(w, r)
+		} else {
+			slog.Warn("invalid method for print request status endpoint",
+				"method", r.Method,
+				"path", r.URL.Path,
+			)
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
@@ -114,7 +119,7 @@ func main() {
 
 	// Start the server in a goroutine
 	go func() {
-		log.Printf("Starting server on %s", addr)
+		slog.Info("starting server", "addr", addr)
 		serverErrors <- server.ListenAndServe()
 	}()
 
@@ -125,10 +130,11 @@ func main() {
 	// Blocking select waiting for either a server error or a shutdown signal
 	select {
 	case err := <-serverErrors:
-		log.Fatalf("Server error: %v", err)
+		slog.Error("server error", "error", err)
+		os.Exit(1)
 	case sig := <-shutdown:
-		log.Printf("Received signal: %v", sig)
-		log.Println("Shutting down server...")
+		slog.Info("received signal", "signal", sig)
+		slog.Info("shutting down server...")
 
 		// Create a deadline for server shutdown
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -136,7 +142,8 @@ func main() {
 
 		// Attempt graceful shutdown
 		if err := server.Shutdown(ctx); err != nil {
-			log.Fatalf("Server shutdown error: %v", err)
+			slog.Error("server shutdown error", "error", err)
+			os.Exit(1)
 		}
 	}
 }

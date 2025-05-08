@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 
 	"github.com/bjschafer/print-dis/internal/models"
 	"github.com/jmoiron/sqlx"
@@ -13,6 +14,7 @@ import (
 
 type postgresClient struct {
 	baseClient
+	logger *slog.Logger
 }
 
 func newPostgresClient(cfg *Config) (DBClient, error) {
@@ -21,18 +23,38 @@ func newPostgresClient(cfg *Config) (DBClient, error) {
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Database, cfg.SSLMode,
 	)
 
+	logger := slog.Default()
+	logger.Info("connecting to PostgreSQL database",
+		"host", cfg.Host,
+		"port", cfg.Port,
+		"database", cfg.Database,
+		"ssl_mode", cfg.SSLMode,
+	)
+
 	db, err := sqlx.Open("postgres", connStr)
 	if err != nil {
+		logger.Error("failed to open PostgreSQL database",
+			"error", err,
+			"host", cfg.Host,
+			"port", cfg.Port,
+			"database", cfg.Database,
+		)
 		return nil, fmt.Errorf("failed to open PostgreSQL database: %w", err)
 	}
 
 	// Initialize the database schema
 	if err := initPostgresSchema(db); err != nil {
+		logger.Error("failed to initialize PostgreSQL schema",
+			"error", err,
+		)
 		db.Close()
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 
-	return &postgresClient{baseClient{db: db}}, nil
+	return &postgresClient{
+		baseClient: baseClient{db: db},
+		logger:     logger,
+	}, nil
 }
 
 func initPostgresSchema(db *sqlx.DB) error {
@@ -69,7 +91,7 @@ func initPostgresSchema(db *sqlx.DB) error {
 			spool_id VARCHAR(255),
 			color VARCHAR(255),
 			material VARCHAR(255),
-			status VARCHAR(50) NOT NULL,
+			status INTEGER NOT NULL,
 			created_at TIMESTAMP NOT NULL,
 			updated_at TIMESTAMP NOT NULL
 		)`,
@@ -353,6 +375,12 @@ func (c *postgresClient) CreatePrintRequest(ctx context.Context, request *models
 			id, user_id, file_link, notes, spool_id, color, material, status, created_at, updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 
+	c.logger.Debug("executing create print request query",
+		"id", request.ID,
+		"user_id", request.UserID,
+		"status", request.Status,
+	)
+
 	_, err := c.db.ExecContext(ctx, query,
 		request.ID,
 		request.UserID,
@@ -366,8 +394,13 @@ func (c *postgresClient) CreatePrintRequest(ctx context.Context, request *models
 		request.UpdatedAt,
 	)
 	if err != nil {
+		c.logger.Error("failed to create print request",
+			"error", err,
+			"id", request.ID,
+		)
 		return fmt.Errorf("failed to create print request: %w", err)
 	}
+
 	return nil
 }
 
@@ -377,11 +410,22 @@ func (c *postgresClient) GetPrintRequest(ctx context.Context, id string) (*model
 		FROM print_requests
 		WHERE id = $1`
 
+	c.logger.Debug("executing get print request query", "id", id)
+
 	request := &models.PrintRequest{}
 	err := c.db.GetContext(ctx, request, query, id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			c.logger.Debug("print request not found", "id", id)
+			return nil, nil
+		}
+		c.logger.Error("failed to get print request",
+			"error", err,
+			"id", id,
+		)
 		return nil, fmt.Errorf("failed to get print request: %w", err)
 	}
+
 	return request, nil
 }
 
@@ -391,6 +435,12 @@ func (c *postgresClient) UpdatePrintRequest(ctx context.Context, request *models
 		SET user_id = $1, file_link = $2, notes = $3, spool_id = $4, color = $5,
 			material = $6, status = $7, updated_at = $8
 		WHERE id = $9`
+
+	c.logger.Debug("executing update print request query",
+		"id", request.ID,
+		"user_id", request.UserID,
+		"status", request.Status,
+	)
 
 	_, err := c.db.ExecContext(ctx, query,
 		request.UserID,
@@ -404,17 +454,30 @@ func (c *postgresClient) UpdatePrintRequest(ctx context.Context, request *models
 		request.ID,
 	)
 	if err != nil {
+		c.logger.Error("failed to update print request",
+			"error", err,
+			"id", request.ID,
+		)
 		return fmt.Errorf("failed to update print request: %w", err)
 	}
+
 	return nil
 }
 
 func (c *postgresClient) DeletePrintRequest(ctx context.Context, id string) error {
 	query := `DELETE FROM print_requests WHERE id = $1`
+
+	c.logger.Debug("executing delete print request query", "id", id)
+
 	_, err := c.db.ExecContext(ctx, query, id)
 	if err != nil {
+		c.logger.Error("failed to delete print request",
+			"error", err,
+			"id", id,
+		)
 		return fmt.Errorf("failed to delete print request: %w", err)
 	}
+
 	return nil
 }
 
@@ -424,10 +487,20 @@ func (c *postgresClient) ListPrintRequests(ctx context.Context) ([]*models.Print
 		FROM print_requests
 		ORDER BY created_at DESC`
 
+	c.logger.Debug("executing list print requests query")
+
 	requests := []*models.PrintRequest{}
 	err := c.db.SelectContext(ctx, &requests, query)
 	if err != nil {
+		c.logger.Error("failed to query print requests",
+			"error", err,
+		)
 		return nil, fmt.Errorf("failed to query print requests: %w", err)
 	}
+
+	c.logger.Debug("retrieved print requests",
+		"count", len(requests),
+	)
+
 	return requests, nil
 }
