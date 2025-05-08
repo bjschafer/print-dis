@@ -140,4 +140,81 @@ button:hover {
     border: 1px solid #ccc;
     border-radius: 4px;
     margin-top: 5px;
+}
+
+.pick-filament-btn {
+    display: inline-block;
+    width: auto;
+    padding: 0.75rem 1.5rem;
+    background-color: #2ecc71;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pick-filament-btn:hover {
+    background-color: #27ae60;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pick-filament-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.selection-description {
+    color: #666;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.selection-option {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.selection-option h4 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+}
+
+.selection-divider {
+    text-align: center;
+    margin: 1.5rem 0;
+    position: relative;
+}
+
+.selection-divider::before,
+.selection-divider::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 45%;
+    height: 1px;
+    background-color: #ddd;
+}
+
+.selection-divider::before {
+    left: 0;
+}
+
+.selection-divider::after {
+    right: 0;
+}
+
+.selection-divider span {
+    background-color: #f5f5f5;
+    padding: 0 1rem;
+    color: #666;
+    font-size: 0.9rem;
+    font-weight: 500;
 } 

@@ -4,8 +4,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const spoolmanEnabled = document.getElementById("spoolmanEnabled");
   const spoolmanFields = document.getElementById("spoolmanFields");
   const manualFields = document.getElementById("manualFields");
+  const manualEntrySection = manualFields.closest(".selection-option");
   const spoolmanSpool = document.getElementById("spoolmanSpool");
   const spoolmanMaterial = document.getElementById("spoolmanMaterial");
+
+  // Set initial state
+  spoolmanFields.style.display = "none";
+  manualFields.style.display = "block";
 
   // URL validation function
   function isValidUrl(url) {
@@ -18,14 +23,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Toggle between Spoolman and manual fields
-  spoolmanEnabled.addEventListener("change", () => {
-    if (spoolmanEnabled.checked) {
+  spoolmanEnabled.addEventListener("click", () => {
+    if (spoolmanFields.style.display === "none") {
       spoolmanFields.style.display = "block";
-      manualFields.style.display = "none";
+      manualEntrySection.style.display = "none";
       loadSpoolmanData();
     } else {
       spoolmanFields.style.display = "none";
-      manualFields.style.display = "block";
+      manualEntrySection.style.display = "block";
     }
   });
 
@@ -160,7 +165,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     // Add Spoolman or manual fields based on selection
-    if (spoolmanEnabled.checked) {
+    if (spoolmanFields.style.display === "block") {
       const spoolId = spoolmanSpool.value;
       if (spoolId) {
         formData.spool_id = parseInt(spoolId, 10);
