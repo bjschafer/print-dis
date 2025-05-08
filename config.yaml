@@ -16,3 +16,7 @@ db:
 # Log configuration
 log:
   level: "info" # Log level (debug, info, warn, error)
+
+# Auth configuration
+auth:
+  header_name: "" # Name of the header containing the username (empty string disables auth)

@@ -14,6 +14,7 @@ import (
 	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/database"
 	"github.com/bjschafer/print-dis/internal/handlers"
+	"github.com/bjschafer/print-dis/internal/middleware"
 	"github.com/bjschafer/print-dis/internal/services"
 	"github.com/bjschafer/print-dis/internal/spoolman"
 )
@@ -93,12 +94,15 @@ func main() {
 		Addr: addr,
 	}
 
+	// Create a new mux for API routes
+	mux := http.NewServeMux()
+
 	// Serve static files
 	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/", fs)
+	mux.Handle("/", fs)
 
-	// Set up API routes
-	http.HandleFunc("/api/print-requests", func(w http.ResponseWriter, r *http.Request) {
+	// Set up API routes with auth middleware
+	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			printRequestHandler.CreatePrintRequest(w, r)
@@ -120,36 +124,40 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	mux.Handle("/api/print-requests", middleware.AuthMiddleware(cfg)(apiHandler))
 
 	// Add Spoolman routes if enabled
 	if spoolmanHandler != nil {
-		http.HandleFunc("/api/spoolman/spools", func(w http.ResponseWriter, r *http.Request) {
+		spoolsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet {
 				spoolmanHandler.GetSpools(w, r)
 			} else {
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			}
 		})
+		mux.Handle("/api/spoolman/spools", middleware.AuthMiddleware(cfg)(spoolsHandler))
 
-		http.HandleFunc("/api/spoolman/spool", func(w http.ResponseWriter, r *http.Request) {
+		spoolHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet {
 				spoolmanHandler.GetSpool(w, r)
 			} else {
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			}
 		})
+		mux.Handle("/api/spoolman/spool", middleware.AuthMiddleware(cfg)(spoolHandler))
 
-		http.HandleFunc("/api/spoolman/materials", func(w http.ResponseWriter, r *http.Request) {
+		materialsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet {
 				spoolmanHandler.GetMaterials(w, r)
 			} else {
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			}
 		})
+		mux.Handle("/api/spoolman/materials", middleware.AuthMiddleware(cfg)(materialsHandler))
 	}
 
 	// Add route for status updates
-	http.HandleFunc("/api/print-requests/status", func(w http.ResponseWriter, r *http.Request) {
+	statusHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPatch {
 			printRequestHandler.UpdatePrintRequestStatus(w, r)
 		} else {
@@ -160,6 +168,10 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+	mux.Handle("/api/print-requests/status", middleware.AuthMiddleware(cfg)(statusHandler))
+
+	// Set the server's handler
+	server.Handler = mux
 
 	// Create a channel to listen for errors coming from the server
 	serverErrors := make(chan error, 1)

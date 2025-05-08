@@ -15,6 +15,7 @@ type Config struct {
 	DB       DBConfig
 	Log      LogConfig
 	Spoolman SpoolmanConfig
+	Auth     AuthConfig
 }
 
 // ServerConfig holds server-related configuration
@@ -43,6 +44,11 @@ type LogConfig struct {
 type SpoolmanConfig struct {
 	Enabled  bool
 	Endpoint string
+}
+
+// AuthConfig holds authentication-related configuration
+type AuthConfig struct {
+	HeaderName string // Name of the header containing the username
 }
 
 // Load loads configuration from multiple sources in the following order:
@@ -101,6 +107,9 @@ func Load() (*Config, error) {
 			Enabled:  v.GetBool("spoolman.enabled"),
 			Endpoint: v.GetString("spoolman.endpoint"),
 		},
+		Auth: AuthConfig{
+			HeaderName: v.GetString("auth.header_name"),
+		},
 	}
 
 	return config, nil
@@ -126,6 +135,9 @@ func setDefaults(v *viper.Viper) {
 	// Spoolman defaults
 	v.SetDefault("spoolman.enabled", false)
 	v.SetDefault("spoolman.endpoint", "http://localhost:8000")
+
+	// Auth defaults
+	v.SetDefault("auth.header_name", "") // Empty string means auth is disabled
 }
 
 // setupFlags sets up command-line flags
@@ -153,6 +165,9 @@ func setupFlags(v *viper.Viper) {
 	flags.Bool("spoolman-enabled", v.GetBool("spoolman.enabled"), "Enable Spoolman integration")
 	flags.String("spoolman-endpoint", v.GetString("spoolman.endpoint"), "Spoolman API endpoint")
 
+	// Auth flags
+	flags.String("auth-header", v.GetString("auth.header_name"), "Name of the header containing the username")
+
 	// Parse flags
 	flags.Parse(os.Args[1:])
 
@@ -169,4 +184,5 @@ func setupFlags(v *viper.Viper) {
 	v.BindPFlag("log.level", flags.Lookup("log-level"))
 	v.BindPFlag("spoolman.enabled", flags.Lookup("spoolman-enabled"))
 	v.BindPFlag("spoolman.endpoint", flags.Lookup("spoolman-endpoint"))
+	v.BindPFlag("auth.header_name", flags.Lookup("auth-header"))
 }

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/bjschafer/print-dis/internal/middleware"
 	"github.com/bjschafer/print-dis/internal/models"
 	"github.com/bjschafer/print-dis/internal/services"
 	"github.com/google/uuid"
@@ -26,12 +27,12 @@ func NewPrintRequestHandler(service *services.PrintRequestService) *PrintRequest
 
 // CreatePrintRequestRequest represents the request body for creating a print request
 type CreatePrintRequestRequest struct {
-	UserID   string  `json:"user_id"`
-	FileLink string  `json:"file_link"`
-	Notes    string  `json:"notes"`
-	SpoolID  *int    `json:"spool_id,omitempty"`
-	Color    *string `json:"color,omitempty"`
-	Material *string `json:"material,omitempty"`
+	FileLink  string  `json:"file_link"`
+	Notes     string  `json:"notes"`
+	SpoolID   *int    `json:"spool_id,omitempty"`
+	Color     *string `json:"color,omitempty"`
+	Material  *string `json:"material,omitempty"`
+	Submitter string  `json:"submitter,omitempty"` // Optional submitter name when auth is disabled
 }
 
 // UpdatePrintRequestStatusRequest represents the request body for updating a print request's status
@@ -47,6 +48,7 @@ func (h *PrintRequestHandler) CreatePrintRequest(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Parse request body
 	var req CreatePrintRequestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Error("failed to decode request body", "error", err)
@@ -55,38 +57,51 @@ func (h *PrintRequestHandler) CreatePrintRequest(w http.ResponseWriter, r *http.
 	}
 
 	// Validate required fields
-	if req.UserID == "" || req.FileLink == "" {
-		h.logger.Warn("missing required fields", "user_id", req.UserID, "file_link", req.FileLink)
-		http.Error(w, "User ID and file link are required", http.StatusBadRequest)
+	if req.FileLink == "" {
+		h.logger.Warn("missing required field", "field", "file_link")
+		http.Error(w, "File link is required", http.StatusBadRequest)
 		return
 	}
 
-	// Create new print request
-	printRequest := models.NewPrintRequest(req.UserID, req.FileLink, req.Notes)
-	printRequest.ID = uuid.New().String()
-	printRequest.SpoolID = req.SpoolID
-	printRequest.Color = req.Color
-	printRequest.Material = req.Material
+	// Get user ID from auth header or request body
+	userID := middleware.GetUserID(r)
+	if userID == "" {
+		// If auth is disabled, use the submitter field
+		userID = req.Submitter
+		if userID == "" {
+			h.logger.Warn("missing user ID and submitter name")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
 
-	h.logger.Info("creating new print request",
-		"id", printRequest.ID,
-		"user_id", printRequest.UserID,
-		"file_link", printRequest.FileLink,
-		"spool_id", printRequest.SpoolID,
-		"color", printRequest.Color,
-		"material", printRequest.Material,
-	)
+	// Create print request
+	printRequest := &models.PrintRequest{
+		ID:       uuid.New().String(),
+		UserID:   userID,
+		FileLink: req.FileLink,
+		Notes:    req.Notes,
+		SpoolID:  req.SpoolID,
+		Color:    req.Color,
+		Material: req.Material,
+		Status:   models.StatusPendingApproval,
+	}
 
-	// Save to database through service layer
+	// Save print request
 	if err := h.service.CreatePrintRequest(r.Context(), printRequest); err != nil {
-		h.logger.Error("failed to create print request", "error", err, "id", printRequest.ID)
+		h.logger.Error("failed to create print request", "error", err)
 		http.Error(w, "Failed to create print request", http.StatusInternalServerError)
 		return
 	}
 
+	// Return created print request
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(printRequest)
+	if err := json.NewEncoder(w).Encode(printRequest); err != nil {
+		h.logger.Error("failed to encode response", "error", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 // GetPrintRequest handles retrieving a print request by ID
@@ -185,8 +200,20 @@ func (h *PrintRequestHandler) UpdatePrintRequest(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Get user ID from auth header or request body
+	userID := middleware.GetUserID(r)
+	if userID == "" {
+		// If auth is disabled, use the submitter field
+		userID = req.Submitter
+		if userID == "" {
+			h.logger.Warn("missing user ID and submitter name")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
+
 	// Update print request fields
-	printRequest.UserID = req.UserID
+	printRequest.UserID = userID
 	printRequest.FileLink = req.FileLink
 	printRequest.Notes = req.Notes
 	printRequest.SpoolID = req.SpoolID
