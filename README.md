@@ -1,4 +1,4 @@
-# Print-Dis
+# print-dis
 
 A service for managing 3D printing requests.
 
@@ -85,3 +85,7 @@ PRINT_DIS_SERVER_PORT=3000 ./bin/print-dis
 # Using command-line flags
 ./bin/print-dis --port 3000
 ```
+
+## Note
+
+For now, much of this has been vibe-coded. Once it's closer to a decent MVP, I intend to go back over it with a fine toothed comb.
