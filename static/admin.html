@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Print Request Admin</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Print Request Admin</h1>
+        <div class="status-filter">
+          <label for="statusFilter">Filter by Status:</label>
+          <select id="statusFilter">
+            <option value="">All Statuses</option>
+            <option value="StatusPendingApproval">Pending Approval</option>
+            <option value="StatusEnqueued">Enqueued</option>
+            <option value="StatusInProgress">In Progress</option>
+            <option value="StatusDone">Done</option>
+          </select>
+        </div>
+      </header>
+
+      <main>
+        <div class="print-requests-list">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>File</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="printRequestsTableBody">
+              <!-- Print requests will be populated here -->
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+    <div id="statusUpdateModal" class="modal">
+      <div class="modal-content">
+        <h2>Update Status</h2>
+        <select id="newStatusSelect"></select>
+        <div class="modal-buttons">
+          <button id="confirmStatusUpdate" class="action-button update">
+            Update
+          </button>
+          <button id="cancelStatusUpdate" class="action-button delete">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+    <script src="admin.js"></script>
+  </body>
+</html>

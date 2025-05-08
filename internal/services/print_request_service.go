@@ -75,23 +75,8 @@ func (s *PrintRequestService) GetPrintRequest(ctx context.Context, id string) (*
 
 // validateStatusTransition checks if the status transition is valid
 func (s *PrintRequestService) validateStatusTransition(currentStatus, newStatus models.PrintRequestStatus) error {
-	// Define valid transitions
-	validTransitions := map[models.PrintRequestStatus][]models.PrintRequestStatus{
-		models.StatusPendingApproval: {models.StatusEnqueued, models.StatusInProgress},
-		models.StatusEnqueued:        {models.StatusInProgress},
-		models.StatusInProgress:      {models.StatusDone},
-		models.StatusDone:            {}, // No valid transitions from Done
-	}
-
-	// Check if the transition is valid
-	allowedTransitions := validTransitions[currentStatus]
-	for _, allowedStatus := range allowedTransitions {
-		if newStatus == allowedStatus {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("invalid status transition from %s to %s", currentStatus.String(), newStatus.String())
+	// Allow any status transition
+	return nil
 }
 
 // UpdatePrintRequest updates an existing print request
