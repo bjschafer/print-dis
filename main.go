@@ -147,21 +147,3 @@ func main() {
 		}
 	}
 }
-
-// getEnv gets an environment variable or returns a default value
-func getEnv(key, defaultValue string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	}
-	return defaultValue
-}
-
-// getEnvInt gets an environment variable as an integer or returns a default value
-func getEnvInt(key string, defaultValue int) int {
-	if value, exists := os.LookupEnv(key); exists {
-		if intValue, err := fmt.Sscanf(value, "%d", &defaultValue); err == nil {
-			return intValue
-		}
-	}
-	return defaultValue
-}
