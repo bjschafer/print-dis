@@ -36,6 +36,9 @@ func TestPostgresClient(t *testing.T) {
 	if os.Getenv("CI") == "" {
 		t.Skip("Skipping PostgreSQL test in non-CI environment")
 	}
+	if os.Getenv("POSTGRES_HOST") == "" {
+		t.Skip("Skipping PostgreSQL test since database isn't configured")
+	}
 
 	// Create a new PostgreSQL client
 	cfg := &Config{
