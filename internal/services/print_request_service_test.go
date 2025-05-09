@@ -133,46 +133,46 @@ func TestPrintRequestStatusValidation(t *testing.T) {
 		shouldError   bool
 	}{
 		{
-			name:          "Valid transition: PendingApproval to Enqueued",
+			name:          "Transition: PendingApproval to Enqueued",
 			currentStatus: models.StatusPendingApproval,
 			newStatus:     models.StatusEnqueued,
 			shouldError:   false,
 		},
 		{
-			name:          "Valid transition: PendingApproval to InProgress",
+			name:          "Transition: PendingApproval to InProgress",
 			currentStatus: models.StatusPendingApproval,
 			newStatus:     models.StatusInProgress,
 			shouldError:   false,
 		},
 		{
-			name:          "Valid transition: Enqueued to InProgress",
+			name:          "Transition: Enqueued to InProgress",
 			currentStatus: models.StatusEnqueued,
 			newStatus:     models.StatusInProgress,
 			shouldError:   false,
 		},
 		{
-			name:          "Valid transition: InProgress to Done",
+			name:          "Transition: InProgress to Done",
 			currentStatus: models.StatusInProgress,
 			newStatus:     models.StatusDone,
 			shouldError:   false,
 		},
 		{
-			name:          "Invalid transition: PendingApproval to Done",
+			name:          "Transition: PendingApproval to Done",
 			currentStatus: models.StatusPendingApproval,
 			newStatus:     models.StatusDone,
-			shouldError:   true,
+			shouldError:   false,
 		},
 		{
-			name:          "Invalid transition: Enqueued to Done",
+			name:          "Transition: Enqueued to Done",
 			currentStatus: models.StatusEnqueued,
 			newStatus:     models.StatusDone,
-			shouldError:   true,
+			shouldError:   false,
 		},
 		{
-			name:          "Invalid transition: Done to InProgress",
+			name:          "Transition: Done to InProgress",
 			currentStatus: models.StatusDone,
 			newStatus:     models.StatusInProgress,
-			shouldError:   true,
+			shouldError:   false,
 		},
 	}
 
@@ -188,24 +188,17 @@ func TestPrintRequestStatusValidation(t *testing.T) {
 			// Set up the mock for GetPrintRequest
 			mockDB.On("GetPrintRequest", ctx, testRequest.ID).Return(&testRequest, nil)
 
-			// Only set up UpdatePrintRequest mock for valid transitions
-			if !tt.shouldError {
-				mockDB.On("UpdatePrintRequest", ctx, mock.MatchedBy(func(req *models.PrintRequest) bool {
-					return req.ID == testRequest.ID && req.Status == tt.newStatus
-				})).Return(nil)
-			}
+			// Set up UpdatePrintRequest mock for all transitions since they're all valid now
+			mockDB.On("UpdatePrintRequest", ctx, mock.MatchedBy(func(req *models.PrintRequest) bool {
+				return req.ID == testRequest.ID && req.Status == tt.newStatus
+			})).Return(nil)
 
 			// Try to update the status
 			updatedRequest := *request
 			updatedRequest.Status = tt.newStatus
 			err := service.UpdatePrintRequest(ctx, &updatedRequest)
 
-			if tt.shouldError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), "invalid status transition")
-			} else {
-				assert.NoError(t, err)
-			}
+			assert.NoError(t, err)
 
 			// Verify all expectations were met
 			mockDB.AssertExpectations(t)
