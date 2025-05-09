@@ -1,9 +1,51 @@
+// Global variables for sorting
+let currentSort = {
+  column: "created",
+  direction: "desc",
+};
+
 // Global function to display print requests
 function displayPrintRequests(printRequests) {
   const printRequestsTableBody = document.getElementById(
     "printRequestsTableBody",
   );
   printRequestsTableBody.innerHTML = "";
+
+  // Sort the print requests
+  printRequests.sort((a, b) => {
+    let valueA, valueB;
+
+    switch (currentSort.column) {
+      case "id":
+        valueA = a.id;
+        valueB = b.id;
+        break;
+      case "user":
+        valueA = a.user_id;
+        valueB = b.user_id;
+        break;
+      case "file":
+        valueA = a.file_link;
+        valueB = b.file_link;
+        break;
+      case "status":
+        valueA = a.status;
+        valueB = b.status;
+        break;
+      case "created":
+        valueA = new Date(a.created_at).getTime();
+        valueB = new Date(b.created_at).getTime();
+        break;
+      default:
+        return 0;
+    }
+
+    if (currentSort.direction === "asc") {
+      return valueA > valueB ? 1 : -1;
+    } else {
+      return valueA < valueB ? 1 : -1;
+    }
+  });
 
   printRequests.forEach((request) => {
     const row = document.createElement("tr");
@@ -79,89 +121,39 @@ async function loadPrintRequests() {
 
 document.addEventListener("DOMContentLoaded", () => {
   const statusFilter = document.getElementById("statusFilter");
-
-  // Load print requests on page load
-  loadPrintRequests();
-
-  // Add event listener for status filter
-  statusFilter.addEventListener("change", loadPrintRequests);
-
-  // Add click handler for copying IDs
-  document.addEventListener("click", (e) => {
-    const idCell = e.target.closest("td[title]");
-    if (idCell) {
-      const id = idCell.getAttribute("title");
-      // Create a temporary input element
-      const tempInput = document.createElement("input");
-      tempInput.value = id;
-      document.body.appendChild(tempInput);
-      tempInput.select();
-
-      try {
-        // Try to copy using execCommand
-        const successful = document.execCommand("copy");
-        if (successful) {
-          // Show feedback
-          const originalText = idCell.textContent;
-          idCell.textContent = "✓ Copied!";
-          idCell.style.color = "#28a745";
-          setTimeout(() => {
-            idCell.textContent = originalText;
-            idCell.style.color = "#6c757d";
-          }, 1000);
-        }
-      } catch (err) {
-        console.error("Failed to copy ID:", err);
-      } finally {
-        // Clean up
-        document.body.removeChild(tempInput);
-      }
-    }
-  });
-});
-
-let currentRequestId = null;
-let currentStatus = null;
-
-function showStatusUpdateModal(requestId, currentStatus) {
-  const modal = document.getElementById("statusUpdateModal");
-  const select = document.getElementById("newStatusSelect");
-
-  // Define all possible statuses
-  const allStatuses = [
-    "StatusPendingApproval",
-    "StatusEnqueued",
-    "StatusInProgress",
-    "StatusDone",
-  ];
-
-  // Clear and populate the select options
-  select.innerHTML = "";
-  allStatuses.forEach((status) => {
-    const option = document.createElement("option");
-    option.value = status;
-    option.textContent = status.replace("Status", "");
-    select.appendChild(option);
-  });
-
-  // Store the current request ID and status
-  currentRequestId = requestId;
-  currentStatus = currentStatus;
-
-  // Show the modal
-  modal.style.display = "block";
-}
-
-async function updateStatus(requestId, currentStatus) {
-  showStatusUpdateModal(requestId, currentStatus);
-}
-
-// Add event listeners for the modal buttons
-document.addEventListener("DOMContentLoaded", () => {
-  const statusFilter = document.getElementById("statusFilter");
   const modal = document.getElementById("statusUpdateModal");
   const confirmButton = document.getElementById("confirmStatusUpdate");
   const cancelButton = document.getElementById("cancelStatusUpdate");
+
+  // Add sorting event listeners
+  document.querySelectorAll("th.sortable").forEach((header) => {
+    header.addEventListener("click", () => {
+      const column = header.dataset.sort;
+
+      // Update sort direction
+      if (currentSort.column === column) {
+        currentSort.direction =
+          currentSort.direction === "asc" ? "desc" : "asc";
+      } else {
+        currentSort.column = column;
+        currentSort.direction = "asc";
+      }
+
+      // Update sort indicators
+      document.querySelectorAll("th.sortable").forEach((th) => {
+        th.removeAttribute("data-sort-direction");
+      });
+      header.setAttribute("data-sort-direction", currentSort.direction);
+
+      // Reload the print requests to apply sorting
+      loadPrintRequests();
+    });
+  });
+
+  // Set initial sort indicator
+  document
+    .querySelector(`th[data-sort="${currentSort.column}"]`)
+    .setAttribute("data-sort-direction", currentSort.direction);
 
   // Load print requests on page load
   loadPrintRequests();
@@ -249,6 +241,42 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
+let currentRequestId = null;
+let currentStatus = null;
+
+function showStatusUpdateModal(requestId, currentStatus) {
+  const modal = document.getElementById("statusUpdateModal");
+  const select = document.getElementById("newStatusSelect");
+
+  // Define all possible statuses
+  const allStatuses = [
+    "StatusPendingApproval",
+    "StatusEnqueued",
+    "StatusInProgress",
+    "StatusDone",
+  ];
+
+  // Clear and populate the select options
+  select.innerHTML = "";
+  allStatuses.forEach((status) => {
+    const option = document.createElement("option");
+    option.value = status;
+    option.textContent = status.replace("Status", "");
+    select.appendChild(option);
+  });
+
+  // Store the current request ID and status
+  currentRequestId = requestId;
+  currentStatus = currentStatus;
+
+  // Show the modal
+  modal.style.display = "block";
+}
+
+async function updateStatus(requestId, currentStatus) {
+  showStatusUpdateModal(requestId, currentStatus);
+}
 
 async function deleteRequest(requestId) {
   if (!confirm("Are you sure you want to delete this print request?")) {

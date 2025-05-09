@@ -123,6 +123,35 @@ th {
     color: #495057;
 }
 
+.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 1.5rem;
+}
+
+.sortable:hover {
+    background-color: #e9ecef;
+}
+
+.sort-indicator {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.3;
+}
+
+.sortable[data-sort-direction="asc"] .sort-indicator::after {
+    content: "↑";
+    opacity: 1;
+}
+
+.sortable[data-sort-direction="desc"] .sort-indicator::after {
+    content: "↓";
+    opacity: 1;
+}
+
 tr:hover {
     background-color: #f8f9fa;
 }
