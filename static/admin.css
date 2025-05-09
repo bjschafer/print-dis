@@ -35,8 +35,8 @@ th, td {
 
 /* Add column width specifications */
 th:nth-child(1), td:nth-child(1) { /* ID column */
-    width: 100px;
-    max-width: 100px;
+    width: 120px;
+    max-width: 120px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -44,6 +44,7 @@ th:nth-child(1), td:nth-child(1) { /* ID column */
     color: #6c757d;
     font-size: 0.875rem;
     transition: color 0.2s ease;
+    padding-right: 20px; /* Add padding to prevent text from being cut off */
 }
 
 th:nth-child(2), td:nth-child(2) { /* User column */
@@ -77,7 +78,7 @@ td:nth-child(1):hover {
 }
 
 td:nth-child(1)::after {
-    content: "🔍";
+    content: "";
     font-size: 0.75rem;
     margin-left: 4px;
     opacity: 0.5;
