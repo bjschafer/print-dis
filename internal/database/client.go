@@ -10,6 +10,15 @@ import (
 
 // DBClient defines the interface for database operations
 type DBClient interface {
+	// User operations
+	CreateUser(ctx context.Context, user *models.User) error
+	GetUser(ctx context.Context, id string) (*models.User, error)
+	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	UpdateUser(ctx context.Context, user *models.User) error
+	DeleteUser(ctx context.Context, id string) error
+	ListUsers(ctx context.Context) ([]*models.User, error)
+
 	// Material operations
 	CreateMaterial(ctx context.Context, material *models.Material) error
 	GetMaterial(ctx context.Context, id int) (*models.Material, error)

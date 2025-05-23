@@ -13,10 +13,33 @@ db:
   database: "print-dis.db" # Database path (for SQLite) or name (for PostgreSQL)
   ssl_mode: "disable" # Database SSL mode (for PostgreSQL)
 
-# Log configuration
+# Logging configuration
 log:
   level: "info" # Log level (debug, info, warn, error)
 
+# Spoolman integration configuration
+spoolman:
+  enabled: false # Enable Spoolman integration
+  endpoint: "http://localhost:8000" # Spoolman API endpoint
+
 # Auth configuration
 auth:
-  header_name: "" # Name of the header containing the username (empty string disables auth)
+  enabled: true
+  session_secret: "change-me-in-production" # Change this in production!
+  session_timeout: "24h"
+
+  # Local authentication (username/password)
+  local_auth:
+    enabled: true
+    allow_registration: false # Set to true to allow users to register themselves
+
+  # OIDC (OAuth/OpenID Connect) providers
+  oidc:
+    google:
+      client_id: ""
+      client_secret: ""
+      enabled: false
+    microsoft:
+      client_id: ""
+      client_secret: ""
+      enabled: false

@@ -27,12 +27,11 @@ func NewPrintRequestHandler(service *services.PrintRequestService) *PrintRequest
 
 // CreatePrintRequestRequest represents the request body for creating a print request
 type CreatePrintRequestRequest struct {
-	FileLink  string  `json:"file_link"`
-	Notes     string  `json:"notes"`
-	SpoolID   *int    `json:"spool_id,omitempty"`
-	Color     *string `json:"color,omitempty"`
-	Material  *string `json:"material,omitempty"`
-	Submitter string  `json:"submitter,omitempty"` // Optional submitter name when auth is disabled
+	FileLink string  `json:"file_link"`
+	Notes    string  `json:"notes"`
+	SpoolID  *int    `json:"spool_id,omitempty"`
+	Color    *string `json:"color,omitempty"`
+	Material *string `json:"material,omitempty"`
 }
 
 // UpdatePrintRequestStatusRequest represents the request body for updating a print request's status
@@ -66,13 +65,9 @@ func (h *PrintRequestHandler) CreatePrintRequest(w http.ResponseWriter, r *http.
 	// Get user ID from auth header or request body
 	userID := middleware.GetUserID(r)
 	if userID == "" {
-		// If auth is disabled, use the submitter field
-		userID = req.Submitter
-		if userID == "" {
-			h.logger.Warn("missing user ID and submitter name")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+		h.logger.Warn("user not authenticated")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	// Create print request
@@ -203,13 +198,9 @@ func (h *PrintRequestHandler) UpdatePrintRequest(w http.ResponseWriter, r *http.
 	// Get user ID from auth header or request body
 	userID := middleware.GetUserID(r)
 	if userID == "" {
-		// If auth is disabled, use the submitter field
-		userID = req.Submitter
-		if userID == "" {
-			h.logger.Warn("missing user ID and submitter name")
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+		h.logger.Warn("user not authenticated")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
 	}
 
 	// Update print request fields

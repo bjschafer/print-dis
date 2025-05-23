@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -48,7 +49,31 @@ type SpoolmanConfig struct {
 
 // AuthConfig holds authentication-related configuration
 type AuthConfig struct {
-	HeaderName string // Name of the header containing the username
+	Enabled        bool            `json:"enabled"`
+	SessionSecret  string          `json:"session_secret"`
+	SessionTimeout time.Duration   `json:"session_timeout"`
+	LocalAuth      LocalAuthConfig `json:"local_auth"`
+	OIDC           OIDCConfig      `json:"oidc"`
+}
+
+// LocalAuthConfig holds local authentication configuration
+type LocalAuthConfig struct {
+	Enabled           bool `json:"enabled"`
+	AllowRegistration bool `json:"allow_registration"`
+}
+
+// OIDCConfig holds OIDC authentication configuration
+type OIDCConfig struct {
+	Providers []OIDCProviderConfig `json:"providers"`
+}
+
+// OIDCProviderConfig holds configuration for a single OIDC provider
+type OIDCProviderConfig struct {
+	Name         string `json:"name"`
+	IssuerURL    string `json:"issuer_url"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	Enabled      bool   `json:"enabled"`
 }
 
 // Load loads configuration from multiple sources in the following order:
@@ -85,6 +110,12 @@ func Load() (*Config, error) {
 	// Set up command-line flags
 	setupFlags(v)
 
+	// Parse session timeout
+	sessionTimeout, err := time.ParseDuration(v.GetString("auth.session_timeout"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid session timeout: %w", err)
+	}
+
 	// Create config struct
 	config := &Config{
 		Server: ServerConfig{
@@ -108,11 +139,51 @@ func Load() (*Config, error) {
 			Endpoint: v.GetString("spoolman.endpoint"),
 		},
 		Auth: AuthConfig{
-			HeaderName: v.GetString("auth.header_name"),
+			Enabled:        v.GetBool("auth.enabled"),
+			SessionSecret:  v.GetString("auth.session_secret"),
+			SessionTimeout: sessionTimeout,
+			LocalAuth: LocalAuthConfig{
+				Enabled:           v.GetBool("auth.local_auth.enabled"),
+				AllowRegistration: v.GetBool("auth.local_auth.allow_registration"),
+			},
+			OIDC: OIDCConfig{
+				Providers: parseOIDCProviders(v),
+			},
 		},
 	}
 
 	return config, nil
+}
+
+// parseOIDCProviders parses OIDC provider configurations from viper
+func parseOIDCProviders(v *viper.Viper) []OIDCProviderConfig {
+	// For now, we'll support a simple configuration structure
+	// This can be extended later to support dynamic provider lists from config
+	var providers []OIDCProviderConfig
+
+	// Check if there's a Google provider configured
+	if v.GetString("auth.oidc.google.client_id") != "" {
+		providers = append(providers, OIDCProviderConfig{
+			Name:         "google",
+			IssuerURL:    "https://accounts.google.com",
+			ClientID:     v.GetString("auth.oidc.google.client_id"),
+			ClientSecret: v.GetString("auth.oidc.google.client_secret"),
+			Enabled:      v.GetBool("auth.oidc.google.enabled"),
+		})
+	}
+
+	// Check if there's a Microsoft provider configured
+	if v.GetString("auth.oidc.microsoft.client_id") != "" {
+		providers = append(providers, OIDCProviderConfig{
+			Name:         "microsoft",
+			IssuerURL:    "https://login.microsoftonline.com/common/v2.0",
+			ClientID:     v.GetString("auth.oidc.microsoft.client_id"),
+			ClientSecret: v.GetString("auth.oidc.microsoft.client_secret"),
+			Enabled:      v.GetBool("auth.oidc.microsoft.enabled"),
+		})
+	}
+
+	return providers
 }
 
 // setDefaults sets default values for configuration
@@ -137,7 +208,13 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("spoolman.endpoint", "http://localhost:8000")
 
 	// Auth defaults
-	v.SetDefault("auth.header_name", "") // Empty string means auth is disabled
+	v.SetDefault("auth.enabled", true)
+	v.SetDefault("auth.session_secret", "change-me-in-production")
+	v.SetDefault("auth.session_timeout", "24h")
+	v.SetDefault("auth.local_auth.enabled", true)
+	v.SetDefault("auth.local_auth.allow_registration", false)
+	v.SetDefault("auth.oidc.google.enabled", false)
+	v.SetDefault("auth.oidc.microsoft.enabled", false)
 }
 
 // setupFlags sets up command-line flags
@@ -166,7 +243,11 @@ func setupFlags(v *viper.Viper) {
 	flags.String("spoolman-endpoint", v.GetString("spoolman.endpoint"), "Spoolman API endpoint")
 
 	// Auth flags
-	flags.String("auth-header", v.GetString("auth.header_name"), "Name of the header containing the username")
+	flags.Bool("auth-enabled", v.GetBool("auth.enabled"), "Enable authentication")
+	flags.String("auth-session-secret", v.GetString("auth.session_secret"), "Session secret key")
+	flags.String("auth-session-timeout", v.GetString("auth.session_timeout"), "Session timeout duration")
+	flags.Bool("auth-local-enabled", v.GetBool("auth.local_auth.enabled"), "Enable local authentication")
+	flags.Bool("auth-local-registration", v.GetBool("auth.local_auth.allow_registration"), "Allow user registration")
 
 	// Parse flags
 	flags.Parse(os.Args[1:])
@@ -184,5 +265,9 @@ func setupFlags(v *viper.Viper) {
 	v.BindPFlag("log.level", flags.Lookup("log-level"))
 	v.BindPFlag("spoolman.enabled", flags.Lookup("spoolman-enabled"))
 	v.BindPFlag("spoolman.endpoint", flags.Lookup("spoolman-endpoint"))
-	v.BindPFlag("auth.header_name", flags.Lookup("auth-header"))
+	v.BindPFlag("auth.enabled", flags.Lookup("auth-enabled"))
+	v.BindPFlag("auth.session_secret", flags.Lookup("auth-session-secret"))
+	v.BindPFlag("auth.session_timeout", flags.Lookup("auth-session-timeout"))
+	v.BindPFlag("auth.local_auth.enabled", flags.Lookup("auth-local-enabled"))
+	v.BindPFlag("auth.local_auth.allow_registration", flags.Lookup("auth-local-registration"))
 }

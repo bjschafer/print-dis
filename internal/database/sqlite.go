@@ -50,6 +50,33 @@ func newSQLiteClient(cfg *Config) (DBClient, error) {
 func initSQLiteSchema(db *sqlx.DB) error {
 	// Create tables if they don't exist
 	queries := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+			id TEXT PRIMARY KEY,
+			username TEXT UNIQUE NOT NULL,
+			email TEXT UNIQUE,
+			password_hash TEXT,
+			display_name TEXT,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			enabled BOOLEAN NOT NULL DEFAULT 1
+		)`,
+		`CREATE TABLE IF NOT EXISTS user_oidc_identities (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			provider_name TEXT NOT NULL,
+			subject TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			UNIQUE(provider_name, subject)
+		)`,
+		`CREATE TABLE IF NOT EXISTS user_sessions (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			session_token TEXT UNIQUE NOT NULL,
+			expires_at TIMESTAMP NOT NULL,
+			created_at TIMESTAMP NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
 		`CREATE TABLE IF NOT EXISTS printers (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
@@ -87,7 +114,8 @@ func initSQLiteSchema(db *sqlx.DB) error {
 			material TEXT,
 			status INTEGER NOT NULL,
 			created_at TIMESTAMP NOT NULL,
-			updated_at TIMESTAMP NOT NULL
+			updated_at TIMESTAMP NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id)
 		)`,
 	}
 
@@ -515,4 +543,130 @@ func (c *sqliteClient) ListPrintRequests(ctx context.Context) ([]*models.PrintRe
 	)
 
 	return requests, nil
+}
+
+// User operations
+func (c *sqliteClient) CreateUser(ctx context.Context, user *models.User) error {
+	query := `
+		INSERT INTO users (id, username, email, password_hash, display_name, created_at, updated_at, enabled)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+
+	c.logger.Debug("executing create user query", "username", user.Username)
+
+	_, err := c.db.ExecContext(ctx, query,
+		user.ID,
+		user.Username,
+		user.Email,
+		user.PasswordHash,
+		user.DisplayName,
+		user.CreatedAt,
+		user.UpdatedAt,
+		user.Enabled,
+	)
+	if err != nil {
+		c.logger.Error("failed to create user", "error", err, "username", user.Username)
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return nil
+}
+
+func (c *sqliteClient) GetUser(ctx context.Context, id string) (*models.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		FROM users
+		WHERE id = ?`
+
+	user := &models.User{}
+	err := c.db.GetContext(ctx, user, query, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return user, nil
+}
+
+func (c *sqliteClient) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		FROM users
+		WHERE username = ?`
+
+	user := &models.User{}
+	err := c.db.GetContext(ctx, user, query, username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get user by username: %w", err)
+	}
+
+	return user, nil
+}
+
+func (c *sqliteClient) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		FROM users
+		WHERE email = ?`
+
+	user := &models.User{}
+	err := c.db.GetContext(ctx, user, query, email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	return user, nil
+}
+
+func (c *sqliteClient) UpdateUser(ctx context.Context, user *models.User) error {
+	query := `
+		UPDATE users
+		SET username = ?, email = ?, password_hash = ?, display_name = ?, updated_at = ?, enabled = ?
+		WHERE id = ?`
+
+	_, err := c.db.ExecContext(ctx, query,
+		user.Username,
+		user.Email,
+		user.PasswordHash,
+		user.DisplayName,
+		user.UpdatedAt,
+		user.Enabled,
+		user.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return nil
+}
+
+func (c *sqliteClient) DeleteUser(ctx context.Context, id string) error {
+	query := `DELETE FROM users WHERE id = ?`
+	_, err := c.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	return nil
+}
+
+func (c *sqliteClient) ListUsers(ctx context.Context) ([]*models.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		FROM users
+		ORDER BY created_at DESC`
+
+	users := []*models.User{}
+	err := c.db.SelectContext(ctx, &users, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query users: %w", err)
+	}
+
+	return users, nil
 }

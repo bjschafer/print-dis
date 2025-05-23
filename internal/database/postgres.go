@@ -60,6 +60,31 @@ func newPostgresClient(cfg *Config) (DBClient, error) {
 func initPostgresSchema(db *sqlx.DB) error {
 	// Create tables if they don't exist
 	queries := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+			id VARCHAR(36) PRIMARY KEY,
+			username VARCHAR(255) UNIQUE NOT NULL,
+			email VARCHAR(255) UNIQUE,
+			password_hash VARCHAR(255),
+			display_name VARCHAR(255),
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			enabled BOOLEAN NOT NULL DEFAULT true
+		)`,
+		`CREATE TABLE IF NOT EXISTS user_oidc_identities (
+			id VARCHAR(36) PRIMARY KEY,
+			user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			provider_name VARCHAR(255) NOT NULL,
+			subject VARCHAR(255) NOT NULL,
+			created_at TIMESTAMP NOT NULL,
+			UNIQUE(provider_name, subject)
+		)`,
+		`CREATE TABLE IF NOT EXISTS user_sessions (
+			id VARCHAR(36) PRIMARY KEY,
+			user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			session_token VARCHAR(255) UNIQUE NOT NULL,
+			expires_at TIMESTAMP NOT NULL,
+			created_at TIMESTAMP NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS printers (
 			id SERIAL PRIMARY KEY,
 			name VARCHAR(255) NOT NULL,
@@ -85,7 +110,7 @@ func initPostgresSchema(db *sqlx.DB) error {
 		)`,
 		`CREATE TABLE IF NOT EXISTS print_requests (
 			id VARCHAR(36) PRIMARY KEY,
-			user_id VARCHAR(255) NOT NULL,
+			user_id VARCHAR(36) NOT NULL REFERENCES users(id),
 			file_link VARCHAR(255) NOT NULL,
 			notes TEXT,
 			spool_id VARCHAR(255),
@@ -503,4 +528,130 @@ func (c *postgresClient) ListPrintRequests(ctx context.Context) ([]*models.Print
 	)
 
 	return requests, nil
+}
+
+// User operations
+func (c *postgresClient) CreateUser(ctx context.Context, user *models.User) error {
+	query := `
+		INSERT INTO users (id, username, email, password_hash, display_name, created_at, updated_at, enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+
+	c.logger.Debug("executing create user query", "username", user.Username)
+
+	_, err := c.db.ExecContext(ctx, query,
+		user.ID,
+		user.Username,
+		user.Email,
+		user.PasswordHash,
+		user.DisplayName,
+		user.CreatedAt,
+		user.UpdatedAt,
+		user.Enabled,
+	)
+	if err != nil {
+		c.logger.Error("failed to create user", "error", err, "username", user.Username)
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return nil
+}
+
+func (c *postgresClient) GetUser(ctx context.Context, id string) (*models.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		FROM users
+		WHERE id = $1`
+
+	user := &models.User{}
+	err := c.db.GetContext(ctx, user, query, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return user, nil
+}
+
+func (c *postgresClient) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		FROM users
+		WHERE username = $1`
+
+	user := &models.User{}
+	err := c.db.GetContext(ctx, user, query, username)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get user by username: %w", err)
+	}
+
+	return user, nil
+}
+
+func (c *postgresClient) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		FROM users
+		WHERE email = $1`
+
+	user := &models.User{}
+	err := c.db.GetContext(ctx, user, query, email)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get user by email: %w", err)
+	}
+
+	return user, nil
+}
+
+func (c *postgresClient) UpdateUser(ctx context.Context, user *models.User) error {
+	query := `
+		UPDATE users
+		SET username = $1, email = $2, password_hash = $3, display_name = $4, updated_at = $5, enabled = $6
+		WHERE id = $7`
+
+	_, err := c.db.ExecContext(ctx, query,
+		user.Username,
+		user.Email,
+		user.PasswordHash,
+		user.DisplayName,
+		user.UpdatedAt,
+		user.Enabled,
+		user.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return nil
+}
+
+func (c *postgresClient) DeleteUser(ctx context.Context, id string) error {
+	query := `DELETE FROM users WHERE id = $1`
+	_, err := c.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	return nil
+}
+
+func (c *postgresClient) ListUsers(ctx context.Context) ([]*models.User, error) {
+	query := `
+		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		FROM users
+		ORDER BY created_at DESC`
+
+	users := []*models.User{}
+	err := c.db.SelectContext(ctx, &users, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query users: %w", err)
+	}
+
+	return users, nil
 }

@@ -88,6 +88,9 @@ func main() {
 		spoolmanHandler = api.NewSpoolmanHandler(spoolmanService)
 	}
 
+	// Create session store for authentication
+	sessionStore := middleware.NewSessionStore(cfg)
+
 	// Create a new server
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
 	server := &http.Server{
@@ -124,7 +127,7 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
-	mux.Handle("/api/print-requests", middleware.AuthMiddleware(cfg)(apiHandler))
+	mux.Handle("/api/print-requests", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(apiHandler)))
 
 	// Add Spoolman routes if enabled
 	if spoolmanHandler != nil {
@@ -135,7 +138,7 @@ func main() {
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			}
 		})
-		mux.Handle("/api/spoolman/spools", middleware.AuthMiddleware(cfg)(spoolsHandler))
+		mux.Handle("/api/spoolman/spools", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(spoolsHandler)))
 
 		spoolHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet {
@@ -144,7 +147,7 @@ func main() {
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			}
 		})
-		mux.Handle("/api/spoolman/spool", middleware.AuthMiddleware(cfg)(spoolHandler))
+		mux.Handle("/api/spoolman/spool", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(spoolHandler)))
 
 		materialsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodGet {
@@ -153,7 +156,7 @@ func main() {
 				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			}
 		})
-		mux.Handle("/api/spoolman/materials", middleware.AuthMiddleware(cfg)(materialsHandler))
+		mux.Handle("/api/spoolman/materials", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(materialsHandler)))
 	}
 
 	// Add route for status updates
@@ -168,7 +171,7 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
-	mux.Handle("/api/print-requests/status", middleware.AuthMiddleware(cfg)(statusHandler))
+	mux.Handle("/api/print-requests/status", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(statusHandler)))
 
 	// Set the server's handler
 	server.Handler = mux
