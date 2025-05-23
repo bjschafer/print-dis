@@ -31,7 +31,7 @@ auth:
   # Local authentication (username/password)
   local_auth:
     enabled: true
-    allow_registration: false # Set to true to allow users to register themselves
+    allow_registration: true # Set to true to allow users to register themselves
 
   # OIDC (OAuth/OpenID Connect) providers
   oidc:

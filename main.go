@@ -70,6 +70,7 @@ func main() {
 
 	// Create service layer
 	printRequestService := services.NewPrintRequestService(db)
+	userService := services.NewUserService(db)
 
 	// Initialize Spoolman if enabled
 	var spoolmanService *spoolman.Service
@@ -81,15 +82,16 @@ func main() {
 		slog.Info("Spoolman integration disabled")
 	}
 
+	// Create session store for authentication
+	sessionStore := middleware.NewSessionStore(cfg)
+
 	// Create handlers
 	printRequestHandler := handlers.NewPrintRequestHandler(printRequestService)
+	authHandler := handlers.NewAuthHandler(userService, sessionStore, cfg)
 	var spoolmanHandler *api.SpoolmanHandler
 	if spoolmanService != nil {
 		spoolmanHandler = api.NewSpoolmanHandler(spoolmanService)
 	}
-
-	// Create session store for authentication
-	sessionStore := middleware.NewSessionStore(cfg)
 
 	// Create a new server
 	addr := cfg.Server.Host + ":" + cfg.Server.Port
@@ -103,6 +105,13 @@ func main() {
 	// Serve static files
 	fs := http.FileServer(http.Dir("static"))
 	mux.Handle("/", fs)
+
+	// Authentication routes (no auth middleware required)
+	mux.Handle("/api/auth/login", sessionStore.SessionMiddleware()(http.HandlerFunc(authHandler.Login)))
+	mux.Handle("/api/auth/logout", sessionStore.SessionMiddleware()(http.HandlerFunc(authHandler.Logout)))
+	mux.Handle("/api/auth/register", sessionStore.SessionMiddleware()(http.HandlerFunc(authHandler.Register)))
+	mux.Handle("/api/auth/me", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(http.HandlerFunc(authHandler.GetCurrentUser))))
+	mux.Handle("/api/auth/change-password", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(http.HandlerFunc(authHandler.ChangePassword))))
 
 	// Set up API routes with auth middleware
 	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

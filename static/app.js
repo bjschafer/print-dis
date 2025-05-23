@@ -1,4 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Check authentication before doing anything else
+  checkAuthenticationStatus();
+
   const form = document.getElementById("printJobForm");
   const statusDiv = document.getElementById("status");
   const spoolmanEnabled = document.getElementById("spoolmanEnabled");
@@ -12,6 +15,9 @@ document.addEventListener("DOMContentLoaded", () => {
   spoolmanFields.style.display = "none";
   manualFields.style.display = "block";
 
+  // Add user menu to the page
+  addUserMenu();
+
   // URL validation function
   function isValidUrl(url) {
     try {
@@ -20,6 +26,206 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       return false;
     }
+  }
+
+  // Check if user is authenticated
+  async function checkAuthenticationStatus() {
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "same-origin",
+      });
+
+      if (!response.ok) {
+        // User is not authenticated, redirect to auth page
+        window.location.href = "/auth.html";
+        return;
+      }
+
+      const user = await response.json();
+      // Remove the submitter field since we now know the user
+      const submitterField = document.getElementById("submitter");
+      if (submitterField) {
+        submitterField.closest(".form-group").style.display = "none";
+      }
+
+      // Store user info globally
+      window.currentUser = user;
+    } catch (error) {
+      console.error("Auth check failed:", error);
+      // Redirect to auth page on error
+      window.location.href = "/auth.html";
+    }
+  }
+
+  // Add user menu to the page
+  function addUserMenu() {
+    const container = document.querySelector(".container");
+    const userMenu = document.createElement("div");
+    userMenu.className = "user-menu";
+    userMenu.innerHTML = `
+      <div class="user-info">
+        <span id="username">Loading...</span>
+        <div class="user-dropdown">
+          <button class="dropdown-btn">⚙️</button>
+          <div class="dropdown-content">
+            <a href="#" id="changePasswordBtn">Change Password</a>
+            <a href="#" id="logoutBtn">Logout</a>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Insert at the beginning of the container
+    container.insertBefore(userMenu, container.firstChild);
+
+    // Set username when available
+    if (window.currentUser) {
+      document.getElementById(
+        "username",
+      ).textContent = `Welcome, ${window.currentUser.username}`;
+    }
+
+    // Add event listeners
+    document
+      .getElementById("logoutBtn")
+      .addEventListener("click", handleLogout);
+    document
+      .getElementById("changePasswordBtn")
+      .addEventListener("click", showChangePasswordModal);
+  }
+
+  // Handle logout
+  async function handleLogout(e) {
+    e.preventDefault();
+
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+
+      if (response.ok) {
+        window.location.href = "/auth.html";
+      } else {
+        throw new Error("Logout failed");
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Force redirect even if logout failed
+      window.location.href = "/auth.html";
+    }
+  }
+
+  // Show change password modal
+  function showChangePasswordModal(e) {
+    e.preventDefault();
+
+    const modal = document.createElement("div");
+    modal.className = "modal";
+    modal.innerHTML = `
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Change Password</h3>
+          <span class="close">&times;</span>
+        </div>
+        <form id="changePasswordForm">
+          <div class="form-group">
+            <label for="currentPassword">Current Password:</label>
+            <input type="password" id="currentPassword" name="currentPassword" required>
+          </div>
+          <div class="form-group">
+            <label for="newPassword">New Password:</label>
+            <input type="password" id="newPassword" name="newPassword" required minlength="6">
+          </div>
+          <div class="form-group">
+            <label for="confirmNewPassword">Confirm New Password:</label>
+            <input type="password" id="confirmNewPassword" name="confirmNewPassword" required minlength="6">
+          </div>
+          <div class="modal-buttons">
+            <button type="button" class="cancel-btn">Cancel</button>
+            <button type="submit" class="submit-btn">Change Password</button>
+          </div>
+        </form>
+        <div id="modalStatus" class="status"></div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    modal
+      .querySelector(".close")
+      .addEventListener("click", () => modal.remove());
+    modal
+      .querySelector(".cancel-btn")
+      .addEventListener("click", () => modal.remove());
+    modal
+      .querySelector("#changePasswordForm")
+      .addEventListener("submit", handleChangePassword);
+
+    // Click outside to close
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
+  // Handle password change
+  async function handleChangePassword(e) {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const currentPassword = formData.get("currentPassword");
+    const newPassword = formData.get("newPassword");
+    const confirmNewPassword = formData.get("confirmNewPassword");
+
+    if (newPassword !== confirmNewPassword) {
+      showModalStatus("Passwords do not match", "error");
+      return;
+    }
+
+    const submitBtn = e.target.querySelector(".submit-btn");
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = "Changing...";
+    submitBtn.disabled = true;
+
+    try {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+        credentials: "same-origin",
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP error! status: ${response.status}`);
+      }
+
+      showModalStatus("Password changed successfully!", "success");
+
+      setTimeout(() => {
+        document.querySelector(".modal").remove();
+      }, 1500);
+    } catch (error) {
+      console.error("Change password error:", error);
+      showModalStatus(error.message || "Failed to change password", "error");
+    } finally {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }
+  }
+
+  // Show status in modal
+  function showModalStatus(message, type) {
+    const modalStatus = document.getElementById("modalStatus");
+    modalStatus.textContent = message;
+    modalStatus.className = `status ${type}`;
   }
 
   // Toggle between Spoolman and manual fields
@@ -158,7 +364,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const formData = {
-      user_id: document.getElementById("submitter").value,
+      user_id: window.currentUser.id,
       file_link: fileLink,
       notes: document.getElementById("notes").value,
       status: "StatusPendingApproval",
