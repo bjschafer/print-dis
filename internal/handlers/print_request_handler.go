@@ -156,6 +156,50 @@ func (h *PrintRequestHandler) ListPrintRequests(w http.ResponseWriter, r *http.R
 	json.NewEncoder(w).Encode(printRequests)
 }
 
+// ListUserPrintRequests handles retrieving print requests for the current user
+func (h *PrintRequestHandler) ListUserPrintRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.logger.Warn("invalid method for list user print requests", "method", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get user ID from auth middleware
+	userID := middleware.GetUserID(r)
+	if userID == "" {
+		h.logger.Warn("user not authenticated")
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	h.logger.Info("listing print requests for user", "user_id", userID)
+
+	// Get print requests from service
+	printRequests, err := h.service.ListPrintRequests(r.Context())
+	if err != nil {
+		h.logger.Error("failed to list print requests", "error", err)
+		http.Error(w, "Failed to list print requests", http.StatusInternalServerError)
+		return
+	}
+
+	// Filter requests for the current user
+	userPrintRequests := make([]*models.PrintRequest, 0)
+	for _, request := range printRequests {
+		if request.UserID == userID {
+			userPrintRequests = append(userPrintRequests, request)
+		}
+	}
+
+	h.logger.Info("filtered print requests for user",
+		"user_id", userID,
+		"total_requests", len(printRequests),
+		"user_requests", len(userPrintRequests),
+	)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(userPrintRequests)
+}
+
 // UpdatePrintRequest handles updating a print request
 func (h *PrintRequestHandler) UpdatePrintRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {

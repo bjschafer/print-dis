@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to Print-Dis</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="dashboard.css" />
+    <style>
+      .welcome-container {
+        max-width: 800px;
+        margin: 4rem auto;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      .welcome-hero {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 4rem 2rem;
+        border-radius: 1rem;
+        margin-bottom: 3rem;
+      }
+
+      .welcome-hero h1 {
+        font-size: 3rem;
+        margin: 0 0 1rem 0;
+      }
+
+      .welcome-hero p {
+        font-size: 1.25rem;
+        margin: 0;
+        opacity: 0.9;
+      }
+
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
+        margin: 3rem 0;
+      }
+
+      .feature-card {
+        background: white;
+        padding: 2rem;
+        border-radius: 0.75rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
+      }
+
+      .feature-card:hover {
+        transform: translateY(-4px);
+      }
+
+      .feature-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 3rem;
+      }
+
+      .btn-large {
+        padding: 1rem 2rem;
+        font-size: 1.125rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="welcome-container">
+      <div class="welcome-hero">
+        <h1>Print-Dis</h1>
+        <p>Your 3D Printing Request Management System</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📋</div>
+          <h3>Easy Submissions</h3>
+          <p>
+            Submit print requests with file links, material preferences, and
+            detailed notes.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Track Progress</h3>
+          <p>
+            Monitor your requests from submission to completion with real-time
+            status updates.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">👥</div>
+          <h3>User Management</h3>
+          <p>
+            Role-based access control with admin and moderator capabilities.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Organized Queue</h3>
+          <p>
+            Efficient print queue management with priority and status tracking.
+          </p>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <a href="dashboard.html" class="btn btn-primary btn-large">
+          Go to Dashboard
+        </a>
+        <a href="index.html" class="btn btn-secondary btn-large">
+          Submit a Request
+        </a>
+      </div>
+    </div>
+
+    <script>
+      // Check if user is authenticated and redirect accordingly
+      document.addEventListener("DOMContentLoaded", async () => {
+        try {
+          const response = await fetch("/api/auth/me", {
+            method: "GET",
+            credentials: "same-origin",
+          });
+
+          if (response.ok) {
+            // User is authenticated, they can stay on this page or go to dashboard
+            console.log("User is authenticated");
+          } else {
+            // User is not authenticated, redirect to auth
+            setTimeout(() => {
+              window.location.href = "/auth.html";
+            }, 2000); // Give them time to see the welcome page
+          }
+        } catch (error) {
+          console.error("Auth check failed:", error);
+          setTimeout(() => {
+            window.location.href = "/auth.html";
+          }, 2000);
+        }
+      });
+    </script>
+  </body>
+</html>

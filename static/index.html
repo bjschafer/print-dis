@@ -3,10 +3,42 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Print Job Submission</title>
+    <title>Print-Dis - Submit Job</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="dashboard.css" />
   </head>
   <body>
+    <nav class="navbar">
+      <div class="nav-container">
+        <div class="nav-left">
+          <h1 class="nav-title">Print-Dis</h1>
+        </div>
+        <div class="nav-center">
+          <ul class="nav-menu">
+            <li><a href="dashboard.html" class="nav-link">Dashboard</a></li>
+            <li><a href="index.html" class="nav-link active">Submit Job</a></li>
+            <li>
+              <a href="#" id="adminLink" class="nav-link" style="display: none"
+                >Admin</a
+              >
+            </li>
+          </ul>
+        </div>
+        <div class="nav-right">
+          <div class="user-menu">
+            <span id="username" class="username">Loading...</span>
+            <div class="user-dropdown">
+              <button class="dropdown-btn" aria-label="User menu">⚙️</button>
+              <div class="dropdown-content">
+                <a href="#" id="changePasswordBtn">Change Password</a>
+                <a href="#" id="logoutBtn">Logout</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
     <div class="container">
       <h1>Submit Print Job</h1>
       <form id="printJobForm">

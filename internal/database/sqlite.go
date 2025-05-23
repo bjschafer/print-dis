@@ -691,5 +691,5 @@ func (c *sqliteClient) ListUsers(ctx context.Context) ([]*models.User, error) {
 }
 
 func isColumnExistsError(err error) bool {
-	return strings.Contains(err.Error(), "column") && strings.Contains(err.Error(), "already exists")
+	return strings.Contains(err.Error(), "duplicate column name")
 }

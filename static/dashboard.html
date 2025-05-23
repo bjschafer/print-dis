@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Print-Dis Dashboard</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="nav-container">
+        <div class="nav-left">
+          <h1 class="nav-title">Print-Dis</h1>
+        </div>
+        <div class="nav-center">
+          <ul class="nav-menu">
+            <li>
+              <a href="dashboard.html" class="nav-link active">Dashboard</a>
+            </li>
+            <li><a href="index.html" class="nav-link">Submit Job</a></li>
+            <li>
+              <a href="#" id="adminLink" class="nav-link" style="display: none"
+                >Admin</a
+              >
+            </li>
+          </ul>
+        </div>
+        <div class="nav-right">
+          <div class="user-menu">
+            <span id="username" class="username">Loading...</span>
+            <div class="user-dropdown">
+              <button class="dropdown-btn" aria-label="User menu">⚙️</button>
+              <div class="dropdown-content">
+                <a href="#" id="changePasswordBtn">Change Password</a>
+                <a href="#" id="logoutBtn">Logout</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="dashboard">
+      <div class="dashboard-header">
+        <h2>My Print Requests</h2>
+        <button id="newRequestBtn" class="btn btn-primary">
+          <span class="btn-icon">+</span>
+          New Request
+        </button>
+      </div>
+
+      <!-- Filters and Search -->
+      <div class="filters">
+        <div class="search-box">
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search requests..."
+            class="search-input"
+          />
+          <span class="search-icon">🔍</span>
+        </div>
+
+        <div class="filter-group">
+          <label for="statusFilter">Status:</label>
+          <select id="statusFilter" class="filter-select">
+            <option value="">All Statuses</option>
+            <option value="0">Pending Approval</option>
+            <option value="1">Enqueued</option>
+            <option value="2">In Progress</option>
+            <option value="3">Done</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="sortBy">Sort by:</label>
+          <select id="sortBy" class="filter-select">
+            <option value="created_at_desc">Newest First</option>
+            <option value="created_at_asc">Oldest First</option>
+            <option value="status_asc">Status</option>
+            <option value="updated_at_desc">Recently Updated</option>
+          </select>
+        </div>
+
+        <button id="clearFilters" class="btn btn-secondary">
+          Clear Filters
+        </button>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="totalRequests">-</div>
+          <div class="stat-label">Total Requests</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="pendingRequests">-</div>
+          <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="inProgressRequests">-</div>
+          <div class="stat-label">In Progress</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="completedRequests">-</div>
+          <div class="stat-label">Completed</div>
+        </div>
+      </div>
+
+      <!-- Print Requests Table -->
+      <div class="requests-container">
+        <div id="loadingSpinner" class="loading-spinner">
+          <div class="spinner"></div>
+          <p>Loading your print requests...</p>
+        </div>
+
+        <div id="emptyState" class="empty-state" style="display: none">
+          <div class="empty-icon">📄</div>
+          <h3>No print requests found</h3>
+          <p>You haven't submitted any print requests yet.</p>
+          <button
+            class="btn btn-primary"
+            onclick="window.location.href='index.html'"
+          >
+            Submit Your First Request
+          </button>
+        </div>
+
+        <div id="requestsTable" class="requests-table" style="display: none">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Request ID</th>
+                  <th>File</th>
+                  <th>Status</th>
+                  <th>Material</th>
+                  <th>Color</th>
+                  <th>Created</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="requestsTableBody">
+                <!-- Dynamic content will be inserted here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination -->
+      <div id="pagination" class="pagination" style="display: none">
+        <button id="prevPage" class="pagination-btn" disabled>Previous</button>
+        <span id="pageInfo" class="page-info">Page 1 of 1</span>
+        <button id="nextPage" class="pagination-btn" disabled>Next</button>
+      </div>
+    </main>
+
+    <!-- Request Details Modal -->
+    <div id="requestModal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalTitle">Request Details</h3>
+          <span class="close" id="modalClose">&times;</span>
+        </div>
+        <div class="modal-body" id="modalBody">
+          <!-- Dynamic content will be inserted here -->
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="modalCloseBtn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+  </body>
+</html>

@@ -1,6 +1,46 @@
 # print-dis
 
-A service for managing 3D printing requests.
+A service for managing 3D printing requests with a comprehensive user dashboard and admin interface.
+
+## Features
+
+### User Dashboard
+
+- **Personal Print Request Management**: View, search, and filter your print requests
+- **Real-time Status Tracking**: Monitor requests from submission to completion
+- **Statistics Overview**: Quick view of total, pending, in-progress, and completed requests
+- **Advanced Filtering**: Search by request ID, file name, notes, material, or color
+- **Sorting Options**: Sort by creation date, update date, or status
+- **Detailed View**: Modal popup with complete request information
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+
+### Authentication & User Management
+
+- **Session-based Authentication**: Secure login/logout with password management
+- **Role-based Access Control**: User, Moderator, and Admin roles
+- **User Registration**: Self-service account creation
+- **Password Management**: Change password functionality
+
+### Print Request System
+
+- **Easy Submission**: Submit requests with file links, material preferences, and notes
+- **Status Management**: Track requests through Pending → Enqueued → In Progress → Done
+- **Spoolman Integration**: Optional integration with Spoolman for filament management
+- **File Link Support**: External file hosting support
+
+### Admin Features
+
+- **User Management**: View, enable/disable, and manage user roles
+- **Print Request Oversight**: View and manage all print requests
+- **Statistics Dashboard**: System-wide analytics and user statistics
+
+## Pages
+
+- `/welcome.html` - Welcome page with feature overview
+- `/dashboard.html` - User dashboard for managing personal requests
+- `/index.html` - Submit new print requests
+- `/auth.html` - Login and registration
+- `/admin.html` - Admin interface (requires admin/moderator role)
 
 ## Configuration
 

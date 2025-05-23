@@ -139,6 +139,16 @@ func main() {
 	})
 	mux.Handle("/api/print-requests", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(apiHandler)))
 
+	// Add user-specific print requests route
+	userRequestsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			printRequestHandler.ListUserPrintRequests(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.Handle("/api/user/print-requests", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(userRequestsHandler)))
+
 	// Add Spoolman routes if enabled
 	if spoolmanHandler != nil {
 		spoolsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

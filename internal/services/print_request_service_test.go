@@ -106,6 +106,29 @@ func (m *MockDBClient) ListMaterials(ctx context.Context) ([]*models.Material, e
 	return nil, nil
 }
 
+// User operations
+func (m *MockDBClient) CreateUser(ctx context.Context, user *models.User) error {
+	return nil
+}
+func (m *MockDBClient) GetUser(ctx context.Context, id string) (*models.User, error) {
+	return nil, nil
+}
+func (m *MockDBClient) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+	return nil, nil
+}
+func (m *MockDBClient) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	return nil, nil
+}
+func (m *MockDBClient) UpdateUser(ctx context.Context, user *models.User) error {
+	return nil
+}
+func (m *MockDBClient) DeleteUser(ctx context.Context, id string) error {
+	return nil
+}
+func (m *MockDBClient) ListUsers(ctx context.Context) ([]*models.User, error) {
+	return nil, nil
+}
+
 // Close implements the database.DBClient interface
 func (m *MockDBClient) Close() error {
 	return nil
