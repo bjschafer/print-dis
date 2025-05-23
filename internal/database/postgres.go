@@ -66,6 +66,7 @@ func initPostgresSchema(db *sqlx.DB) error {
 			email VARCHAR(255) UNIQUE,
 			password_hash VARCHAR(255),
 			display_name VARCHAR(255),
+			role VARCHAR(50) NOT NULL DEFAULT 'user',
 			created_at TIMESTAMP NOT NULL,
 			updated_at TIMESTAMP NOT NULL,
 			enabled BOOLEAN NOT NULL DEFAULT true
@@ -125,6 +126,17 @@ func initPostgresSchema(db *sqlx.DB) error {
 	for _, query := range queries {
 		if _, err := db.Exec(query); err != nil {
 			return fmt.Errorf("failed to execute schema query: %w", err)
+		}
+	}
+
+	// Migration: Add role column if it doesn't exist
+	migrationQueries := []string{
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'user'`,
+	}
+
+	for _, query := range migrationQueries {
+		if _, err := db.Exec(query); err != nil {
+			return fmt.Errorf("failed to execute migration query: %w", err)
 		}
 	}
 
@@ -533,8 +545,8 @@ func (c *postgresClient) ListPrintRequests(ctx context.Context) ([]*models.Print
 // User operations
 func (c *postgresClient) CreateUser(ctx context.Context, user *models.User) error {
 	query := `
-		INSERT INTO users (id, username, email, password_hash, display_name, created_at, updated_at, enabled)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		INSERT INTO users (id, username, email, password_hash, display_name, role, created_at, updated_at, enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	c.logger.Debug("executing create user query", "username", user.Username)
 
@@ -544,6 +556,7 @@ func (c *postgresClient) CreateUser(ctx context.Context, user *models.User) erro
 		user.Email,
 		user.PasswordHash,
 		user.DisplayName,
+		user.Role,
 		user.CreatedAt,
 		user.UpdatedAt,
 		user.Enabled,
@@ -558,7 +571,7 @@ func (c *postgresClient) CreateUser(ctx context.Context, user *models.User) erro
 
 func (c *postgresClient) GetUser(ctx context.Context, id string) (*models.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled
 		FROM users
 		WHERE id = $1`
 
@@ -576,7 +589,7 @@ func (c *postgresClient) GetUser(ctx context.Context, id string) (*models.User, 
 
 func (c *postgresClient) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled
 		FROM users
 		WHERE username = $1`
 
@@ -594,7 +607,7 @@ func (c *postgresClient) GetUserByUsername(ctx context.Context, username string)
 
 func (c *postgresClient) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled
 		FROM users
 		WHERE email = $1`
 
@@ -613,14 +626,15 @@ func (c *postgresClient) GetUserByEmail(ctx context.Context, email string) (*mod
 func (c *postgresClient) UpdateUser(ctx context.Context, user *models.User) error {
 	query := `
 		UPDATE users
-		SET username = $1, email = $2, password_hash = $3, display_name = $4, updated_at = $5, enabled = $6
-		WHERE id = $7`
+		SET username = $1, email = $2, password_hash = $3, display_name = $4, role = $5, updated_at = $6, enabled = $7
+		WHERE id = $8`
 
 	_, err := c.db.ExecContext(ctx, query,
 		user.Username,
 		user.Email,
 		user.PasswordHash,
 		user.DisplayName,
+		user.Role,
 		user.UpdatedAt,
 		user.Enabled,
 		user.ID,
@@ -643,7 +657,7 @@ func (c *postgresClient) DeleteUser(ctx context.Context, id string) error {
 
 func (c *postgresClient) ListUsers(ctx context.Context) ([]*models.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled
 		FROM users
 		ORDER BY created_at DESC`
 

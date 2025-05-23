@@ -83,11 +83,12 @@ func main() {
 	}
 
 	// Create session store for authentication
-	sessionStore := middleware.NewSessionStore(cfg)
+	sessionStore := middleware.NewSessionStore(cfg, db)
 
 	// Create handlers
 	printRequestHandler := handlers.NewPrintRequestHandler(printRequestService)
 	authHandler := handlers.NewAuthHandler(userService, sessionStore, cfg)
+	adminHandler := handlers.NewAdminHandler(userService)
 	var spoolmanHandler *api.SpoolmanHandler
 	if spoolmanService != nil {
 		spoolmanHandler = api.NewSpoolmanHandler(spoolmanService)
@@ -181,6 +182,47 @@ func main() {
 		}
 	})
 	mux.Handle("/api/print-requests/status", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(statusHandler)))
+
+	// Admin routes - require moderator or admin permissions
+	adminUsersHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			adminHandler.ListUsers(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.Handle("/api/admin/users", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminUsersHandler))))
+
+	adminUserRoleHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			adminHandler.UpdateUserRole(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.Handle("/api/admin/users/role", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireAdmin(sessionStore, cfg)(adminUserRoleHandler))))
+
+	adminUserStatusHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			adminHandler.ToggleUserStatus(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.Handle("/api/admin/users/status", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminUserStatusHandler))))
+
+	adminStatsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			adminHandler.GetUserStats(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.Handle("/api/admin/stats", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminStatsHandler))))
 
 	// Set the server's handler
 	server.Handler = mux

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/bjschafer/print-dis/internal/config"
+	"github.com/bjschafer/print-dis/internal/database"
 	"github.com/gorilla/sessions"
 )
 
@@ -16,6 +17,8 @@ type SessionContextKey string
 const (
 	// UserIDKey is the context key for the user ID
 	UserIDKey SessionContextKey = "user_id"
+	// UserKey is the context key for the full user object
+	UserKey SessionContextKey = "user"
 	// SessionKey is the context key for the session store
 	SessionKey SessionContextKey = "session"
 )
@@ -23,10 +26,11 @@ const (
 // SessionStore holds the session store for the application
 type SessionStore struct {
 	store sessions.Store
+	db    database.DBClient
 }
 
 // NewSessionStore creates a new session store
-func NewSessionStore(cfg *config.Config) *SessionStore {
+func NewSessionStore(cfg *config.Config, db database.DBClient) *SessionStore {
 	// Create session store with secret key
 	store := sessions.NewCookieStore([]byte(cfg.Auth.SessionSecret))
 	store.Options = &sessions.Options{
@@ -39,6 +43,7 @@ func NewSessionStore(cfg *config.Config) *SessionStore {
 
 	return &SessionStore{
 		store: store,
+		db:    db,
 	}
 }
 
@@ -87,8 +92,29 @@ func (s *SessionStore) AuthMiddleware(cfg *config.Config) func(http.Handler) htt
 				return
 			}
 
-			// Add user ID to context
+			// Fetch the full user object
+			user, err := s.db.GetUser(r.Context(), userID)
+			if err != nil {
+				slog.Error("failed to get user", "error", err, "user_id", userID)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			if user == nil {
+				slog.Warn("user not found", "user_id", userID)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+
+			if !user.Enabled {
+				slog.Info("disabled user attempted access", "user_id", userID)
+				http.Error(w, "Account disabled", http.StatusForbidden)
+				return
+			}
+
+			// Add user ID and full user object to context
 			ctx := context.WithValue(r.Context(), UserIDKey, userID)
+			ctx = context.WithValue(ctx, UserKey, user)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

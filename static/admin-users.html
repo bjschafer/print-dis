@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Management - Admin</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>User Management</h1>
+        <nav class="admin-nav">
+          <a href="admin.html">Print Requests</a>
+          <a href="admin-users.html" class="active">Users</a>
+        </nav>
+        <div class="stats-summary" id="userStats">
+          <!-- User statistics will be populated here -->
+        </div>
+      </header>
+
+      <main>
+        <div class="users-list">
+          <table>
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="username">
+                  Username <span class="sort-indicator"></span>
+                </th>
+                <th class="sortable" data-sort="email">
+                  Email <span class="sort-indicator"></span>
+                </th>
+                <th class="sortable" data-sort="role">
+                  Role <span class="sort-indicator"></span>
+                </th>
+                <th class="sortable" data-sort="status">
+                  Status <span class="sort-indicator"></span>
+                </th>
+                <th class="sortable" data-sort="created">
+                  Created <span class="sort-indicator"></span>
+                </th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody">
+              <!-- Users will be populated here -->
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+
+    <!-- Role Update Modal -->
+    <div id="roleUpdateModal" class="modal">
+      <div class="modal-content">
+        <h2>Update User Role</h2>
+        <p>User: <span id="roleUpdateUsername"></span></p>
+        <div class="form-group">
+          <label for="newRoleSelect">New Role:</label>
+          <select id="newRoleSelect">
+            <option value="user">User</option>
+            <option value="moderator">Moderator</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="modal-buttons">
+          <button id="confirmRoleUpdate" class="action-button update">
+            Update Role
+          </button>
+          <button id="cancelRoleUpdate" class="action-button cancel">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Update Modal -->
+    <div id="statusUpdateModal" class="modal">
+      <div class="modal-content">
+        <h2>Update User Status</h2>
+        <p>User: <span id="statusUpdateUsername"></span></p>
+        <div class="form-group">
+          <label for="newStatusSelect">Status:</label>
+          <select id="newStatusSelect">
+            <option value="true">Enabled</option>
+            <option value="false">Disabled</option>
+          </select>
+        </div>
+        <div class="modal-buttons">
+          <button id="confirmStatusUpdate" class="action-button update">
+            Update Status
+          </button>
+          <button id="cancelStatusUpdate" class="action-button cancel">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="admin-users.js"></script>
+  </body>
+</html>

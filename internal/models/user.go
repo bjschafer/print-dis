@@ -13,6 +13,7 @@ type User struct {
 	Email        *string   `json:"email,omitempty" db:"email"`
 	PasswordHash *string   `json:"-" db:"password_hash"` // Never serialize password hash
 	DisplayName  *string   `json:"display_name,omitempty" db:"display_name"`
+	Role         Role      `json:"role" db:"role"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 	Enabled      bool      `json:"enabled" db:"enabled"`
@@ -42,6 +43,7 @@ func NewUser(username string, email *string) *User {
 	return &User{
 		Username:  username,
 		Email:     email,
+		Role:      DefaultRole(),
 		CreatedAt: now,
 		UpdatedAt: now,
 		Enabled:   true,
@@ -75,4 +77,42 @@ func (u *User) HasPassword() bool {
 // IsExpired returns true if the session has expired
 func (s *UserSession) IsExpired() bool {
 	return time.Now().After(s.ExpiresAt)
+}
+
+// HasPermission checks if the user has the specified permission
+func (u *User) HasPermission(permission Permission) bool {
+	if !u.Enabled {
+		return false
+	}
+	return u.Role.HasPermission(permission)
+}
+
+// IsAdmin returns true if the user has admin role
+func (u *User) IsAdmin() bool {
+	return u.Role == RoleAdmin
+}
+
+// IsModerator returns true if the user has moderator role or higher
+func (u *User) IsModerator() bool {
+	return u.Role == RoleModerator || u.Role == RoleAdmin
+}
+
+// CanManageUser returns true if this user can manage the target user
+func (u *User) CanManageUser(targetUser *User) bool {
+	// Can't manage yourself (for role changes)
+	if u.ID == targetUser.ID {
+		return false
+	}
+
+	// Admin can manage anyone
+	if u.Role == RoleAdmin {
+		return true
+	}
+
+	// Moderators can manage regular users but not other moderators or admins
+	if u.Role == RoleModerator && targetUser.Role == RoleUser {
+		return true
+	}
+
+	return false
 }

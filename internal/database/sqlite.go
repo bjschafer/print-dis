@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/bjschafer/print-dis/internal/models"
 	"github.com/jmoiron/sqlx"
@@ -56,6 +57,7 @@ func initSQLiteSchema(db *sqlx.DB) error {
 			email TEXT UNIQUE,
 			password_hash TEXT,
 			display_name TEXT,
+			role TEXT NOT NULL DEFAULT 'user',
 			created_at TIMESTAMP NOT NULL,
 			updated_at TIMESTAMP NOT NULL,
 			enabled BOOLEAN NOT NULL DEFAULT 1
@@ -122,6 +124,21 @@ func initSQLiteSchema(db *sqlx.DB) error {
 	for _, query := range queries {
 		if _, err := db.Exec(query); err != nil {
 			return fmt.Errorf("failed to execute schema query: %w", err)
+		}
+	}
+
+	// Migration: Add role column if it doesn't exist
+	migrationQueries := []string{
+		`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'`,
+	}
+
+	for _, query := range migrationQueries {
+		// Execute migration, but ignore error if column already exists
+		if _, err := db.Exec(query); err != nil {
+			// SQLite returns specific error for duplicate column
+			if !isColumnExistsError(err) {
+				return fmt.Errorf("failed to execute migration query: %w", err)
+			}
 		}
 	}
 
@@ -548,8 +565,8 @@ func (c *sqliteClient) ListPrintRequests(ctx context.Context) ([]*models.PrintRe
 // User operations
 func (c *sqliteClient) CreateUser(ctx context.Context, user *models.User) error {
 	query := `
-		INSERT INTO users (id, username, email, password_hash, display_name, created_at, updated_at, enabled)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		INSERT INTO users (id, username, email, password_hash, display_name, role, created_at, updated_at, enabled)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	c.logger.Debug("executing create user query", "username", user.Username)
 
@@ -559,6 +576,7 @@ func (c *sqliteClient) CreateUser(ctx context.Context, user *models.User) error 
 		user.Email,
 		user.PasswordHash,
 		user.DisplayName,
+		user.Role,
 		user.CreatedAt,
 		user.UpdatedAt,
 		user.Enabled,
@@ -573,7 +591,7 @@ func (c *sqliteClient) CreateUser(ctx context.Context, user *models.User) error 
 
 func (c *sqliteClient) GetUser(ctx context.Context, id string) (*models.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled
 		FROM users
 		WHERE id = ?`
 
@@ -591,7 +609,7 @@ func (c *sqliteClient) GetUser(ctx context.Context, id string) (*models.User, er
 
 func (c *sqliteClient) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled
 		FROM users
 		WHERE username = ?`
 
@@ -609,7 +627,7 @@ func (c *sqliteClient) GetUserByUsername(ctx context.Context, username string) (
 
 func (c *sqliteClient) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled
 		FROM users
 		WHERE email = ?`
 
@@ -628,7 +646,7 @@ func (c *sqliteClient) GetUserByEmail(ctx context.Context, email string) (*model
 func (c *sqliteClient) UpdateUser(ctx context.Context, user *models.User) error {
 	query := `
 		UPDATE users
-		SET username = ?, email = ?, password_hash = ?, display_name = ?, updated_at = ?, enabled = ?
+		SET username = ?, email = ?, password_hash = ?, display_name = ?, role = ?, updated_at = ?, enabled = ?
 		WHERE id = ?`
 
 	_, err := c.db.ExecContext(ctx, query,
@@ -636,6 +654,7 @@ func (c *sqliteClient) UpdateUser(ctx context.Context, user *models.User) error 
 		user.Email,
 		user.PasswordHash,
 		user.DisplayName,
+		user.Role,
 		user.UpdatedAt,
 		user.Enabled,
 		user.ID,
@@ -658,7 +677,7 @@ func (c *sqliteClient) DeleteUser(ctx context.Context, id string) error {
 
 func (c *sqliteClient) ListUsers(ctx context.Context) ([]*models.User, error) {
 	query := `
-		SELECT id, username, email, password_hash, display_name, created_at, updated_at, enabled
+		SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled
 		FROM users
 		ORDER BY created_at DESC`
 
@@ -669,4 +688,8 @@ func (c *sqliteClient) ListUsers(ctx context.Context) ([]*models.User, error) {
 	}
 
 	return users, nil
+}
+
+func isColumnExistsError(err error) bool {
+	return strings.Contains(err.Error(), "column") && strings.Contains(err.Error(), "already exists")
 }
