@@ -1,7 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Check authentication before doing anything else
-  checkAuthenticationStatus();
-
+  // Initialize page elements first
   const form = document.getElementById("printJobForm");
   const statusDiv = document.getElementById("status");
   const spoolmanEnabled = document.getElementById("spoolmanEnabled");
@@ -15,8 +13,11 @@ document.addEventListener("DOMContentLoaded", () => {
   spoolmanFields.style.display = "none";
   manualFields.style.display = "block";
 
-  // Add user menu to the page
-  addUserMenu();
+  // Set up event listeners for existing HTML elements
+  setupUserMenuEventListeners();
+
+  // Check authentication after DOM is ready
+  checkAuthenticationStatus();
 
   // URL validation function
   function isValidUrl(url) {
@@ -43,14 +44,24 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const user = await response.json();
-      // Remove the submitter field since we now know the user
+      // Hide the submitter field since we now know the user
       const submitterField = document.getElementById("submitter");
       if (submitterField) {
         submitterField.closest(".form-group").style.display = "none";
+        // Remove the required attribute to prevent form validation issues
+        submitterField.removeAttribute("required");
+        // Set a default value since we know the user
+        submitterField.value = user.username;
       }
 
       // Store user info globally
       window.currentUser = user;
+
+      // Update the username display now that we have the user info
+      updateUsernameDisplay();
+
+      // Show admin link if user has permissions
+      updateAdminLink();
     } catch (error) {
       console.error("Auth check failed:", error);
       // Redirect to auth page on error
@@ -58,41 +69,41 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Add user menu to the page
-  function addUserMenu() {
-    const container = document.querySelector(".container");
-    const userMenu = document.createElement("div");
-    userMenu.className = "user-menu";
-    userMenu.innerHTML = `
-      <div class="user-info">
-        <span id="username">Loading...</span>
-        <div class="user-dropdown">
-          <button class="dropdown-btn">⚙️</button>
-          <div class="dropdown-content">
-            <a href="#" id="changePasswordBtn">Change Password</a>
-            <a href="#" id="logoutBtn">Logout</a>
-          </div>
-        </div>
-      </div>
-    `;
+  // Update username display
+  function updateUsernameDisplay() {
+    const usernameElement = document.getElementById("username");
+    if (usernameElement && window.currentUser) {
+      usernameElement.textContent = `Welcome, ${window.currentUser.username}`;
+    }
+  }
 
-    // Insert at the beginning of the container
-    container.insertBefore(userMenu, container.firstChild);
+  // Update admin link visibility
+  function updateAdminLink() {
+    const adminLink = document.getElementById("adminLink");
+    if (
+      adminLink &&
+      window.currentUser &&
+      (window.currentUser.role === "admin" ||
+        window.currentUser.role === "moderator")
+    ) {
+      adminLink.style.display = "block";
+      adminLink.href = "/admin.html";
+    }
+  }
 
-    // Set username when available
-    if (window.currentUser) {
-      document.getElementById(
-        "username",
-      ).textContent = `Welcome, ${window.currentUser.username}`;
+  // Set up event listeners for the existing HTML user menu elements
+  function setupUserMenuEventListeners() {
+    // Add event listeners for the existing HTML elements
+    const logoutBtn = document.getElementById("logoutBtn");
+    const changePasswordBtn = document.getElementById("changePasswordBtn");
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", handleLogout);
     }
 
-    // Add event listeners
-    document
-      .getElementById("logoutBtn")
-      .addEventListener("click", handleLogout);
-    document
-      .getElementById("changePasswordBtn")
-      .addEventListener("click", showChangePasswordModal);
+    if (changePasswordBtn) {
+      changePasswordBtn.addEventListener("click", showChangePasswordModal);
+    }
   }
 
   // Handle logout
