@@ -4,6 +4,37 @@ let currentSort = {
   direction: "desc",
 };
 
+// Global variables for user data
+let usersMap = new Map(); // Map of user_id -> user object
+
+// Function to load users data
+async function loadUsers() {
+  try {
+    const response = await fetch("/api/admin/users", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch users");
+    }
+
+    const users = await response.json();
+
+    // Create a map for quick lookups
+    usersMap.clear();
+    users.forEach((user) => {
+      usersMap.set(user.id, user);
+    });
+
+    console.log("Loaded users:", users.length);
+  } catch (error) {
+    console.error("Error loading users:", error);
+    // Don't alert for users loading error, as it's not critical
+  }
+}
+
 // Global function to display print requests
 function displayPrintRequests(printRequests) {
   const printRequestsTableBody = document.getElementById(
@@ -21,8 +52,11 @@ function displayPrintRequests(printRequests) {
         valueB = b.id;
         break;
       case "user":
-        valueA = a.user_id;
-        valueB = b.user_id;
+        // Sort by display name or username instead of user_id
+        const userA = usersMap.get(a.user_id);
+        const userB = usersMap.get(b.user_id);
+        valueA = userA ? userA.display_name || userA.username : a.user_id;
+        valueB = userB ? userB.display_name || userB.username : b.user_id;
         break;
       case "file":
         valueA = a.file_link;
@@ -57,9 +91,15 @@ function displayPrintRequests(printRequests) {
     fileLink.target = "_blank";
     fileLink.className = "file-link";
 
+    // Get user display name or fallback to user_id
+    const user = usersMap.get(request.user_id);
+    const userDisplay = user
+      ? user.display_name || user.username
+      : `User (${request.user_id.substring(0, 8)}...)`;
+
     row.innerHTML = `
       <td title="${request.id}">${request.id}</td>
-      <td>${request.user_id}</td>
+      <td title="${request.user_id}">${userDisplay}</td>
       <td></td>
       <td>
           <span class="status-badge status-${request.status
@@ -96,6 +136,9 @@ function displayPrintRequests(printRequests) {
 // Global function to load print requests
 async function loadPrintRequests() {
   try {
+    // Load users in parallel if not already loaded
+    const usersPromise = usersMap.size === 0 ? loadUsers() : Promise.resolve();
+
     const status = document.getElementById("statusFilter").value;
     const url = status
       ? `/api/print-requests?status=${status}`
@@ -111,7 +154,8 @@ async function loadPrintRequests() {
       throw new Error("Failed to fetch print requests");
     }
 
-    const printRequests = await response.json();
+    const [printRequests] = await Promise.all([response.json(), usersPromise]);
+
     displayPrintRequests(printRequests);
   } catch (error) {
     console.error("Error loading print requests:", error);
