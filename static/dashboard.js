@@ -149,10 +149,19 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateStats() {
     const stats = {
       total: allRequests.length,
-      pending: allRequests.filter((r) => r.status === 0).length,
-      inProgress: allRequests.filter((r) => r.status === 1 || r.status === 2)
-        .length,
-      completed: allRequests.filter((r) => r.status === 3).length,
+      pending: allRequests.filter(
+        (r) => r.status === "StatusPendingApproval" || r.status === 0,
+      ).length,
+      inProgress: allRequests.filter(
+        (r) =>
+          r.status === "StatusEnqueued" ||
+          r.status === "StatusInProgress" ||
+          r.status === 1 ||
+          r.status === 2,
+      ).length,
+      completed: allRequests.filter(
+        (r) => r.status === "StatusDone" || r.status === 3,
+      ).length,
     };
 
     document.getElementById("totalRequests").textContent = stats.total;
@@ -252,12 +261,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Get status CSS class
   function getStatusClass(status) {
     switch (status) {
+      case "StatusPendingApproval":
       case 0:
         return "status-pending";
+      case "StatusEnqueued":
       case 1:
         return "status-enqueued";
+      case "StatusInProgress":
       case 2:
         return "status-in-progress";
+      case "StatusDone":
       case 3:
         return "status-done";
       default:
@@ -268,12 +281,16 @@ document.addEventListener("DOMContentLoaded", () => {
   // Get status text
   function getStatusText(status) {
     switch (status) {
+      case "StatusPendingApproval":
       case 0:
         return "Pending Approval";
+      case "StatusEnqueued":
       case 1:
         return "Enqueued";
+      case "StatusInProgress":
       case 2:
         return "In Progress";
+      case "StatusDone":
       case 3:
         return "Done";
       default:
@@ -381,7 +398,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Status filter
       const matchesStatus =
-        !statusFilter || request.status.toString() === statusFilter;
+        !statusFilter ||
+        request.status === statusFilter ||
+        request.status.toString() === statusFilter;
 
       return matchesSearch && matchesStatus;
     });

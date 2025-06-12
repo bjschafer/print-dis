@@ -1,0 +1,24 @@
+---
+description: When compiling, building, or running the program.
+globs: 
+alwaysApply: false
+---
+# Compiling / Building
+
+When you need to compile the program, do so by running `make`. The [Makefile](mdc:Makefile)'s default target will ensure the project is built correctly.
+
+# Running
+
+After compiling, you may run the program if you'd like.
+
+When you want to run the program, first ensure that any existing instances are stopped:
+
+```bash
+pkill print-dis
+```
+
+Then, run it with the following invocation:
+
+```bash
+bin/print-dis --log-level debug --spoolman-enabled --spoolman-endpoint https://spoolman.cmdcentral.xyz
+```

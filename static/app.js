@@ -241,13 +241,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Toggle between Spoolman and manual fields
   spoolmanEnabled.addEventListener("click", () => {
+    const selectionDivider = document.querySelector(".selection-divider");
+
     if (spoolmanFields.style.display === "none") {
       spoolmanFields.style.display = "block";
       manualEntrySection.style.display = "none";
+      if (selectionDivider) {
+        selectionDivider.style.display = "none";
+      }
       loadSpoolmanData();
     } else {
       spoolmanFields.style.display = "none";
       manualEntrySection.style.display = "block";
+      if (selectionDivider) {
+        selectionDivider.style.display = "block";
+      }
     }
   });
 
