@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -230,6 +231,10 @@ func (m *MockDBClient) BeginTx(ctx context.Context) (database.Tx, error) {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(database.Tx), args.Error(1)
+}
+
+func (m *MockDBClient) GetDB() *sql.DB {
+	return nil // Mock implementation - not needed for tests
 }
 
 func TestPrintRequestStatusValidation(t *testing.T) {

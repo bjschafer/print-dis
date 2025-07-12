@@ -58,6 +58,60 @@ document.addEventListener("DOMContentLoaded", () => {
       window.location.href = "/index.html";
     });
 
+    // User menu dropdown
+    const dropdownBtn = document.querySelector('.dropdown-btn');
+    const dropdownContent = document.querySelector('.dropdown-content');
+    
+    if (dropdownBtn && dropdownContent) {
+      dropdownBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isExpanded = dropdownBtn.getAttribute('aria-expanded') === 'true';
+        dropdownBtn.setAttribute('aria-expanded', !isExpanded);
+        dropdownContent.classList.toggle('show');
+        
+        if (!isExpanded) {
+          // Focus first menu item when opened
+          const firstMenuItem = dropdownContent.querySelector('a[role="menuitem"]');
+          if (firstMenuItem) {
+            firstMenuItem.focus();
+          }
+        }
+      });
+
+      // Close dropdown on outside click
+      document.addEventListener('click', (e) => {
+        if (!dropdownBtn.contains(e.target) && !dropdownContent.contains(e.target)) {
+          dropdownBtn.setAttribute('aria-expanded', 'false');
+          dropdownContent.classList.remove('show');
+        }
+      });
+
+      // Keyboard navigation for dropdown
+      dropdownContent.addEventListener('keydown', (e) => {
+        const menuItems = dropdownContent.querySelectorAll('a[role="menuitem"]');
+        const currentIndex = Array.from(menuItems).indexOf(document.activeElement);
+        
+        switch (e.key) {
+          case 'ArrowDown':
+            e.preventDefault();
+            const nextIndex = currentIndex < menuItems.length - 1 ? currentIndex + 1 : 0;
+            menuItems[nextIndex].focus();
+            break;
+          case 'ArrowUp':
+            e.preventDefault();
+            const prevIndex = currentIndex > 0 ? currentIndex - 1 : menuItems.length - 1;
+            menuItems[prevIndex].focus();
+            break;
+          case 'Escape':
+            e.preventDefault();
+            dropdownBtn.setAttribute('aria-expanded', 'false');
+            dropdownContent.classList.remove('show');
+            dropdownBtn.focus();
+            break;
+        }
+      });
+    }
+
     // User menu
     document
       .getElementById("logoutBtn")
@@ -91,6 +145,13 @@ document.addEventListener("DOMContentLoaded", () => {
       .addEventListener("click", closeModal);
     document.getElementById("requestModal").addEventListener("click", (e) => {
       if (e.target.id === "requestModal") closeModal();
+    });
+
+    // Table sorting accessibility
+    document.querySelectorAll('.sortable').forEach(header => {
+      header.addEventListener('click', (e) => {
+        handleTableSort(e.target);
+      });
     });
 
     // Pagination
@@ -515,6 +576,126 @@ document.addEventListener("DOMContentLoaded", () => {
     // You could implement a toast notification system here
     alert(message);
   }
+
+  // Handle table sorting with accessibility features
+  function handleTableSort(header) {
+    const sortField = header.getAttribute('data-sort');
+    const currentSort = header.getAttribute('aria-sort');
+    let newDirection = 'ascending';
+    
+    if (currentSort === 'ascending') {
+      newDirection = 'descending';
+    }
+    
+    // Update sort direction
+    if (window.AccessibilityModule) {
+      window.AccessibilityModule.updateSortIndicator(header, newDirection);
+    }
+    
+    // Perform the actual sorting
+    sortRequests(sortField, newDirection);
+  }
+
+  // Sort requests by field and direction
+  function sortRequests(field, direction) {
+    const isAscending = direction === 'ascending';
+    
+    filteredRequests.sort((a, b) => {
+      let aVal = a[field];
+      let bVal = b[field];
+      
+      // Handle date fields
+      if (field === 'created_at' || field === 'updated_at') {
+        aVal = new Date(aVal);
+        bVal = new Date(bVal);
+      }
+      
+      // Handle string fields
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+      
+      if (isAscending) {
+        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+      } else {
+        return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+      }
+    });
+    
+    renderRequests();
+    
+    // Announce sort change
+    if (window.AccessibilityModule) {
+      window.AccessibilityModule.announce(`Table sorted by ${field} ${direction}`, 'polite');
+    }
+  }
+
+  // Enhanced modal functions with accessibility
+  function openModal(request) {
+    if (window.AccessibilityModule) {
+      window.AccessibilityModule.openModal('requestModal');
+    } else {
+      document.getElementById("requestModal").style.display = "block";
+    }
+  }
+
+  function closeModal() {
+    if (window.AccessibilityModule) {
+      window.AccessibilityModule.closeModal('requestModal');
+    } else {
+      document.getElementById("requestModal").style.display = "none";
+    }
+  }
+
+  // Override the global showRequestDetails to use accessible modal
+  window.showRequestDetails = function(requestId) {
+    const request = allRequests.find(r => r.id === requestId);
+    if (request) {
+      // Update modal content
+      document.getElementById("modalTitle").textContent = `Request ${request.id}`;
+      document.getElementById("modalBody").innerHTML = `
+        <div class="detail-field">
+          <span class="detail-label">Request ID:</span>
+          <div class="detail-value">${request.id}</div>
+        </div>
+        <div class="detail-field">
+          <span class="detail-label">File:</span>
+          <div class="detail-value">
+            <a href="${request.file_link}" target="_blank" rel="noopener noreferrer" aria-label="Download file for request ${request.id}">
+              ${request.file_link.split('/').pop()}
+            </a>
+          </div>
+        </div>
+        <div class="detail-field">
+          <span class="detail-label">Status:</span>
+          <div class="detail-value status-${request.status.toLowerCase()}">${formatStatus(request.status)}</div>
+        </div>
+        <div class="detail-field">
+          <span class="detail-label">Material:</span>
+          <div class="detail-value">${request.material || 'Not specified'}</div>
+        </div>
+        <div class="detail-field">
+          <span class="detail-label">Color:</span>
+          <div class="detail-value">${request.color || 'Not specified'}</div>
+        </div>
+        <div class="detail-field">
+          <span class="detail-label">Notes:</span>
+          <div class="detail-value">${request.notes || 'No notes provided'}</div>
+        </div>
+        <div class="detail-field">
+          <span class="detail-label">Created:</span>
+          <div class="detail-value">${new Date(request.created_at).toLocaleString()}</div>
+        </div>
+        <div class="detail-field">
+          <span class="detail-label">Last Updated:</span>
+          <div class="detail-value">${new Date(request.updated_at).toLocaleString()}</div>
+        </div>
+      `;
+      
+      openModal(request);
+    }
+  };
 
   // Authentication functions are now handled by shared-auth.js module
 

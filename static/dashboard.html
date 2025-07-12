@@ -6,21 +6,22 @@
     <title>Print-Dis Dashboard</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="dashboard.css" />
+    <link rel="stylesheet" href="accessibility.css" />
   </head>
   <body>
-    <nav class="navbar">
+    <nav class="navbar" role="navigation" aria-label="Main navigation" id="main-nav">
       <div class="nav-container">
         <div class="nav-left">
           <h1 class="nav-title">Print-Dis</h1>
         </div>
         <div class="nav-center">
-          <ul class="nav-menu">
-            <li>
-              <a href="dashboard.html" class="nav-link active">Dashboard</a>
+          <ul class="nav-menu" role="menubar">
+            <li role="none">
+              <a href="dashboard.html" class="nav-link active" role="menuitem" aria-current="page">Dashboard</a>
             </li>
-            <li><a href="index.html" class="nav-link">Submit Job</a></li>
-            <li>
-              <a href="#" id="adminLink" class="nav-link" style="display: none"
+            <li role="none"><a href="index.html" class="nav-link" role="menuitem">Submit Job</a></li>
+            <li role="none">
+              <a href="#" id="adminLink" class="nav-link" role="menuitem" style="display: none"
                 >Admin</a
               >
             </li>
@@ -28,12 +29,12 @@
         </div>
         <div class="nav-right">
           <div class="user-menu">
-            <span id="username" class="username">Loading...</span>
+            <span id="username" class="username" aria-live="polite">Loading...</span>
             <div class="user-dropdown">
-              <button class="dropdown-btn" aria-label="User menu">⚙️</button>
-              <div class="dropdown-content">
-                <a href="#" id="changePasswordBtn">Change Password</a>
-                <a href="#" id="logoutBtn">Logout</a>
+              <button class="dropdown-btn" aria-label="User menu" aria-expanded="false" aria-haspopup="true">⚙️</button>
+              <div class="dropdown-content" role="menu">
+                <a href="#" id="changePasswordBtn" role="menuitem">Change Password</a>
+                <a href="#" id="logoutBtn" role="menuitem">Logout</a>
               </div>
             </div>
           </div>
@@ -41,87 +42,93 @@
       </div>
     </nav>
 
-    <main class="dashboard">
+    <main class="dashboard" role="main" id="main-content">
       <div class="dashboard-header">
         <h2>My Print Requests</h2>
-        <button id="newRequestBtn" class="btn btn-primary">
-          <span class="btn-icon">+</span>
+        <button id="newRequestBtn" class="btn btn-primary" aria-label="Create new print request">
+          <span class="btn-icon" aria-hidden="true">+</span>
           New Request
         </button>
       </div>
 
       <!-- Filters and Search -->
-      <div class="filters">
+      <div class="filters" role="group" aria-labelledby="filters-heading">
+        <h3 id="filters-heading" class="sr-only">Filter and search options</h3>
         <div class="search-box">
           <input
-            type="text"
+            type="search"
             id="searchInput"
             placeholder="Search requests..."
             class="search-input"
+            aria-label="Search print requests"
           />
-          <span class="search-icon">🔍</span>
+          <span class="search-icon" aria-hidden="true">🔍</span>
         </div>
 
         <div class="filter-group">
           <label for="statusFilter">Status:</label>
-          <select id="statusFilter" class="filter-select">
+          <select id="statusFilter" class="filter-select" aria-describedby="statusFilter-help">
             <option value="">All Statuses</option>
             <option value="StatusPendingApproval">Pending Approval</option>
             <option value="StatusEnqueued">Enqueued</option>
             <option value="StatusInProgress">In Progress</option>
             <option value="StatusDone">Done</option>
           </select>
+          <span id="statusFilter-help" class="sr-only">Filter requests by status</span>
         </div>
 
         <div class="filter-group">
           <label for="sortBy">Sort by:</label>
-          <select id="sortBy" class="filter-select">
+          <select id="sortBy" class="filter-select" aria-describedby="sortBy-help">
             <option value="created_at_desc">Newest First</option>
             <option value="created_at_asc">Oldest First</option>
             <option value="status_asc">Status</option>
             <option value="updated_at_desc">Recently Updated</option>
           </select>
+          <span id="sortBy-help" class="sr-only">Sort requests by different criteria</span>
         </div>
 
-        <button id="clearFilters" class="btn btn-secondary">
+        <button id="clearFilters" class="btn btn-secondary" aria-label="Clear all filters and search">
           Clear Filters
         </button>
       </div>
 
       <!-- Stats Cards -->
-      <div class="stats-grid">
+      <div class="stats-grid" role="group" aria-labelledby="stats-heading">
+        <h3 id="stats-heading" class="sr-only">Request statistics</h3>
         <div class="stat-card">
-          <div class="stat-value" id="totalRequests">-</div>
+          <div class="stat-value" id="totalRequests" role="status" aria-live="polite">-</div>
           <div class="stat-label">Total Requests</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="pendingRequests">-</div>
+          <div class="stat-value" id="pendingRequests" role="status" aria-live="polite">-</div>
           <div class="stat-label">Pending</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="inProgressRequests">-</div>
+          <div class="stat-value" id="inProgressRequests" role="status" aria-live="polite">-</div>
           <div class="stat-label">In Progress</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value" id="completedRequests">-</div>
+          <div class="stat-value" id="completedRequests" role="status" aria-live="polite">-</div>
           <div class="stat-label">Completed</div>
         </div>
       </div>
 
       <!-- Print Requests Table -->
       <div class="requests-container">
-        <div id="loadingSpinner" class="loading-spinner">
-          <div class="spinner"></div>
+        <div id="loadingSpinner" class="loading-spinner" role="status" aria-live="polite">
+          <div class="spinner" aria-hidden="true"></div>
           <p>Loading your print requests...</p>
         </div>
 
         <div id="emptyState" class="empty-state" style="display: none">
-          <div class="empty-icon">📄</div>
+          <div class="empty-icon" aria-hidden="true">📄</div>
           <h3>No print requests found</h3>
           <p>You haven't submitted any print requests yet.</p>
           <button
             class="btn btn-primary"
             onclick="window.location.href='index.html'"
+            aria-label="Submit your first print request"
           >
             Submit Your First Request
           </button>
@@ -129,17 +136,18 @@
 
         <div id="requestsTable" class="requests-table" style="display: none">
           <div class="table-container">
-            <table>
+            <table role="table" aria-labelledby="requests-table-caption">
+              <caption id="requests-table-caption" class="sr-only">Print requests table with sorting and filtering options</caption>
               <thead>
                 <tr>
-                  <th>Request ID</th>
-                  <th>File</th>
-                  <th>Status</th>
-                  <th>Material</th>
-                  <th>Color</th>
-                  <th>Created</th>
-                  <th>Updated</th>
-                  <th>Actions</th>
+                  <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="id">Request ID</th>
+                  <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="file">File</th>
+                  <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="status">Status</th>
+                  <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="material">Material</th>
+                  <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="color">Color</th>
+                  <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="created">Created</th>
+                  <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="updated">Updated</th>
+                  <th role="columnheader">Actions</th>
                 </tr>
               </thead>
               <tbody id="requestsTableBody">
@@ -151,19 +159,19 @@
       </div>
 
       <!-- Pagination -->
-      <div id="pagination" class="pagination" style="display: none">
-        <button id="prevPage" class="pagination-btn" disabled>Previous</button>
-        <span id="pageInfo" class="page-info">Page 1 of 1</span>
-        <button id="nextPage" class="pagination-btn" disabled>Next</button>
+      <div id="pagination" class="pagination" role="navigation" aria-label="Pagination navigation" style="display: none">
+        <button id="prevPage" class="pagination-btn" disabled aria-label="Go to previous page">Previous</button>
+        <span id="pageInfo" class="page-info" role="status" aria-live="polite">Page 1 of 1</span>
+        <button id="nextPage" class="pagination-btn" disabled aria-label="Go to next page">Next</button>
       </div>
     </main>
 
     <!-- Request Details Modal -->
-    <div id="requestModal" class="modal" style="display: none">
+    <div id="requestModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="modalTitle" style="display: none">
       <div class="modal-content">
         <div class="modal-header">
           <h3 id="modalTitle">Request Details</h3>
-          <span class="close" id="modalClose">&times;</span>
+          <button class="close" id="modalClose" aria-label="Close dialog">&times;</button>
         </div>
         <div class="modal-body" id="modalBody">
           <!-- Dynamic content will be inserted here -->
@@ -174,6 +182,7 @@
       </div>
     </div>
 
+    <script src="accessibility.js"></script>
     <script src="shared-auth.js"></script>
     <script src="dashboard.js"></script>
   </body>

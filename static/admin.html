@@ -6,54 +6,59 @@
     <title>Print Request Admin</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="admin.css" />
+    <link rel="stylesheet" href="accessibility.css" />
   </head>
   <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="container">
-      <header>
+      <header role="banner">
         <h1>Print Request Admin</h1>
-        <nav class="admin-nav">
-          <a href="admin.html" class="active">Print Requests</a>
+        <nav class="admin-nav" role="navigation" aria-label="Admin navigation">
+          <a href="admin.html" class="active" aria-current="page">Print Requests</a>
           <a href="admin-users.html">Users</a>
         </nav>
-        <div class="status-filter">
+        <div class="status-filter" role="region" aria-labelledby="filter-heading">
+          <h2 id="filter-heading" class="sr-only">Filters</h2>
           <label for="statusFilter">Filter by Status:</label>
-          <select id="statusFilter">
+          <select id="statusFilter" aria-describedby="filter-help">
             <option value="">All Statuses</option>
             <option value="StatusPendingApproval">Pending Approval</option>
             <option value="StatusEnqueued">Enqueued</option>
             <option value="StatusInProgress">In Progress</option>
             <option value="StatusDone">Done</option>
           </select>
+          <span id="filter-help" class="sr-only">Select a status to filter the print requests table</span>
         </div>
       </header>
 
-      <main>
+      <main role="main" id="main-content">
         <div class="print-requests-list">
-          <table>
+          <table role="table" aria-labelledby="table-caption">
+            <caption id="table-caption" class="sr-only">Print requests table with sorting and filtering options</caption>
             <thead>
               <tr>
-                <th class="sortable" data-sort="id">
-                  ID <span class="sort-indicator"></span>
+                <th class="sortable" data-sort="id" role="columnheader" aria-sort="none" tabindex="0">
+                  ID <span class="sort-indicator" aria-hidden="true"></span>
                 </th>
-                <th class="sortable" data-sort="user">
-                  User <span class="sort-indicator"></span>
+                <th class="sortable" data-sort="user" role="columnheader" aria-sort="none" tabindex="0">
+                  User <span class="sort-indicator" aria-hidden="true"></span>
                 </th>
-                <th class="sortable" data-sort="file">
-                  File <span class="sort-indicator"></span>
+                <th class="sortable" data-sort="file" role="columnheader" aria-sort="none" tabindex="0">
+                  File <span class="sort-indicator" aria-hidden="true"></span>
                 </th>
-                <th class="sortable" data-sort="filament">
-                  Filament/Spool <span class="sort-indicator"></span>
+                <th class="sortable" data-sort="filament" role="columnheader" aria-sort="none" tabindex="0">
+                  Filament/Spool <span class="sort-indicator" aria-hidden="true"></span>
                 </th>
-                <th class="sortable" data-sort="notes">
-                  Notes <span class="sort-indicator"></span>
+                <th class="sortable" data-sort="notes" role="columnheader" aria-sort="none" tabindex="0">
+                  Notes <span class="sort-indicator" aria-hidden="true"></span>
                 </th>
-                <th class="sortable" data-sort="status">
-                  Status <span class="sort-indicator"></span>
+                <th class="sortable" data-sort="status" role="columnheader" aria-sort="none" tabindex="0">
+                  Status <span class="sort-indicator" aria-hidden="true"></span>
                 </th>
-                <th class="sortable" data-sort="created">
-                  Created <span class="sort-indicator"></span>
+                <th class="sortable" data-sort="created" role="columnheader" aria-sort="none" tabindex="0">
+                  Created <span class="sort-indicator" aria-hidden="true"></span>
                 </th>
-                <th>Actions</th>
+                <th role="columnheader">Actions</th>
               </tr>
             </thead>
             <tbody id="printRequestsTableBody">
@@ -63,10 +68,12 @@
         </div>
       </main>
     </div>
-    <div id="statusUpdateModal" class="modal">
+    <div id="statusUpdateModal" class="modal" role="dialog" aria-labelledby="modal-title" aria-hidden="true">
       <div class="modal-content">
-        <h2>Update Status</h2>
-        <select id="newStatusSelect"></select>
+        <h2 id="modal-title">Update Status</h2>
+        <label for="newStatusSelect" class="sr-only">Select new status</label>
+        <select id="newStatusSelect" aria-describedby="status-help"></select>
+        <span id="status-help" class="sr-only">Choose the new status for this print request</span>
         <div class="modal-buttons">
           <button id="confirmStatusUpdate" class="action-button update">
             Update
@@ -77,6 +84,7 @@
         </div>
       </div>
     </div>
+    <script src="accessibility.js"></script>
     <script src="admin.js"></script>
   </body>
 </html>

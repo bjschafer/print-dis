@@ -6,41 +6,43 @@
     <title>User Management - Admin</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="admin.css" />
+    <link rel="stylesheet" href="accessibility.css" />
   </head>
   <body>
     <div class="container">
       <header>
         <h1>User Management</h1>
-        <nav class="admin-nav">
-          <a href="admin.html">Print Requests</a>
-          <a href="admin-users.html" class="active">Users</a>
+        <nav class="admin-nav" role="navigation" aria-label="Admin navigation" id="main-nav">
+          <a href="admin.html" role="menuitem">Print Requests</a>
+          <a href="admin-users.html" class="active" role="menuitem" aria-current="page">Users</a>
         </nav>
-        <div class="stats-summary" id="userStats">
+        <div class="stats-summary" id="userStats" role="status" aria-live="polite">
           <!-- User statistics will be populated here -->
         </div>
       </header>
 
-      <main>
+      <main role="main" id="main-content">
         <div class="users-list">
-          <table>
+          <table role="table" aria-labelledby="users-table-caption">
+            <caption id="users-table-caption" class="sr-only">Users table with sorting and management options</caption>
             <thead>
               <tr>
-                <th class="sortable" data-sort="username">
+                <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="username">
                   Username <span class="sort-indicator"></span>
                 </th>
-                <th class="sortable" data-sort="email">
+                <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="email">
                   Email <span class="sort-indicator"></span>
                 </th>
-                <th class="sortable" data-sort="role">
+                <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="role">
                   Role <span class="sort-indicator"></span>
                 </th>
-                <th class="sortable" data-sort="status">
+                <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="status">
                   Status <span class="sort-indicator"></span>
                 </th>
-                <th class="sortable" data-sort="created">
+                <th class="sortable" role="columnheader" aria-sort="none" tabindex="0" data-sort="created">
                   Created <span class="sort-indicator"></span>
                 </th>
-                <th>Actions</th>
+                <th role="columnheader">Actions</th>
               </tr>
             </thead>
             <tbody id="usersTableBody">
@@ -52,19 +54,20 @@
     </div>
 
     <!-- Role Update Modal -->
-    <div id="roleUpdateModal" class="modal">
+    <div id="roleUpdateModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="roleUpdateTitle">
       <div class="modal-content">
-        <h2>Update User Role</h2>
-        <p>User: <span id="roleUpdateUsername"></span></p>
+        <h2 id="roleUpdateTitle">Update User Role</h2>
+        <p>User: <span id="roleUpdateUsername" class="username-display"></span></p>
         <div class="form-group">
           <label for="newRoleSelect">New Role:</label>
-          <select id="newRoleSelect">
+          <select id="newRoleSelect" aria-describedby="role-help">
             <option value="user">User</option>
             <option value="moderator">Moderator</option>
             <option value="admin">Admin</option>
           </select>
+          <div id="role-help" class="sr-only">Select the new role for this user</div>
         </div>
-        <div class="modal-buttons">
+        <div class="modal-buttons" role="group" aria-labelledby="roleUpdateTitle">
           <button id="confirmRoleUpdate" class="action-button update">
             Update Role
           </button>
@@ -76,18 +79,19 @@
     </div>
 
     <!-- Status Update Modal -->
-    <div id="statusUpdateModal" class="modal">
+    <div id="statusUpdateModal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="statusUpdateTitle">
       <div class="modal-content">
-        <h2>Update User Status</h2>
-        <p>User: <span id="statusUpdateUsername"></span></p>
+        <h2 id="statusUpdateTitle">Update User Status</h2>
+        <p>User: <span id="statusUpdateUsername" class="username-display"></span></p>
         <div class="form-group">
           <label for="newStatusSelect">Status:</label>
-          <select id="newStatusSelect">
+          <select id="newStatusSelect" aria-describedby="status-help">
             <option value="true">Enabled</option>
             <option value="false">Disabled</option>
           </select>
+          <div id="status-help" class="sr-only">Choose whether this user should be enabled or disabled</div>
         </div>
-        <div class="modal-buttons">
+        <div class="modal-buttons" role="group" aria-labelledby="statusUpdateTitle">
           <button id="confirmStatusUpdate" class="action-button update">
             Update Status
           </button>
@@ -98,6 +102,7 @@
       </div>
     </div>
 
+    <script src="accessibility.js"></script>
     <script src="shared-auth.js"></script>
     <script src="admin-users.js"></script>
   </body>

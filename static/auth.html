@@ -6,10 +6,11 @@
     <title>Print-Dis - Authentication</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="auth.css" />
+    <link rel="stylesheet" href="accessibility.css" />
   </head>
   <body>
     <div class="container">
-      <div class="auth-container">
+      <main class="auth-container" role="main" id="main-content">
         <div class="auth-header">
           <h1>Print-Dis</h1>
           <p>3D Print Request Management</p>
@@ -18,7 +19,7 @@
         <!-- Login Form -->
         <div id="loginForm" class="auth-form">
           <h2>Sign In</h2>
-          <form id="loginFormElement">
+          <form id="loginFormElement" novalidate>
             <div class="form-group">
               <label for="loginUsername">Username:</label>
               <input
@@ -27,7 +28,10 @@
                 name="username"
                 required
                 autocomplete="username"
+                aria-required="true"
+                aria-describedby="loginUsername-error"
               />
+              <div id="loginUsername-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></div>
             </div>
 
             <div class="form-group">
@@ -38,15 +42,18 @@
                 name="password"
                 required
                 autocomplete="current-password"
+                aria-required="true"
+                aria-describedby="loginPassword-error"
               />
+              <div id="loginPassword-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></div>
             </div>
 
-            <button type="submit" class="auth-btn primary">Sign In</button>
+            <button type="submit" class="auth-btn primary" aria-describedby="login-status">Sign In</button>
           </form>
 
           <div class="auth-links">
             <p>
-              Don't have an account? <a href="#" id="showRegister">Sign up</a>
+              Don't have an account? <a href="#" id="showRegister" aria-label="Show registration form">Sign up</a>
             </p>
           </div>
         </div>
@@ -54,7 +61,7 @@
         <!-- Registration Form -->
         <div id="registerForm" class="auth-form" style="display: none">
           <h2>Create Account</h2>
-          <form id="registerFormElement">
+          <form id="registerFormElement" novalidate>
             <div class="form-group">
               <label for="registerUsername">Username:</label>
               <input
@@ -63,7 +70,11 @@
                 name="username"
                 required
                 autocomplete="username"
+                aria-required="true"
+                aria-describedby="registerUsername-error registerUsername-help"
               />
+              <div id="registerUsername-help" class="sr-only">Username must be unique</div>
+              <div id="registerUsername-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></div>
             </div>
 
             <div class="form-group">
@@ -73,7 +84,10 @@
                 id="registerEmail"
                 name="email"
                 autocomplete="email"
+                aria-describedby="registerEmail-error registerEmail-help"
               />
+              <div id="registerEmail-help" class="sr-only">Email is optional but recommended for password recovery</div>
+              <div id="registerEmail-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></div>
             </div>
 
             <div class="form-group">
@@ -85,7 +99,11 @@
                 required
                 autocomplete="new-password"
                 minlength="6"
+                aria-required="true"
+                aria-describedby="registerPassword-error registerPassword-help"
               />
+              <div id="registerPassword-help" class="sr-only">Password must be at least 6 characters long</div>
+              <div id="registerPassword-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></div>
             </div>
 
             <div class="form-group">
@@ -97,17 +115,21 @@
                 required
                 autocomplete="new-password"
                 minlength="6"
+                aria-required="true"
+                aria-describedby="confirmPassword-error confirmPassword-help"
               />
+              <div id="confirmPassword-help" class="sr-only">Must match the password above</div>
+              <div id="confirmPassword-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></div>
             </div>
 
-            <button type="submit" class="auth-btn primary">
+            <button type="submit" class="auth-btn primary" aria-describedby="register-status">
               Create Account
             </button>
           </form>
 
           <div class="auth-links">
             <p>
-              Already have an account? <a href="#" id="showLogin">Sign in</a>
+              Already have an account? <a href="#" id="showLogin" aria-label="Show login form">Sign in</a>
             </p>
           </div>
         </div>
@@ -118,13 +140,15 @@
             <span>OR</span>
           </div>
 
-          <div class="oidc-buttons">
+          <div class="oidc-buttons" role="group" aria-labelledby="oidc-heading">
+            <h3 id="oidc-heading" class="sr-only">Single sign-on options</h3>
             <a
               href="/auth/oidc/google"
               class="oidc-btn google-btn"
               style="display: none"
+              aria-label="Sign in with Google"
             >
-              <svg class="oidc-icon" viewBox="0 0 24 24">
+              <svg class="oidc-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -149,8 +173,9 @@
               href="/auth/oidc/microsoft"
               class="oidc-btn microsoft-btn"
               style="display: none"
+              aria-label="Sign in with Microsoft"
             >
-              <svg class="oidc-icon" viewBox="0 0 24 24">
+              <svg class="oidc-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="#F25022" d="M1 1h10v10H1z" />
                 <path fill="#00A4EF" d="M13 1h10v10H13z" />
                 <path fill="#7FBA00" d="M1 13h10v10H1z" />
@@ -161,10 +186,11 @@
           </div>
         </div>
 
-        <div id="status" class="status"></div>
-      </div>
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+      </main>
     </div>
 
+    <script src="accessibility.js"></script>
     <script src="shared-auth.js"></script>
     <script src="auth.js"></script>
   </body>

@@ -33,14 +33,7 @@ func newSQLiteClient(cfg *Config) (DBClient, error) {
 		return nil, fmt.Errorf("failed to open SQLite database: %w", err)
 	}
 
-	// Initialize the database schema
-	if err := initSQLiteSchema(db); err != nil {
-		logger.Error("failed to initialize SQLite schema",
-			"error", err,
-		)
-		db.Close()
-		return nil, fmt.Errorf("failed to initialize schema: %w", err)
-	}
+	// Note: Database schema is now handled by the migration system in main.go
 
 	return &sqliteClient{
 		baseClient: baseClient{db: db},

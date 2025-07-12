@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/bjschafer/print-dis/internal/migrations"
 	"github.com/bjschafer/print-dis/internal/models"
 )
 
@@ -28,7 +29,7 @@ func TestSQLiteClient(t *testing.T) {
 	defer client.Close()
 
 	// Run the test suite
-	testDatabaseClient(t, client)
+	testDatabaseClient(t, client, "sqlite")
 }
 
 func TestPostgresClient(t *testing.T) {
@@ -57,17 +58,28 @@ func TestPostgresClient(t *testing.T) {
 	defer client.Close()
 
 	// Run the test suite
-	testDatabaseClient(t, client)
+	testDatabaseClient(t, client, "postgres")
 }
 
-func testDatabaseClient(t *testing.T, client DBClient) {
+func testDatabaseClient(t *testing.T, client DBClient, dbType string) {
 	ctx := context.Background()
+	
+	// Run migrations to set up the database schema
+	rawDB := client.GetDB()
+	if rawDB == nil {
+		t.Fatal("Failed to get raw database connection")
+	}
+	
+	migrator := migrations.NewMigrator(rawDB, dbType)
+	if err := migrator.Up(); err != nil {
+		t.Fatalf("Failed to run migrations: %v", err)
+	}
 
 	// Test printer operations
 	t.Run("Printer CRUD", func(t *testing.T) {
 		// Create a printer
 		printer := &models.Printer{
-			Name: "Test Printer",
+			Name: "Test Printer Single",
 			Dimensions: models.Dimension{
 				X: 200,
 				Y: 200,
@@ -138,7 +150,7 @@ func testDatabaseClient(t *testing.T, client DBClient) {
 	t.Run("Filament CRUD", func(t *testing.T) {
 		// Create a material first
 		material := &models.Material{
-			Name: "Test Material",
+			Name: "Test Material Filament",
 		}
 		err := client.CreateMaterial(ctx, material)
 		if err != nil {
@@ -213,7 +225,7 @@ func testDatabaseClient(t *testing.T, client DBClient) {
 	t.Run("Job CRUD", func(t *testing.T) {
 		// Create required dependencies
 		printer := &models.Printer{
-			Name: "Test Printer",
+			Name: "Test Printer Job",
 			Dimensions: models.Dimension{
 				X: 200,
 				Y: 200,
@@ -227,7 +239,7 @@ func testDatabaseClient(t *testing.T, client DBClient) {
 		}
 
 		material := &models.Material{
-			Name: "Test Material",
+			Name: "Test Material Job",
 		}
 		err = client.CreateMaterial(ctx, material)
 		if err != nil {

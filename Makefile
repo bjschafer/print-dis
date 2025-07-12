@@ -28,7 +28,7 @@ generate:
 	GOARCH=$(ARCH) GOOS=$(OS) go generate -v ./...
 
 .PHONY: build
-build: bin/print-dis
+build: bin/print-dis bin/migrate
 
 .PHONY: clean
 clean:
@@ -37,6 +37,9 @@ clean:
 
 bin/print-dis: $(GO_SOURCES) generate
 	GOARCH=$(GOARCH) GOOS=$(GOOS) go build -o bin/print-dis $(BUILD_FLAGS) ./main.go
+
+bin/migrate: $(GO_SOURCES) generate
+	GOARCH=$(GOARCH) GOOS=$(GOOS) go build -o bin/migrate $(BUILD_FLAGS) ./cmd/migrate/main.go
 
 .PHONY: package
 package:

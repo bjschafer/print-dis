@@ -6,6 +6,7 @@
     <title>Welcome to Print-Dis</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="dashboard.css" />
+    <link rel="stylesheet" href="accessibility.css" />
     <style>
       .welcome-container {
         max-width: 800px;
@@ -72,58 +73,67 @@
     </style>
   </head>
   <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="welcome-container">
-      <div class="welcome-hero">
+      <div class="welcome-hero" role="banner">
         <h1>Print-Dis</h1>
         <p>Your 3D Printing Request Management System</p>
       </div>
 
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon">📋</div>
-          <h3>Easy Submissions</h3>
-          <p>
-            Submit print requests with file links, material preferences, and
-            detailed notes.
-          </p>
+      <main id="main-content" role="main">
+        <div class="features-grid" role="region" aria-labelledby="features-heading">
+          <h2 id="features-heading" class="sr-only">Key Features</h2>
+          
+          <div class="feature-card">
+            <div class="feature-icon" aria-hidden="true">📋</div>
+            <h3>Easy Submissions</h3>
+            <p>
+              Submit print requests with file links, material preferences, and
+              detailed notes.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon" aria-hidden="true">📊</div>
+            <h3>Track Progress</h3>
+            <p>
+              Monitor your requests from submission to completion with real-time
+              status updates.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon" aria-hidden="true">👥</div>
+            <h3>User Management</h3>
+            <p>
+              Role-based access control with admin and moderator capabilities.
+            </p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon" aria-hidden="true">🎯</div>
+            <h3>Organized Queue</h3>
+            <p>
+              Efficient print queue management with priority and status tracking.
+            </p>
+          </div>
         </div>
 
-        <div class="feature-card">
-          <div class="feature-icon">📊</div>
-          <h3>Track Progress</h3>
-          <p>
-            Monitor your requests from submission to completion with real-time
-            status updates.
-          </p>
+        <div class="action-buttons" role="region" aria-labelledby="actions-heading">
+          <h2 id="actions-heading" class="sr-only">Actions</h2>
+          <a href="dashboard.html" class="btn btn-primary btn-large" aria-describedby="dashboard-desc">
+            Go to Dashboard
+          </a>
+          <span id="dashboard-desc" class="sr-only">View your print requests and account dashboard</span>
+          <a href="index.html" class="btn btn-secondary btn-large" aria-describedby="submit-desc">
+            Submit a Request
+          </a>
+          <span id="submit-desc" class="sr-only">Submit a new 3D print request</span>
         </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">👥</div>
-          <h3>User Management</h3>
-          <p>
-            Role-based access control with admin and moderator capabilities.
-          </p>
-        </div>
-
-        <div class="feature-card">
-          <div class="feature-icon">🎯</div>
-          <h3>Organized Queue</h3>
-          <p>
-            Efficient print queue management with priority and status tracking.
-          </p>
-        </div>
-      </div>
-
-      <div class="action-buttons">
-        <a href="dashboard.html" class="btn btn-primary btn-large">
-          Go to Dashboard
-        </a>
-        <a href="index.html" class="btn btn-secondary btn-large">
-          Submit a Request
-        </a>
-      </div>
+      </main>
     </div>
 
+    <script src="accessibility.js"></script>
     <script>
       // Check if user is authenticated and redirect accordingly
       document.addEventListener("DOMContentLoaded", async () => {

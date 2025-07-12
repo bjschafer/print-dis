@@ -53,23 +53,83 @@ document.addEventListener("DOMContentLoaded", async () => {
     loginForm.style.display = "none";
     registerForm.style.display = "block";
     clearStatus();
+    
+    // Focus first input in registration form
+    const firstInput = registerForm.querySelector('input');
+    if (firstInput) {
+      firstInput.focus();
+    }
+    
+    // Announce form change
+    if (window.AccessibilityModule) {
+      window.AccessibilityModule.announce('Registration form opened', 'polite');
+    }
   }
 
   function showLoginForm() {
     registerForm.style.display = "none";
     loginForm.style.display = "block";
     clearStatus();
+    
+    // Focus first input in login form
+    const firstInput = loginForm.querySelector('input');
+    if (firstInput) {
+      firstInput.focus();
+    }
+    
+    // Announce form change
+    if (window.AccessibilityModule) {
+      window.AccessibilityModule.announce('Login form opened', 'polite');
+    }
   }
 
   function validatePasswordMatch() {
     const password = passwordField.value;
     const confirmPassword = confirmPasswordField.value;
+    const errorElement = document.getElementById('confirmPassword-error');
 
     if (confirmPassword && password !== confirmPassword) {
       confirmPasswordField.setCustomValidity("Passwords do not match");
+      confirmPasswordField.setAttribute('aria-invalid', 'true');
+      showFieldError('confirmPassword', 'Passwords do not match');
     } else {
       confirmPasswordField.setCustomValidity("");
+      confirmPasswordField.setAttribute('aria-invalid', 'false');
+      hideFieldError('confirmPassword');
     }
+  }
+
+  // Show field-specific error
+  function showFieldError(fieldId, message) {
+    const errorElement = document.getElementById(`${fieldId}-error`);
+    if (errorElement) {
+      errorElement.textContent = message;
+      errorElement.style.display = 'block';
+    }
+  }
+
+  // Hide field-specific error
+  function hideFieldError(fieldId) {
+    const errorElement = document.getElementById(`${fieldId}-error`);
+    if (errorElement) {
+      errorElement.style.display = 'none';
+      errorElement.textContent = '';
+    }
+  }
+
+  // Clear all field errors
+  function clearAllFieldErrors() {
+    const errorElements = document.querySelectorAll('.error-message');
+    errorElements.forEach(element => {
+      element.style.display = 'none';
+      element.textContent = '';
+    });
+    
+    // Reset aria-invalid attributes
+    const inputs = document.querySelectorAll('input');
+    inputs.forEach(input => {
+      input.setAttribute('aria-invalid', 'false');
+    });
   }
 
   async function handleLogin(e) {
@@ -77,13 +137,30 @@ document.addEventListener("DOMContentLoaded", async () => {
     const username = formData.get("username");
     const password = formData.get("password");
 
+    // Clear previous errors
+    clearAllFieldErrors();
+    clearStatus();
+
     if (!username || !password) {
       showStatus("Please fill in all fields", "error");
+      
+      // Focus first empty field
+      if (!username) {
+        document.getElementById('loginUsername').focus();
+        showFieldError('loginUsername', 'Username is required');
+      } else if (!password) {
+        document.getElementById('loginPassword').focus();
+        showFieldError('loginPassword', 'Password is required');
+      }
       return;
     }
 
     const submitButton = e.target.querySelector('button[type="submit"]');
     setButtonLoading(submitButton, true);
+    
+    // Update button text for screen readers
+    const originalText = submitButton.textContent;
+    submitButton.setAttribute('aria-label', 'Signing in, please wait');
 
     try {
       const response = await fetch("/api/auth/login", {
@@ -115,6 +192,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       showStatus(error.message || "Login failed", "error");
     } finally {
       setButtonLoading(submitButton, false);
+      // Restore original button label
+      submitButton.setAttribute('aria-label', originalText);
     }
   }
 
@@ -236,6 +315,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     statusDiv.textContent = message;
     statusDiv.className = `status ${type}`;
     statusDiv.style.display = "block";
+    
+    // Announce to screen readers
+    if (window.AccessibilityModule) {
+      const priority = type === 'error' ? 'assertive' : 'polite';
+      window.AccessibilityModule.announce(message, priority);
+    }
 
     // Auto-hide success messages after 3 seconds
     if (type === "success") {

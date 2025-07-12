@@ -60,6 +60,9 @@ type DBClient interface {
 
 	// Close closes the database connection
 	Close() error
+
+	// GetDB returns the underlying database connection for migration purposes
+	GetDB() *sql.DB
 }
 
 // Tx defines the interface for database transactions
@@ -121,6 +124,11 @@ func (c *baseClient) BeginTx(ctx context.Context) (Tx, error) {
 // Close implements the DBClient interface
 func (c *baseClient) Close() error {
 	return c.db.Close()
+}
+
+// GetDB returns the underlying database connection for migration purposes
+func (c *baseClient) GetDB() *sql.DB {
+	return c.db.DB
 }
 
 // txWrapper wraps an sqlx.Tx to implement the Tx interface

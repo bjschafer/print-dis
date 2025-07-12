@@ -15,6 +15,7 @@ import (
 	"github.com/bjschafer/print-dis/internal/database"
 	"github.com/bjschafer/print-dis/internal/handlers"
 	"github.com/bjschafer/print-dis/internal/middleware"
+	"github.com/bjschafer/print-dis/internal/migrations"
 	"github.com/bjschafer/print-dis/internal/router"
 	"github.com/bjschafer/print-dis/internal/services"
 	"github.com/bjschafer/print-dis/internal/spoolman"
@@ -68,6 +69,20 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+
+	// Run database migrations
+	rawDB := db.GetDB()
+	if rawDB == nil {
+		slog.Error("failed to get raw database connection for migrations")
+		os.Exit(1)
+	}
+	
+	migrator := migrations.NewMigrator(rawDB, cfg.DB.Type)
+	if err := migrator.Up(); err != nil {
+		slog.Error("failed to run database migrations", "error", err)
+		os.Exit(1)
+	}
+	slog.Info("database migrations completed successfully")
 
 	// Create service layer
 	printRequestService := services.NewPrintRequestService(db)

@@ -1,0 +1,358 @@
+/* Accessibility CSS - Focus indicators, screen reader support, and keyboard navigation */
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip links */
+.skip-links {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  z-index: 1000;
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #000;
+  color: #fff;
+  padding: 8px;
+  text-decoration: none;
+  border-radius: 0 0 4px 4px;
+  font-size: 14px;
+  font-weight: bold;
+  transition: top 0.3s ease;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Focus indicators - only show when keyboard navigating */
+.keyboard-focus *:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* High contrast focus indicators for specific elements */
+.keyboard-focus button:focus,
+.keyboard-focus input:focus,
+.keyboard-focus select:focus,
+.keyboard-focus textarea:focus,
+.keyboard-focus a:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.25);
+}
+
+/* Focus indicators for custom elements */
+.keyboard-focus .sortable:focus {
+  background-color: rgba(0, 123, 255, 0.1);
+  outline: 2px solid #007bff;
+  outline-offset: -2px;
+}
+
+/* Modal focus trap styling */
+.modal[aria-hidden="false"] {
+  display: block !important;
+}
+
+.modal[aria-hidden="true"] {
+  display: none !important;
+}
+
+/* Better focus indicators for dropdown buttons */
+.keyboard-focus .dropdown-btn:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+/* Keyboard navigation indicators */
+.keyboard-focus [role="group"] button:focus {
+  background-color: rgba(0, 123, 255, 0.1);
+  border-color: #007bff;
+}
+
+/* Sort indicators */
+.sort-indicator {
+  margin-left: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.sortable[aria-sort="ascending"] .sort-indicator::before {
+  content: "↑";
+}
+
+.sortable[aria-sort="descending"] .sort-indicator::before {
+  content: "↓";
+}
+
+/* Better contrast for status indicators */
+.status {
+  font-weight: bold;
+}
+
+.status.success {
+  color: #28a745;
+}
+
+.status.error {
+  color: #dc3545;
+}
+
+.status.warning {
+  color: #ffc107;
+}
+
+.status.info {
+  color: #17a2b8;
+}
+
+/* Accessible form styling */
+input:required,
+select:required,
+textarea:required {
+  border-left: 3px solid #007bff;
+}
+
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: #dc3545;
+  background-color: #fff5f5;
+}
+
+/* Loading indicators */
+.loading-spinner[role="status"] {
+  position: relative;
+}
+
+.loading-spinner[role="status"]::after {
+  content: "Loading...";
+  position: absolute;
+  left: -9999px;
+}
+
+/* Better button states */
+button:disabled,
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button:disabled:focus,
+.btn:disabled:focus {
+  outline: 2px solid #6c757d;
+}
+
+/* Pagination accessibility */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.keyboard-focus .pagination-btn:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* Table accessibility */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+table caption {
+  font-weight: bold;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+th[role="columnheader"] {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+th[role="columnheader"]:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+th[role="columnheader"]:focus {
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+/* Row hover effects */
+tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.025);
+}
+
+/* Better contrast for action buttons */
+.action-button {
+  min-width: 80px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-button.update {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.action-button.update:hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+.action-button.cancel {
+  background-color: #6c757d;
+  color: white;
+  border-color: #6c757d;
+}
+
+.action-button.cancel:hover {
+  background-color: #545b62;
+  border-color: #545b62;
+}
+
+.action-button.delete {
+  background-color: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+.action-button.delete:hover {
+  background-color: #c82333;
+  border-color: #c82333;
+}
+
+/* Responsive focus indicators */
+@media (max-width: 768px) {
+  .keyboard-focus *:focus {
+    outline-width: 3px;
+    outline-offset: 3px;
+  }
+  
+  .skip-link {
+    font-size: 16px;
+    padding: 12px 16px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .keyboard-focus *:focus {
+    outline-width: 3px;
+    outline-color: Highlight;
+  }
+  
+  .sort-indicator {
+    font-weight: bold;
+  }
+  
+  .status {
+    font-weight: bold;
+    text-decoration: underline;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .skip-link {
+    transition: none;
+  }
+  
+  .action-button {
+    transition: none;
+  }
+}
+
+/* Dark mode accessibility */
+@media (prefers-color-scheme: dark) {
+  .skip-link {
+    background: #fff;
+    color: #000;
+  }
+  
+  .keyboard-focus *:focus {
+    outline-color: #66b3ff;
+  }
+  
+  .keyboard-focus button:focus,
+  .keyboard-focus input:focus,
+  .keyboard-focus select:focus,
+  .keyboard-focus textarea:focus,
+  .keyboard-focus a:focus {
+    outline-color: #66b3ff;
+    box-shadow: 0 0 0 4px rgba(102, 179, 255, 0.25);
+  }
+}
+
+/* Error message styling */
+.error-message {
+  color: #dc3545;
+  font-size: 14px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.error-message::before {
+  content: "⚠";
+  color: #dc3545;
+}
+
+/* Success message styling */
+.success-message {
+  color: #28a745;
+  font-size: 14px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.success-message::before {
+  content: "✓";
+  color: #28a745;
+}
+
+/* Loading state accessibility */
+.loading {
+  position: relative;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.loading::after {
+  content: "Loading...";
+  position: absolute;
+  left: -9999px;
+  top: 0;
+}

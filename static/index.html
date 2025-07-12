@@ -6,19 +6,21 @@
     <title>Print-Dis - Submit Job</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="dashboard.css" />
+    <link rel="stylesheet" href="accessibility.css" />
   </head>
   <body>
-    <nav class="navbar">
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
       <div class="nav-container">
         <div class="nav-left">
           <h1 class="nav-title">Print-Dis</h1>
         </div>
         <div class="nav-center">
-          <ul class="nav-menu">
-            <li><a href="dashboard.html" class="nav-link">Dashboard</a></li>
-            <li><a href="index.html" class="nav-link active">Submit Job</a></li>
-            <li>
-              <a href="#" id="adminLink" class="nav-link" style="display: none"
+          <ul class="nav-menu" role="menubar">
+            <li role="none"><a href="dashboard.html" class="nav-link" role="menuitem">Dashboard</a></li>
+            <li role="none"><a href="index.html" class="nav-link active" role="menuitem" aria-current="page">Submit Job</a></li>
+            <li role="none">
+              <a href="#" id="adminLink" class="nav-link" role="menuitem" style="display: none"
                 >Admin</a
               >
             </li>
@@ -28,10 +30,10 @@
           <div class="user-menu">
             <span id="username" class="username">Loading...</span>
             <div class="user-dropdown">
-              <button class="dropdown-btn" aria-label="User menu">⚙️</button>
-              <div class="dropdown-content">
-                <a href="#" id="changePasswordBtn">Change Password</a>
-                <a href="#" id="logoutBtn">Logout</a>
+              <button class="dropdown-btn" aria-label="User menu" aria-expanded="false" aria-haspopup="true">⚙️</button>
+              <div class="dropdown-content" role="menu">
+                <a href="#" id="changePasswordBtn" role="menuitem">Change Password</a>
+                <a href="#" id="logoutBtn" role="menuitem">Logout</a>
               </div>
             </div>
           </div>
@@ -40,92 +42,107 @@
     </nav>
 
     <div class="container">
-      <h1>Submit Print Job</h1>
-      <form id="printJobForm">
-        <div class="form-group">
-          <label for="submitter">Submitter:</label>
-          <input type="text" id="submitter" name="submitter" required />
-        </div>
+      <main role="main" id="main-content">
+        <h1>Submit Print Job</h1>
+        <form id="printJobForm" novalidate>
+          <div class="form-group">
+            <label for="submitter">Submitter:</label>
+            <input type="text" id="submitter" name="submitter" required aria-required="true" aria-describedby="submitter-error" />
+            <div id="submitter-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></div>
+          </div>
 
-        <div class="form-group">
-          <label for="fileLink">File Link:</label>
-          <input
-            type="url"
-            id="fileLink"
-            name="fileLink"
-            required
-            pattern="https?://.+"
-            title="Please enter a valid URL starting with http:// or https://"
-          />
-        </div>
+          <div class="form-group">
+            <label for="fileLink">File Link:</label>
+            <input
+              type="url"
+              id="fileLink"
+              name="fileLink"
+              required
+              aria-required="true"
+              pattern="https?://.+"
+              title="Please enter a valid URL starting with http:// or https://"
+              aria-describedby="fileLink-error fileLink-help"
+            />
+            <div id="fileLink-help" class="form-help">Enter a valid URL starting with http:// or https://</div>
+            <div id="fileLink-error" class="error-message" role="alert" aria-live="polite" style="display: none;"></div>
+          </div>
 
-        <div class="form-group">
-          <h3>Filament Selection</h3>
-          <p class="selection-description">
-            Choose one of the following options:
-          </p>
+          <fieldset class="form-group">
+            <legend>Filament Selection</legend>
+            <p class="selection-description">
+              Choose one of the following options:
+            </p>
 
-          <div class="selection-option">
-            <button
-              type="button"
-              id="spoolmanEnabled"
-              name="spoolmanEnabled"
-              class="pick-filament-btn"
-            >
-              Pick Filament from inventory
-            </button>
-            <div id="spoolmanFields" style="display: none">
-              <div class="form-group">
-                <label for="spoolmanSpool">Spool:</label>
-                <select id="spoolmanSpool" name="spoolmanSpool">
-                  <option value="">Select a spool...</option>
-                </select>
-              </div>
+            <div class="selection-option">
+              <button
+                type="button"
+                id="spoolmanEnabled"
+                name="spoolmanEnabled"
+                class="pick-filament-btn"
+                aria-describedby="spoolman-help"
+              >
+                Pick Filament from inventory
+              </button>
+              <div id="spoolman-help" class="form-help">Select filament from your Spoolman inventory</div>
+              <div id="spoolmanFields" style="display: none" aria-hidden="true">
+                <div class="form-group">
+                  <label for="spoolmanSpool">Spool:</label>
+                  <select id="spoolmanSpool" name="spoolmanSpool" aria-describedby="spool-help">
+                    <option value="">Select a spool...</option>
+                  </select>
+                  <div id="spool-help" class="form-help">Choose a specific spool from inventory</div>
+                </div>
 
-              <div class="form-group">
-                <label for="spoolmanMaterial">Material:</label>
-                <select id="spoolmanMaterial" name="spoolmanMaterial">
-                  <option value="">Select a material...</option>
-                </select>
-              </div>
+                <div class="form-group">
+                  <label for="spoolmanMaterial">Material:</label>
+                  <select id="spoolmanMaterial" name="spoolmanMaterial" aria-describedby="material-help">
+                    <option value="">Select a material...</option>
+                  </select>
+                  <div id="material-help" class="form-help">Choose the material type</div>
+                </div>
 
-              <div class="form-group">
-                <label>Color Preview:</label>
-                <div id="colorPreview" class="color-preview"></div>
+                <div class="form-group">
+                  <label for="colorPreview">Color Preview:</label>
+                  <div id="colorPreview" class="color-preview" role="img" aria-label="Color preview"></div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="selection-divider">
-            <span>OR</span>
-          </div>
+            <div class="selection-divider" role="separator">
+              <span>OR</span>
+            </div>
 
-          <div class="selection-option">
-            <h4>Manual Entry</h4>
-            <div id="manualFields">
-              <div class="form-group">
-                <label for="color">Color (optional):</label>
-                <input type="text" id="color" name="color" />
-              </div>
+            <div class="selection-option">
+              <h4>Manual Entry</h4>
+              <div id="manualFields">
+                <div class="form-group">
+                  <label for="color">Color (optional):</label>
+                  <input type="text" id="color" name="color" aria-describedby="color-help" />
+                  <div id="color-help" class="form-help">Enter the filament color manually</div>
+                </div>
 
-              <div class="form-group">
-                <label for="material">Material (optional):</label>
-                <input type="text" id="material" name="material" />
+                <div class="form-group">
+                  <label for="material">Material (optional):</label>
+                  <input type="text" id="material" name="material" aria-describedby="material-manual-help" />
+                  <div id="material-manual-help" class="form-help">Enter the material type manually</div>
+                </div>
               </div>
             </div>
+          </fieldset>
+
+          <div class="form-group">
+            <label for="notes">Notes:</label>
+            <textarea id="notes" name="notes" rows="3" aria-describedby="notes-help"></textarea>
+            <div id="notes-help" class="form-help">Add any additional information or special instructions</div>
           </div>
-        </div>
 
-        <div class="form-group">
-          <label for="notes">Notes:</label>
-          <textarea id="notes" name="notes" rows="3"></textarea>
-        </div>
+          <button type="submit">Submit Print Job</button>
+        </form>
 
-        <button type="submit">Submit Print Job</button>
-      </form>
-
-      <div id="status" class="status"></div>
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+      </main>
     </div>
+    <script src="accessibility.js"></script>
     <script src="shared-auth.js"></script>
     <script src="app.js"></script>
   </body>

@@ -42,14 +42,7 @@ func newPostgresClient(cfg *Config) (DBClient, error) {
 		return nil, fmt.Errorf("failed to open PostgreSQL database: %w", err)
 	}
 
-	// Initialize the database schema
-	if err := initPostgresSchema(db); err != nil {
-		logger.Error("failed to initialize PostgreSQL schema",
-			"error", err,
-		)
-		db.Close()
-		return nil, fmt.Errorf("failed to initialize schema: %w", err)
-	}
+	// Note: Database schema is now handled by the migration system in main.go
 
 	return &postgresClient{
 		baseClient: baseClient{db: db},
