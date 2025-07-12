@@ -139,7 +139,7 @@ func (h *PrintRequestHandler) CreatePrintRequest(w http.ResponseWriter, r *http.
 func (h *PrintRequestHandler) GetPrintRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.logger.Warn("invalid method for get print request", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.WriteErrorResponse(w, http.StatusMethodNotAllowed, response.BadRequest, "Method not allowed", "")
 		return
 	}
 
@@ -147,7 +147,7 @@ func (h *PrintRequestHandler) GetPrintRequest(w http.ResponseWriter, r *http.Req
 	id := r.URL.Query().Get("id")
 	if id == "" {
 		h.logger.Warn("missing print request ID")
-		http.Error(w, "Print request ID is required", http.StatusBadRequest)
+		response.WriteErrorResponse(w, http.StatusBadRequest, response.BadRequest, "Print request ID is required", "")
 		return
 	}
 
@@ -157,24 +157,23 @@ func (h *PrintRequestHandler) GetPrintRequest(w http.ResponseWriter, r *http.Req
 	printRequest, err := h.service.GetPrintRequest(r.Context(), id)
 	if err != nil {
 		h.logger.Error("failed to get print request", "error", err, "id", id)
-		http.Error(w, "Failed to get print request", http.StatusInternalServerError)
+		response.WriteErrorResponse(w, http.StatusInternalServerError, response.InternalError, "Failed to get print request", "")
 		return
 	}
 	if printRequest == nil {
 		h.logger.Warn("print request not found", "id", id)
-		http.Error(w, "Print request not found", http.StatusNotFound)
+		response.WriteErrorResponse(w, http.StatusNotFound, response.NotFound, "Print request not found", "")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(printRequest)
+	response.WriteSuccessResponse(w, printRequest, "")
 }
 
 // ListPrintRequests handles retrieving all print requests
 func (h *PrintRequestHandler) ListPrintRequests(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.logger.Warn("invalid method for list print requests", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.WriteErrorResponse(w, http.StatusMethodNotAllowed, response.BadRequest, "Method not allowed", "")
 		return
 	}
 
@@ -184,19 +183,18 @@ func (h *PrintRequestHandler) ListPrintRequests(w http.ResponseWriter, r *http.R
 	printRequests, err := h.service.ListPrintRequests(r.Context())
 	if err != nil {
 		h.logger.Error("failed to list print requests", "error", err)
-		http.Error(w, "Failed to list print requests", http.StatusInternalServerError)
+		response.WriteErrorResponse(w, http.StatusInternalServerError, response.InternalError, "Failed to list print requests", "")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(printRequests)
+	response.WriteSuccessResponse(w, printRequests, "")
 }
 
 // ListPrintRequestsEnhanced handles retrieving all print requests with spoolman details for admin view
 func (h *PrintRequestHandler) ListPrintRequestsEnhanced(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.logger.Warn("invalid method for list enhanced print requests", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.WriteErrorResponse(w, http.StatusMethodNotAllowed, response.BadRequest, "Method not allowed", "")
 		return
 	}
 
@@ -208,7 +206,7 @@ func (h *PrintRequestHandler) ListPrintRequestsEnhanced(w http.ResponseWriter, r
 	printRequests, err := h.service.ListPrintRequests(r.Context())
 	if err != nil {
 		h.logger.Error("failed to list print requests", "error", err)
-		http.Error(w, "Failed to list print requests", http.StatusInternalServerError)
+		response.WriteErrorResponse(w, http.StatusInternalServerError, response.InternalError, "Failed to list print requests", "")
 		return
 	}
 
@@ -252,7 +250,7 @@ func (h *PrintRequestHandler) ListPrintRequestsEnhanced(w http.ResponseWriter, r
 func (h *PrintRequestHandler) ListUserPrintRequests(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.logger.Warn("invalid method for list user print requests", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.WriteErrorResponse(w, http.StatusMethodNotAllowed, response.BadRequest, "Method not allowed", "")
 		return
 	}
 
@@ -260,7 +258,7 @@ func (h *PrintRequestHandler) ListUserPrintRequests(w http.ResponseWriter, r *ht
 	userID := middleware.GetUserID(r)
 	if userID == "" {
 		h.logger.Warn("user not authenticated")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response.WriteErrorResponse(w, http.StatusUnauthorized, response.Unauthorized, "Unauthorized", "")
 		return
 	}
 
@@ -270,7 +268,7 @@ func (h *PrintRequestHandler) ListUserPrintRequests(w http.ResponseWriter, r *ht
 	printRequests, err := h.service.ListPrintRequests(r.Context())
 	if err != nil {
 		h.logger.Error("failed to list print requests", "error", err)
-		http.Error(w, "Failed to list print requests", http.StatusInternalServerError)
+		response.WriteErrorResponse(w, http.StatusInternalServerError, response.InternalError, "Failed to list print requests", "")
 		return
 	}
 
@@ -382,7 +380,7 @@ func (h *PrintRequestHandler) UpdatePrintRequest(w http.ResponseWriter, r *http.
 func (h *PrintRequestHandler) DeletePrintRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		h.logger.Warn("invalid method for delete print request", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.WriteErrorResponse(w, http.StatusMethodNotAllowed, response.BadRequest, "Method not allowed", "")
 		return
 	}
 
@@ -390,7 +388,7 @@ func (h *PrintRequestHandler) DeletePrintRequest(w http.ResponseWriter, r *http.
 	id := r.URL.Query().Get("id")
 	if id == "" {
 		h.logger.Warn("missing print request ID")
-		http.Error(w, "Print request ID is required", http.StatusBadRequest)
+		response.WriteErrorResponse(w, http.StatusBadRequest, response.BadRequest, "Print request ID is required", "")
 		return
 	}
 
@@ -399,11 +397,11 @@ func (h *PrintRequestHandler) DeletePrintRequest(w http.ResponseWriter, r *http.
 	// Delete print request through service layer
 	if err := h.service.DeletePrintRequest(r.Context(), id); err != nil {
 		h.logger.Error("failed to delete print request", "error", err, "id", id)
-		http.Error(w, "Failed to delete print request", http.StatusInternalServerError)
+		response.WriteErrorResponse(w, http.StatusInternalServerError, response.InternalError, "Failed to delete print request", "")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	response.WriteSuccessResponse(w, nil, "Print request deleted successfully")
 }
 
 // UpdatePrintRequestStatus handles updating a print request's status
