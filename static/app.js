@@ -51,30 +51,44 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Store user info globally for compatibility (keep existing code working)
     window.currentUser = user;
-
-    // Update the username display now that we have the user info
-    updateUsernameDisplay();
-
-    // Show admin link if user has permissions
-    updateAdminLink();
+    
+    // Check if spoolman is available
+    await checkSpoolmanAvailability();
   }
 
-  // Update username display
-  function updateUsernameDisplay() {
-    const usernameElement = document.getElementById("username");
-    if (usernameElement && window.currentUser) {
-      usernameElement.textContent = `Welcome, ${window.currentUser.username}`;
+  // Check if spoolman is available and hide button if not
+  async function checkSpoolmanAvailability() {
+    try {
+      const response = await fetch("/api/spoolman/spools");
+      if (!response.ok) {
+        // Spoolman is not available, hide the button
+        hideSpoolmanButton();
+      }
+    } catch (error) {
+      // Network error or spoolman not available
+      hideSpoolmanButton();
     }
   }
 
-  // Update admin link visibility
-  function updateAdminLink() {
-    const adminLink = document.getElementById("adminLink");
-    if (adminLink && window.authModule.hasRole('moderator')) {
-      adminLink.style.display = "block";
-      adminLink.href = "/admin.html";
+  // Hide the spoolman button and show manual only
+  function hideSpoolmanButton() {
+    const spoolmanSection = spoolmanEnabled.closest(".selection-option");
+    const selectionDivider = document.querySelector(".selection-divider");
+    
+    if (spoolmanSection) {
+      spoolmanSection.style.display = "none";
+    }
+    if (selectionDivider) {
+      selectionDivider.style.display = "none";
+    }
+    
+    // Update the manual section title to remove "OR" implication
+    const manualTitle = document.querySelector(".selection-option h4");
+    if (manualTitle) {
+      manualTitle.textContent = "Filament Information";
     }
   }
+
 
   // Set up event listeners for the existing HTML user menu elements
   function setupUserMenuEventListeners() {
@@ -100,116 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Authentication functions are now handled by shared-auth.js module
 
   // Password change functionality is now handled by shared-auth.js module
-
-  // Toggle between Spoolman and manual fields
-    e.preventDefault();
-
-    const modal = document.createElement("div");
-    modal.className = "modal";
-    modal.innerHTML = `
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Change Password</h3>
-          <span class="close">&times;</span>
-        </div>
-        <form id="changePasswordForm">
-          <div class="form-group">
-            <label for="currentPassword">Current Password:</label>
-            <input type="password" id="currentPassword" name="currentPassword" required>
-          </div>
-          <div class="form-group">
-            <label for="newPassword">New Password:</label>
-            <input type="password" id="newPassword" name="newPassword" required minlength="6">
-          </div>
-          <div class="form-group">
-            <label for="confirmNewPassword">Confirm New Password:</label>
-            <input type="password" id="confirmNewPassword" name="confirmNewPassword" required minlength="6">
-          </div>
-          <div class="modal-buttons">
-            <button type="button" class="cancel-btn">Cancel</button>
-            <button type="submit" class="submit-btn">Change Password</button>
-          </div>
-        </form>
-        <div id="modalStatus" class="status"></div>
-      </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Add event listeners
-    modal
-      .querySelector(".close")
-      .addEventListener("click", () => modal.remove());
-    modal
-      .querySelector(".cancel-btn")
-      .addEventListener("click", () => modal.remove());
-    modal
-      .querySelector("#changePasswordForm")
-      .addEventListener("submit", handleChangePassword);
-
-    // Click outside to close
-    modal.addEventListener("click", (e) => {
-      if (e.target === modal) modal.remove();
-    });
-  }
-
-  // Handle password change
-  async function handleChangePassword(e) {
-    e.preventDefault();
-
-    const formData = new FormData(e.target);
-    const currentPassword = formData.get("currentPassword");
-    const newPassword = formData.get("newPassword");
-    const confirmNewPassword = formData.get("confirmNewPassword");
-
-    if (newPassword !== confirmNewPassword) {
-      showModalStatus("Passwords do not match", "error");
-      return;
-    }
-
-    const submitBtn = e.target.querySelector(".submit-btn");
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = "Changing...";
-    submitBtn.disabled = true;
-
-    try {
-      const response = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword,
-        }),
-        credentials: "same-origin",
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `HTTP error! status: ${response.status}`);
-      }
-
-      showModalStatus("Password changed successfully!", "success");
-
-      setTimeout(() => {
-        document.querySelector(".modal").remove();
-      }, 1500);
-    } catch (error) {
-      console.error("Change password error:", error);
-      showModalStatus(error.message || "Failed to change password", "error");
-    } finally {
-      submitBtn.textContent = originalText;
-      submitBtn.disabled = false;
-    }
-  }
-
-  // Show status in modal
-  function showModalStatus(message, type) {
-    const modalStatus = document.getElementById("modalStatus");
-    modalStatus.textContent = message;
-    modalStatus.className = `status ${type}`;
-  }
 
   // Toggle between Spoolman and manual fields
   spoolmanEnabled.addEventListener("click", () => {
@@ -240,9 +144,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (spoolsResponse.status === 404) {
           statusDiv.textContent = "Spoolman integration is not enabled";
           statusDiv.className = "status error";
-          spoolmanEnabled.checked = false;
           spoolmanFields.style.display = "none";
-          manualFields.style.display = "block";
+          manualEntrySection.style.display = "block";
+          const selectionDivider = document.querySelector(".selection-divider");
+          if (selectionDivider) {
+            selectionDivider.style.display = "block";
+          }
           return;
         }
         throw new Error(`Failed to load spools: ${spoolsResponse.status}`);
@@ -276,9 +183,12 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       statusDiv.textContent = `Error loading Spoolman data: ${error.message}`;
       statusDiv.className = "status error";
-      spoolmanEnabled.checked = false;
       spoolmanFields.style.display = "none";
-      manualFields.style.display = "block";
+      manualEntrySection.style.display = "block";
+      const selectionDivider = document.querySelector(".selection-divider");
+      if (selectionDivider) {
+        selectionDivider.style.display = "block";
+      }
     }
   }
 

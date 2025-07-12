@@ -16,7 +16,9 @@ window.authModule = (function() {
             });
 
             if (response.ok) {
-                currentUser = await response.json();
+                const responseData = await response.json();
+                // Extract the user data from the API response
+                currentUser = responseData.data || responseData;
                 return currentUser;
             } else {
                 currentUser = null;
@@ -188,8 +190,14 @@ window.authModule = (function() {
         const userMenuButton = document.getElementById("userMenuButton");
         const userMenu = document.getElementById("userMenu");
         const loginSection = document.getElementById("loginSection");
+        const usernameElement = document.getElementById("username");
 
         if (currentUser) {
+            // Update username display - handle different HTML structures
+            if (usernameElement) {
+                usernameElement.textContent = `Welcome, ${currentUser.display_name || currentUser.username}`;
+            }
+            
             // Show user menu
             if (userMenuButton) {
                 userMenuButton.textContent = currentUser.display_name || currentUser.username;
@@ -207,6 +215,13 @@ window.authModule = (function() {
             adminLinks.forEach(link => {
                 link.style.display = hasRole('moderator') ? 'block' : 'none';
             });
+            
+            // Update admin link visibility
+            const adminLink = document.getElementById("adminLink");
+            if (adminLink) {
+                adminLink.style.display = hasRole('moderator') ? 'block' : 'none';
+                adminLink.href = "/admin.html";
+            }
         } else {
             // Show login section
             if (userMenuButton) {
@@ -217,6 +232,9 @@ window.authModule = (function() {
             }
             if (loginSection) {
                 loginSection.style.display = "block";
+            }
+            if (usernameElement) {
+                usernameElement.textContent = "Loading...";
             }
         }
     }

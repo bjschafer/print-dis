@@ -8,6 +8,10 @@ let currentSort = {
 let usersMap = new Map(); // Map of user_id -> user object
 let spoolmanConfig = null; // Spoolman configuration
 
+// Global variables for status updates
+let currentRequestId = null;
+let currentStatus = null;
+
 // Function to load spoolman configuration
 async function loadSpoolmanConfig() {
   try {
@@ -21,7 +25,8 @@ async function loadSpoolmanConfig() {
       throw new Error("Failed to fetch spoolman config");
     }
 
-    spoolmanConfig = await response.json();
+    const responseData = await response.json();
+    spoolmanConfig = responseData.data || responseData;
     console.log("Loaded spoolman config:", spoolmanConfig);
   } catch (error) {
     console.error("Error loading spoolman config:", error);
@@ -43,7 +48,8 @@ async function loadUsers() {
       throw new Error("Failed to fetch users");
     }
 
-    const users = await response.json();
+    const responseData = await response.json();
+    const users = responseData.data || responseData;
 
     // Create a map for quick lookups
     usersMap.clear();
@@ -194,14 +200,10 @@ function displayPrintRequests(printRequests) {
       <td>${new Date(request.created_at).toLocaleString()}</td>
       <td>
           <div class="action-buttons">
-              <button class="action-button update" onclick="updateStatus('${
-                request.id
-              }', '${request.status}')">
+              <button class="action-button update" data-request-id="${request.id}" data-status="${request.status}">
                   Update Status
               </button>
-              <button class="action-button delete" onclick="deleteRequest('${
-                request.id
-              }')">
+              <button class="action-button delete" data-request-id="${request.id}">
                   Delete
               </button>
           </div>
@@ -252,7 +254,19 @@ async function loadPrintRequests() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  // Check authentication and require moderator role
+  const user = await window.authModule.checkAuthenticationStatus();
+  if (!user) {
+    window.location.href = "/auth.html";
+    return;
+  }
+  
+  if (!window.authModule.hasRole('moderator')) {
+    window.location.href = "/welcome.html";
+    return;
+  }
+
   const statusFilter = document.getElementById("statusFilter");
   const modal = document.getElementById("statusUpdateModal");
   const confirmButton = document.getElementById("confirmStatusUpdate");
@@ -294,8 +308,24 @@ document.addEventListener("DOMContentLoaded", () => {
   // Add event listener for status filter
   statusFilter.addEventListener("change", loadPrintRequests);
 
-  // Add click handler for copying IDs
+  // Add event delegation for action buttons and ID copying
   document.addEventListener("click", (e) => {
+    // Handle update status button
+    if (e.target.classList.contains("update") && e.target.dataset.requestId) {
+      const requestId = e.target.dataset.requestId;
+      const currentStatus = e.target.dataset.status;
+      updateStatus(requestId, currentStatus);
+      return;
+    }
+    
+    // Handle delete button
+    if (e.target.classList.contains("delete") && e.target.dataset.requestId) {
+      const requestId = e.target.dataset.requestId;
+      deleteRequest(requestId);
+      return;
+    }
+
+    // Handle ID copying
     const idCell = e.target.closest("td[title]");
     if (idCell) {
       const id = idCell.getAttribute("title");
@@ -348,11 +378,14 @@ document.addEventListener("DOMContentLoaded", () => {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to update status");
+        const errorData = await response.json();
+        const errorMessage = errorData.error?.details || errorData.error?.message || "Failed to update status";
+        throw new Error(errorMessage);
       }
 
       // Hide the modal
       modal.style.display = "none";
+      modal.setAttribute("aria-hidden", "true");
 
       // Reload the print requests to show the updated status
       loadPrintRequests();
@@ -365,37 +398,42 @@ document.addEventListener("DOMContentLoaded", () => {
   // Handle cancel button click
   cancelButton.addEventListener("click", () => {
     modal.style.display = "none";
+    modal.setAttribute("aria-hidden", "true");
   });
 
   // Close modal when clicking outside
   window.addEventListener("click", (event) => {
     if (event.target === modal) {
       modal.style.display = "none";
+      modal.setAttribute("aria-hidden", "true");
     }
   });
 });
-
-let currentRequestId = null;
-let currentStatus = null;
 
 function showStatusUpdateModal(requestId, currentStatus) {
   const modal = document.getElementById("statusUpdateModal");
   const select = document.getElementById("newStatusSelect");
 
-  // Define all possible statuses
-  const allStatuses = [
-    "StatusPendingApproval",
-    "StatusEnqueued",
-    "StatusInProgress",
-    "StatusDone",
-  ];
+  // Define valid status transitions based on backend logic
+  const validTransitions = {
+    "StatusPendingApproval": ["StatusEnqueued", "StatusPendingApproval"],
+    "StatusEnqueued": ["StatusInProgress", "StatusPendingApproval", "StatusEnqueued"],
+    "StatusInProgress": ["StatusDone", "StatusEnqueued", "StatusInProgress"],
+    "StatusDone": ["StatusDone"]
+  };
 
-  // Clear and populate the select options
+  // Get valid statuses for the current status
+  const validStatuses = validTransitions[currentStatus] || [];
+
+  // Clear and populate the select options with only valid transitions
   select.innerHTML = "";
-  allStatuses.forEach((status) => {
+  validStatuses.forEach((status) => {
     const option = document.createElement("option");
     option.value = status;
     option.textContent = status.replace("Status", "");
+    if (status === currentStatus) {
+      option.selected = true;
+    }
     select.appendChild(option);
   });
 
@@ -405,6 +443,7 @@ function showStatusUpdateModal(requestId, currentStatus) {
 
   // Show the modal
   modal.style.display = "block";
+  modal.setAttribute("aria-hidden", "false");
 }
 
 async function updateStatus(requestId, currentStatus) {

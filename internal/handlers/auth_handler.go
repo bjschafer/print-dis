@@ -83,6 +83,7 @@ type UserResponse struct {
 	Email       *string `json:"email,omitempty"`
 	DisplayName *string `json:"display_name,omitempty"`
 	Enabled     bool    `json:"enabled"`
+	Role        string  `json:"role"`
 }
 
 // Login handles user login
@@ -127,6 +128,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
 		Enabled:     user.Enabled,
+		Role:        string(user.Role),
 	}
 
 	response.WriteSuccessResponse(w, userResponse, "Login successful")
@@ -208,6 +210,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
 		Enabled:     user.Enabled,
+		Role:        string(user.Role),
 	}
 
 	response.WriteCreatedResponse(w, userResponse, "User registered successfully")
@@ -240,6 +243,7 @@ func (h *AuthHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
 		Enabled:     user.Enabled,
+		Role:        string(user.Role),
 	}
 
 	response.WriteSuccessResponse(w, userResponse, "")

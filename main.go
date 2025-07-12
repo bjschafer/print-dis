@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -22,6 +23,9 @@ import (
 )
 
 func main() {
+	// Register types for gob encoding used by session store
+	gob.Register(time.Time{})
+	
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {

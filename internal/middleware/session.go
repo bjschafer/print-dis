@@ -176,7 +176,7 @@ func (s *SessionStore) RegenerateSession(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Create new session with new ID
-	newSession, err := s.store.New(r, "session")
+	newSession, err := s.store.New(r, "print-dis-session")
 	if err != nil {
 		return fmt.Errorf("failed to create new session: %w", err)
 	}
