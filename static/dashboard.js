@@ -1,7 +1,6 @@
 // Dashboard JavaScript
 document.addEventListener("DOMContentLoaded", () => {
   // Global state
-  let currentUser = null;
   let allRequests = [];
   let filteredRequests = [];
   let currentPage = 1;
@@ -12,38 +11,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function init() {
     try {
-      await checkAuthenticationStatus();
+      // Use shared auth module for authentication
+      const user = await window.authModule.checkAuthenticationStatus();
+      if (!user) {
+        window.location.href = "/auth.html";
+        return;
+      }
+      
       await loadUserData();
       setupEventListeners();
       await loadPrintRequests();
+      updateUserInterface();
     } catch (error) {
       console.error("Failed to initialize dashboard:", error);
       window.location.href = "/auth.html";
     }
   }
 
-  // Check if user is authenticated
-  async function checkAuthenticationStatus() {
-    try {
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        credentials: "same-origin",
-      });
-
-      if (!response.ok) {
-        throw new Error("Not authenticated");
-      }
-
-      currentUser = await response.json();
-      updateUserInterface();
-    } catch (error) {
-      console.error("Auth check failed:", error);
-      throw error;
-    }
-  }
-
   // Update user interface with user info
   function updateUserInterface() {
+    const currentUser = window.authModule.getCurrentUser();
     const usernameElement = document.getElementById("username");
     if (usernameElement && currentUser) {
       usernameElement.textContent = `Welcome, ${currentUser.username}`;
@@ -51,11 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Show admin link if user has permissions
     const adminLink = document.getElementById("adminLink");
-    if (
-      adminLink &&
-      currentUser &&
-      (currentUser.role === "admin" || currentUser.role === "moderator")
-    ) {
+    if (adminLink && window.authModule.hasRole('moderator')) {
       adminLink.style.display = "block";
       adminLink.href = "/admin.html";
     }
@@ -64,6 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Load user-specific data
   async function loadUserData() {
     // Could load additional user-specific data here
+    const currentUser = window.authModule.getCurrentUser();
     console.log("User data loaded for:", currentUser.username);
   }
 
@@ -77,10 +61,16 @@ document.addEventListener("DOMContentLoaded", () => {
     // User menu
     document
       .getElementById("logoutBtn")
-      .addEventListener("click", handleLogout);
+      .addEventListener("click", function(e) {
+        e.preventDefault();
+        window.authModule.handleLogout();
+      });
     document
       .getElementById("changePasswordBtn")
-      .addEventListener("click", showChangePasswordModal);
+      .addEventListener("click", function(e) {
+        e.preventDefault();
+        window.authModule.showChangePasswordModal();
+      });
 
     // Filters
     document
@@ -526,35 +516,7 @@ document.addEventListener("DOMContentLoaded", () => {
     alert(message);
   }
 
-  // Handle logout
-  async function handleLogout(e) {
-    e.preventDefault();
-
-    try {
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-
-      if (response.ok) {
-        window.location.href = "/auth.html";
-      } else {
-        throw new Error("Logout failed");
-      }
-    } catch (error) {
-      console.error("Logout error:", error);
-      // Force redirect even if logout failed
-      window.location.href = "/auth.html";
-    }
-  }
-
-  // Show change password modal
-  function showChangePasswordModal(e) {
-    e.preventDefault();
-
-    // Reuse the modal functionality from app.js or implement a simpler version
-    alert("Change password functionality will be implemented soon!");
-  }
+  // Authentication functions are now handled by shared-auth.js module
 
   // Make clearFilters available globally for the no results state button
   window.clearFilters = clearFilters;

@@ -15,23 +15,20 @@ class UserManagement {
   }
 
   async checkAuth() {
-    try {
-      const response = await fetch("/api/auth/me");
-      if (!response.ok) {
-        window.location.href = "/auth.html";
-        return;
-      }
-      this.currentUser = await response.json();
-
-      // Check if user has admin/moderator permissions
-      if (!["admin", "moderator"].includes(this.currentUser.role)) {
-        alert("Access denied. Admin or moderator role required.");
-        window.location.href = "/";
-        return;
-      }
-    } catch (error) {
-      console.error("Auth check failed:", error);
+    // Use shared auth module
+    const user = await window.authModule.checkAuthenticationStatus();
+    if (!user) {
       window.location.href = "/auth.html";
+      return;
+    }
+    
+    this.currentUser = user;
+
+    // Check if user has admin/moderator permissions
+    if (!window.authModule.hasRole('moderator')) {
+      alert("Access denied. Admin or moderator role required.");
+      window.location.href = "/";
+      return;
     }
   }
 

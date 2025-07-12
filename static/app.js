@@ -31,42 +31,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Check if user is authenticated
   async function checkAuthenticationStatus() {
-    try {
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        credentials: "same-origin",
-      });
-
-      if (!response.ok) {
-        // User is not authenticated, redirect to auth page
-        window.location.href = "/auth.html";
-        return;
-      }
-
-      const user = await response.json();
-      // Hide the submitter field since we now know the user
-      const submitterField = document.getElementById("submitter");
-      if (submitterField) {
-        submitterField.closest(".form-group").style.display = "none";
-        // Remove the required attribute to prevent form validation issues
-        submitterField.removeAttribute("required");
-        // Set a default value since we know the user
-        submitterField.value = user.username;
-      }
-
-      // Store user info globally
-      window.currentUser = user;
-
-      // Update the username display now that we have the user info
-      updateUsernameDisplay();
-
-      // Show admin link if user has permissions
-      updateAdminLink();
-    } catch (error) {
-      console.error("Auth check failed:", error);
-      // Redirect to auth page on error
+    // Use shared auth module for authentication
+    const user = await window.authModule.checkAuthenticationStatus();
+    if (!user) {
+      // User is not authenticated, redirect to auth page
       window.location.href = "/auth.html";
+      return;
     }
+
+    // Hide the submitter field since we now know the user
+    const submitterField = document.getElementById("submitter");
+    if (submitterField) {
+      submitterField.closest(".form-group").style.display = "none";
+      // Remove the required attribute to prevent form validation issues
+      submitterField.removeAttribute("required");
+      // Set a default value since we know the user
+      submitterField.value = user.username;
+    }
+
+    // Store user info globally for compatibility (keep existing code working)
+    window.currentUser = user;
+
+    // Update the username display now that we have the user info
+    updateUsernameDisplay();
+
+    // Show admin link if user has permissions
+    updateAdminLink();
   }
 
   // Update username display
@@ -80,12 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Update admin link visibility
   function updateAdminLink() {
     const adminLink = document.getElementById("adminLink");
-    if (
-      adminLink &&
-      window.currentUser &&
-      (window.currentUser.role === "admin" ||
-        window.currentUser.role === "moderator")
-    ) {
+    if (adminLink && window.authModule.hasRole('moderator')) {
       adminLink.style.display = "block";
       adminLink.href = "/admin.html";
     }
@@ -98,38 +83,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const changePasswordBtn = document.getElementById("changePasswordBtn");
 
     if (logoutBtn) {
-      logoutBtn.addEventListener("click", handleLogout);
+      logoutBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        window.authModule.handleLogout();
+      });
     }
 
     if (changePasswordBtn) {
-      changePasswordBtn.addEventListener("click", showChangePasswordModal);
-    }
-  }
-
-  // Handle logout
-  async function handleLogout(e) {
-    e.preventDefault();
-
-    try {
-      const response = await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "same-origin",
+      changePasswordBtn.addEventListener("click", function(e) {
+        e.preventDefault();
+        window.authModule.showChangePasswordModal();
       });
-
-      if (response.ok) {
-        window.location.href = "/auth.html";
-      } else {
-        throw new Error("Logout failed");
-      }
-    } catch (error) {
-      console.error("Logout error:", error);
-      // Force redirect even if logout failed
-      window.location.href = "/auth.html";
     }
   }
 
-  // Show change password modal
-  function showChangePasswordModal(e) {
+  // Authentication functions are now handled by shared-auth.js module
+
+  // Password change functionality is now handled by shared-auth.js module
+
+  // Toggle between Spoolman and manual fields
     e.preventDefault();
 
     const modal = document.createElement("div");

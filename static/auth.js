@@ -100,6 +100,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       const user = await response.json();
+      
+      // Set user in shared auth module
+      window.authModule.setCurrentUser(user);
+      
       showStatus(`Welcome back, ${user.username}!`, "success");
 
       // Redirect to main application after successful login
@@ -154,6 +158,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       const user = await response.json();
+      
+      // Set user in shared auth module
+      window.authModule.setCurrentUser(user);
+      
       showStatus(
         `Account created successfully! Welcome, ${user.username}!`,
         "success",
@@ -178,19 +186,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   async function checkAuthStatus() {
-    try {
-      const response = await fetch("/api/auth/me", {
-        method: "GET",
-        credentials: "same-origin",
-      });
-
-      if (response.ok) {
-        // User is already authenticated, redirect to main app
-        window.location.href = "/";
-      }
-    } catch (error) {
-      // User is not authenticated, stay on auth page
-      console.log("User not authenticated");
+    // Use shared auth module to check authentication
+    const user = await window.authModule.checkAuthenticationStatus();
+    if (user) {
+      // User is already authenticated, redirect to main app
+      window.location.href = "/";
     }
   }
 
