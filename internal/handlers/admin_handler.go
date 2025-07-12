@@ -32,15 +32,11 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.userService.ListUsers(r.Context())
 	if err != nil {
 		slog.Error("failed to list users", "error", err)
-		http.Error(w, "Failed to list users", http.StatusInternalServerError)
+		response.WriteErrorResponse(w, http.StatusInternalServerError, response.InternalError, "Failed to list users", "")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(users); err != nil {
-		slog.Error("failed to encode users response", "error", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	response.WriteSuccessResponse(w, users, "")
 }
 
 // UpdateUserRole handles PUT /api/admin/users/{id}/role
@@ -48,14 +44,14 @@ func (h *AdminHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 	// Get the target user ID from the URL path
 	userID := r.URL.Query().Get("id")
 	if userID == "" {
-		http.Error(w, "User ID required", http.StatusBadRequest)
+		response.WriteErrorResponse(w, http.StatusBadRequest, response.BadRequest, "User ID required", "")
 		return
 	}
 
 	// Get the current user from context
 	currentUser, ok := r.Context().Value(middleware.UserKey).(*models.User)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response.WriteErrorResponse(w, http.StatusUnauthorized, response.Unauthorized, "Unauthorized", "")
 		return
 	}
 
@@ -64,14 +60,14 @@ func (h *AdminHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 		Role string `json:"role"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		response.WriteErrorResponse(w, http.StatusBadRequest, response.BadRequest, "Invalid request body", "")
 		return
 	}
 
 	// Validate the role
 	newRole := models.Role(req.Role)
 	if !newRole.IsValid() {
-		http.Error(w, "Invalid role", http.StatusBadRequest)
+		response.WriteErrorResponse(w, http.StatusBadRequest, response.BadRequest, "Invalid role", "")
 		return
 	}
 
@@ -79,19 +75,19 @@ func (h *AdminHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 	targetUser, err := h.userService.GetUser(r.Context(), userID)
 	if err != nil {
 		slog.Error("failed to get target user", "error", err, "user_id", userID)
-		http.Error(w, "User not found", http.StatusNotFound)
+		response.WriteErrorResponse(w, http.StatusNotFound, response.NotFound, "User not found", "")
 		return
 	}
 
 	// Check if current user can manage the target user
 	if !currentUser.CanManageUser(targetUser) {
-		http.Error(w, "Forbidden: Cannot manage this user", http.StatusForbidden)
+		response.WriteErrorResponse(w, http.StatusForbidden, response.Forbidden, "Cannot manage this user", "")
 		return
 	}
 
 	// Additional check: only admins can promote to admin
 	if newRole == models.RoleAdmin && currentUser.Role != models.RoleAdmin {
-		http.Error(w, "Forbidden: Only admins can promote to admin", http.StatusForbidden)
+		response.WriteErrorResponse(w, http.StatusForbidden, response.Forbidden, "Only admins can promote to admin", "")
 		return
 	}
 
@@ -101,7 +97,7 @@ func (h *AdminHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.userService.UpdateUser(r.Context(), targetUser); err != nil {
 		slog.Error("failed to update user role", "error", err, "user_id", userID, "new_role", newRole)
-		http.Error(w, "Failed to update user role", http.StatusInternalServerError)
+		response.WriteErrorResponse(w, http.StatusInternalServerError, response.InternalError, "Failed to update user role", "")
 		return
 	}
 
@@ -122,14 +118,14 @@ func (h *AdminHandler) ToggleUserStatus(w http.ResponseWriter, r *http.Request) 
 	// Get the target user ID from the URL path
 	userID := r.URL.Query().Get("id")
 	if userID == "" {
-		http.Error(w, "User ID required", http.StatusBadRequest)
+		response.WriteErrorResponse(w, http.StatusBadRequest, response.BadRequest, "User ID required", "")
 		return
 	}
 
 	// Get the current user from context
 	currentUser, ok := r.Context().Value(middleware.UserKey).(*models.User)
 	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response.WriteErrorResponse(w, http.StatusUnauthorized, response.Unauthorized, "Unauthorized", "")
 		return
 	}
 
@@ -138,7 +134,7 @@ func (h *AdminHandler) ToggleUserStatus(w http.ResponseWriter, r *http.Request) 
 		Enabled bool `json:"enabled"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		response.WriteErrorResponse(w, http.StatusBadRequest, response.BadRequest, "Invalid request body", "")
 		return
 	}
 
@@ -146,13 +142,13 @@ func (h *AdminHandler) ToggleUserStatus(w http.ResponseWriter, r *http.Request) 
 	targetUser, err := h.userService.GetUser(r.Context(), userID)
 	if err != nil {
 		slog.Error("failed to get target user", "error", err, "user_id", userID)
-		http.Error(w, "User not found", http.StatusNotFound)
+		response.WriteErrorResponse(w, http.StatusNotFound, response.NotFound, "User not found", "")
 		return
 	}
 
 	// Check if current user can manage the target user
 	if !currentUser.CanManageUser(targetUser) {
-		http.Error(w, "Forbidden: Cannot manage this user", http.StatusForbidden)
+		response.WriteErrorResponse(w, http.StatusForbidden, response.Forbidden, "Cannot manage this user", "")
 		return
 	}
 
@@ -165,7 +161,7 @@ func (h *AdminHandler) ToggleUserStatus(w http.ResponseWriter, r *http.Request) 
 
 	if err != nil {
 		slog.Error("failed to update user status", "error", err, "user_id", userID, "enabled", req.Enabled)
-		http.Error(w, "Failed to update user status", http.StatusInternalServerError)
+		response.WriteErrorResponse(w, http.StatusInternalServerError, response.InternalError, "Failed to update user status", "")
 		return
 	}
 
@@ -182,7 +178,7 @@ func (h *AdminHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 	users, err := h.userService.ListUsers(r.Context())
 	if err != nil {
 		slog.Error("failed to get users for stats", "error", err)
-		http.Error(w, "Failed to get user statistics", http.StatusInternalServerError)
+		response.WriteErrorResponse(w, http.StatusInternalServerError, response.InternalError, "Failed to get user statistics", "")
 		return
 	}
 
@@ -230,6 +226,5 @@ func (h *AdminHandler) GetSpoolmanConfig(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(spoolmanConfig)
+	response.WriteSuccessResponse(w, spoolmanConfig, "")
 }
