@@ -27,7 +27,7 @@ func NewUserService(db database.DBClient) *UserService {
 	}
 }
 
-// RegisterUser creates a new user account with local authentication
+// RegisterUser creates a new user account with local authentication using a transaction to prevent race conditions
 func (s *UserService) RegisterUser(ctx context.Context, username, email, password string) (*models.User, error) {
 	// Validate input
 	if strings.TrimSpace(username) == "" {
@@ -37,8 +37,19 @@ func (s *UserService) RegisterUser(ctx context.Context, username, email, passwor
 		return nil, fmt.Errorf("password is required")
 	}
 
-	// Check if username already exists
-	existingUser, err := s.db.GetUserByUsername(ctx, username)
+	// Start a transaction
+	tx, err := s.db.BeginTx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Check if username already exists within the transaction
+	existingUser, err := tx.GetUserByUsername(ctx, username)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("failed to check existing username: %w", err)
 	}
@@ -46,11 +57,11 @@ func (s *UserService) RegisterUser(ctx context.Context, username, email, passwor
 		return nil, fmt.Errorf("username already exists")
 	}
 
-	// Check if email already exists (if provided)
+	// Check if email already exists (if provided) within the transaction
 	var emailPtr *string
 	if email != "" {
 		emailPtr = &email
-		existingUser, err = s.db.GetUserByEmail(ctx, email)
+		existingUser, err = tx.GetUserByEmail(ctx, email)
 		if err != nil && err != sql.ErrNoRows {
 			return nil, fmt.Errorf("failed to check existing email: %w", err)
 		}
@@ -68,9 +79,14 @@ func (s *UserService) RegisterUser(ctx context.Context, username, email, passwor
 		return nil, fmt.Errorf("failed to set password: %w", err)
 	}
 
-	// Save to database
-	if err := s.db.CreateUser(ctx, user); err != nil {
+	// Save to database within the transaction
+	if err := tx.CreateUser(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	slog.Info("user registered", "user_id", user.ID, "username", user.Username)

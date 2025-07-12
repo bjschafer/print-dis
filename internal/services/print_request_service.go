@@ -111,10 +111,21 @@ func (s *PrintRequestService) validateStatusTransition(currentStatus, newStatus 
 	return fmt.Errorf("invalid transition from %s to %s", currentStatus.String(), newStatus.String())
 }
 
-// UpdatePrintRequest updates an existing print request
+// UpdatePrintRequest updates an existing print request using a transaction to prevent race conditions
 func (s *PrintRequestService) UpdatePrintRequest(ctx context.Context, request *models.PrintRequest) error {
-	// Get current state
-	currentRequest, err := s.GetPrintRequest(ctx, request.ID)
+	// Start a transaction
+	tx, err := s.db.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Get current state within the transaction
+	currentRequest, err := tx.GetPrintRequest(ctx, request.ID)
 	if err != nil {
 		return fmt.Errorf("failed to get current print request: %w", err)
 	}
@@ -145,12 +156,18 @@ func (s *PrintRequestService) UpdatePrintRequest(ctx context.Context, request *m
 		"previous_status", currentRequest.Status.String(),
 	)
 
-	if err := s.db.UpdatePrintRequest(ctx, request); err != nil {
+	// Update within the transaction
+	if err := tx.UpdatePrintRequest(ctx, request); err != nil {
 		s.logger.Error("failed to update print request in database",
 			"error", err,
 			"id", request.ID,
 		)
 		return err
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
