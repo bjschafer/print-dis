@@ -21,8 +21,9 @@ type Config struct {
 
 // ServerConfig holds server-related configuration
 type ServerConfig struct {
-	Host string
-	Port string
+	Host  string
+	Port  string
+	HTTPS *bool // Optional explicit HTTPS setting
 }
 
 // DBConfig holds database-related configuration

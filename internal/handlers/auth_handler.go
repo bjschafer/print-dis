@@ -113,8 +113,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create session
-	if err := h.sessionStore.LoginUser(w, r, user.ID); err != nil {
+	// Create session with regeneration to prevent session fixation
+	if err := h.sessionStore.RegenerateSession(w, r, user.ID); err != nil {
 		slog.Error("failed to create session", "user_id", user.ID, "error", err)
 		response.WriteInternalError(w, "Failed to create session", err.Error())
 		return

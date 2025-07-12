@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/database"
@@ -37,7 +39,7 @@ func NewSessionStore(cfg *config.Config, db database.DBClient) *SessionStore {
 		Path:     "/",
 		MaxAge:   int(cfg.Auth.SessionTimeout.Seconds()),
 		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
+		Secure:   isHTTPS(cfg), // Environment-aware secure flag
 		SameSite: http.SameSiteLaxMode,
 	}
 
@@ -157,4 +159,61 @@ func (s *SessionStore) LogoutUser(w http.ResponseWriter, r *http.Request) error 
 	delete(session.Values, "user_id")
 	session.Options.MaxAge = -1 // Delete the cookie
 	return session.Save(r, w)
+}
+
+// RegenerateSession regenerates the session ID to prevent session fixation attacks
+func (s *SessionStore) RegenerateSession(w http.ResponseWriter, r *http.Request, userID string) error {
+	// Get current session
+	oldSession := GetSession(r)
+	if oldSession == nil {
+		return fmt.Errorf("session not found")
+	}
+
+	// Invalidate old session
+	oldSession.Options.MaxAge = -1
+	if err := oldSession.Save(r, w); err != nil {
+		return fmt.Errorf("failed to invalidate old session: %w", err)
+	}
+
+	// Create new session with new ID
+	newSession, err := s.store.New(r, "session")
+	if err != nil {
+		return fmt.Errorf("failed to create new session: %w", err)
+	}
+
+	// Set user in new session
+	newSession.Values["user_id"] = userID
+	newSession.Values["created_at"] = time.Now()
+
+	// Save new session
+	if err := newSession.Save(r, w); err != nil {
+		return fmt.Errorf("failed to save new session: %w", err)
+	}
+
+	return nil
+}
+
+// isHTTPS determines if HTTPS should be used based on configuration
+func isHTTPS(cfg *config.Config) bool {
+	// Check if explicitly configured
+	if cfg.Server.HTTPS != nil {
+		return *cfg.Server.HTTPS
+	}
+	
+	// Auto-detect based on host/port
+	host := strings.ToLower(cfg.Server.Host)
+	port := cfg.Server.Port
+	
+	// Production indicators
+	if host != "localhost" && host != "127.0.0.1" && host != "0.0.0.0" {
+		return true
+	}
+	
+	// HTTPS port
+	if port == "443" {
+		return true
+	}
+	
+	// Development default
+	return false
 }
