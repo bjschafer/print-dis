@@ -8,20 +8,23 @@ import (
 	"github.com/bjschafer/print-dis/internal/middleware"
 	"github.com/bjschafer/print-dis/internal/models"
 	"github.com/bjschafer/print-dis/internal/services"
+	"github.com/bjschafer/print-dis/internal/spoolman"
 	"github.com/google/uuid"
 )
 
 // PrintRequestHandler handles HTTP requests for print requests
 type PrintRequestHandler struct {
-	service *services.PrintRequestService
-	logger  *slog.Logger
+	service         *services.PrintRequestService
+	spoolmanService *spoolman.Service
+	logger          *slog.Logger
 }
 
 // NewPrintRequestHandler creates a new print request handler
-func NewPrintRequestHandler(service *services.PrintRequestService) *PrintRequestHandler {
+func NewPrintRequestHandler(service *services.PrintRequestService, spoolmanService *spoolman.Service) *PrintRequestHandler {
 	return &PrintRequestHandler{
-		service: service,
-		logger:  slog.Default(),
+		service:         service,
+		spoolmanService: spoolmanService,
+		logger:          slog.Default(),
 	}
 }
 
@@ -37,6 +40,12 @@ type CreatePrintRequestRequest struct {
 // UpdatePrintRequestStatusRequest represents the request body for updating a print request's status
 type UpdatePrintRequestStatusRequest struct {
 	Status models.PrintRequestStatus `json:"status"`
+}
+
+// EnhancedPrintRequest represents a print request with additional spoolman details for admin view
+type EnhancedPrintRequest struct {
+	*models.PrintRequest
+	SpoolDetails *spoolman.Spool `json:"spool_details,omitempty"`
 }
 
 // CreatePrintRequest handles the creation of a new print request
@@ -154,6 +163,62 @@ func (h *PrintRequestHandler) ListPrintRequests(w http.ResponseWriter, r *http.R
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(printRequests)
+}
+
+// ListPrintRequestsEnhanced handles retrieving all print requests with spoolman details for admin view
+func (h *PrintRequestHandler) ListPrintRequestsEnhanced(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.logger.Warn("invalid method for list enhanced print requests", "method", r.Method)
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check for status filter
+	status := r.URL.Query().Get("status")
+	h.logger.Info("listing enhanced print requests", "status_filter", status)
+
+	// Get print requests from service
+	printRequests, err := h.service.ListPrintRequests(r.Context())
+	if err != nil {
+		h.logger.Error("failed to list print requests", "error", err)
+		http.Error(w, "Failed to list print requests", http.StatusInternalServerError)
+		return
+	}
+
+	// Filter by status if provided
+	if status != "" {
+		filteredRequests := make([]*models.PrintRequest, 0)
+		for _, request := range printRequests {
+			if request.Status.String() == status {
+				filteredRequests = append(filteredRequests, request)
+			}
+		}
+		printRequests = filteredRequests
+	}
+
+	// Enhance with spoolman details if spoolman is available
+	enhancedRequests := make([]*EnhancedPrintRequest, len(printRequests))
+	for i, request := range printRequests {
+		enhanced := &EnhancedPrintRequest{
+			PrintRequest: request,
+		}
+
+		// If spoolman is available and request has a spool ID, fetch spool details
+		if h.spoolmanService != nil && request.SpoolID != nil {
+			spoolDetails, err := h.spoolmanService.GetSpool(r.Context(), *request.SpoolID)
+			if err != nil {
+				h.logger.Warn("failed to fetch spool details", "spool_id", *request.SpoolID, "error", err)
+				// Continue without spool details rather than failing the whole request
+			} else {
+				enhanced.SpoolDetails = spoolDetails
+			}
+		}
+
+		enhancedRequests[i] = enhanced
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(enhancedRequests)
 }
 
 // ListUserPrintRequests handles retrieving print requests for the current user

@@ -25,6 +25,7 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 1rem;
+    table-layout: fixed;
 }
 
 th, td {
@@ -35,8 +36,8 @@ th, td {
 
 /* Add column width specifications */
 th:nth-child(1), td:nth-child(1) { /* ID column */
-    width: 120px;
-    max-width: 120px;
+    width: 100px;
+    max-width: 100px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -48,24 +49,32 @@ th:nth-child(1), td:nth-child(1) { /* ID column */
 }
 
 th:nth-child(2), td:nth-child(2) { /* User column */
-    width: 25%;
-    min-width: 200px;
+    width: 120px;
+    min-width: 120px;
 }
 
 th:nth-child(3), td:nth-child(3) { /* File column */
-    width: 25%;
+    width: 150px;
 }
 
-th:nth-child(4), td:nth-child(4) { /* Status column */
-    width: 15%;
+th:nth-child(4), td:nth-child(4) { /* Filament/Spool column */
+    width: 200px;
 }
 
-th:nth-child(5), td:nth-child(5) { /* Created column */
-    width: 15%;
+th:nth-child(5), td:nth-child(5) { /* Notes column */
+    width: 150px;
 }
 
-th:nth-child(6), td:nth-child(6) { /* Actions column */
-    width: 20%;
+th:nth-child(6), td:nth-child(6) { /* Status column */
+    width: 120px;
+}
+
+th:nth-child(7), td:nth-child(7) { /* Created column */
+    width: 140px;
+}
+
+th:nth-child(8), td:nth-child(8) { /* Actions column */
+    width: 150px;
 }
 
 /* Update tooltip styles */
@@ -502,4 +511,54 @@ header h1 {
     outline: none;
     border-color: #007bff;
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Color swatch for filament colors */
+.color-swatch {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+/* Spool link styling */
+.spool-link {
+    color: #007bff;
+    text-decoration: none;
+    display: block;
+}
+
+.spool-link:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+.spool-link small {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Filament cell styling */
+.filament-cell {
+    max-width: 200px;
+    word-wrap: break-word;
+}
+
+.filament-cell small {
+    color: #6c757d;
+    font-size: 0.85em;
+}
+
+/* Notes cell styling */
+.notes-cell {
+    max-width: 150px;
+    word-wrap: break-word;
+}
+
+.notes-cell span[title] {
+    cursor: help;
+    border-bottom: 1px dotted #999;
 } 

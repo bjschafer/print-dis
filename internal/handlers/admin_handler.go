@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/middleware"
 	"github.com/bjschafer/print-dis/internal/models"
 	"github.com/bjschafer/print-dis/internal/services"
@@ -14,12 +15,14 @@ import (
 // AdminHandler handles admin-related HTTP requests
 type AdminHandler struct {
 	userService *services.UserService
+	config      *config.Config
 }
 
 // NewAdminHandler creates a new AdminHandler
-func NewAdminHandler(userService *services.UserService) *AdminHandler {
+func NewAdminHandler(userService *services.UserService, config *config.Config) *AdminHandler {
 	return &AdminHandler{
 		userService: userService,
+		config:      config,
 	}
 }
 
@@ -213,4 +216,26 @@ func (h *AdminHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
+}
+
+// GetSpoolmanConfig returns the spoolman configuration status
+func (h *AdminHandler) GetSpoolmanConfig(w http.ResponseWriter, r *http.Request) {
+	spoolmanConfig := struct {
+		Enabled bool   `json:"enabled"`
+		BaseURL string `json:"base_url,omitempty"`
+	}{
+		Enabled: h.config.Spoolman.Enabled,
+	}
+
+	// If spoolman is enabled, provide the base URL (without /api/v1 suffix)
+	if h.config.Spoolman.Enabled {
+		spoolmanConfig.BaseURL = h.config.Spoolman.Endpoint
+		// Remove /api/v1 suffix if present to get the base URL
+		if len(spoolmanConfig.BaseURL) > 7 && spoolmanConfig.BaseURL[len(spoolmanConfig.BaseURL)-7:] == "/api/v1" {
+			spoolmanConfig.BaseURL = spoolmanConfig.BaseURL[:len(spoolmanConfig.BaseURL)-7]
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(spoolmanConfig)
 }

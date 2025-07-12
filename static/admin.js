@@ -6,6 +6,29 @@ let currentSort = {
 
 // Global variables for user data
 let usersMap = new Map(); // Map of user_id -> user object
+let spoolmanConfig = null; // Spoolman configuration
+
+// Function to load spoolman configuration
+async function loadSpoolmanConfig() {
+  try {
+    const response = await fetch("/api/admin/spoolman-config", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch spoolman config");
+    }
+
+    spoolmanConfig = await response.json();
+    console.log("Loaded spoolman config:", spoolmanConfig);
+  } catch (error) {
+    console.error("Error loading spoolman config:", error);
+    // Set default config if loading fails
+    spoolmanConfig = { enabled: false };
+  }
+}
 
 // Function to load users data
 async function loadUsers() {
@@ -62,6 +85,27 @@ function displayPrintRequests(printRequests) {
         valueA = a.file_link;
         valueB = b.file_link;
         break;
+      case "filament":
+        // Sort by filament name or material
+        if (a.spool_details && b.spool_details) {
+          valueA = a.spool_details.filament.name;
+          valueB = b.spool_details.filament.name;
+        } else if (a.material && b.material) {
+          valueA = a.material;
+          valueB = b.material;
+        } else {
+          valueA = a.spool_details
+            ? a.spool_details.filament.name
+            : a.material || "";
+          valueB = b.spool_details
+            ? b.spool_details.filament.name
+            : b.material || "";
+        }
+        break;
+      case "notes":
+        valueA = a.notes || "";
+        valueB = b.notes || "";
+        break;
       case "status":
         valueA = a.status;
         valueB = b.status;
@@ -97,10 +141,49 @@ function displayPrintRequests(printRequests) {
       ? user.display_name || user.username
       : `User (${request.user_id.substring(0, 8)}...)`;
 
+    // Format filament/spool information
+    let filamentInfo = "Not specified";
+    if (request.spool_details) {
+      const spool = request.spool_details;
+      const filament = spool.filament;
+      let colorDisplay = "";
+      if (filament.color_hex) {
+        colorDisplay = `<span class="color-swatch" style="background-color: #${filament.color_hex};" title="#${filament.color_hex}"></span>`;
+      }
+
+      if (spoolmanConfig && spoolmanConfig.enabled && spoolmanConfig.base_url) {
+        filamentInfo = `<a href="${spoolmanConfig.base_url}/spool/show/${spool.id}" target="_blank" class="spool-link">
+          ${colorDisplay}${filament.vendor.name} ${filament.name} (${filament.material})
+          <br><small>Spool #${spool.id} - ${spool.remaining_weight}g remaining</small>
+        </a>`;
+      } else {
+        filamentInfo = `${colorDisplay}${filament.vendor.name} ${filament.name} (${filament.material})
+          <br><small>Spool #${spool.id} - ${spool.remaining_weight}g remaining</small>`;
+      }
+    } else if (request.material || request.color) {
+      const parts = [];
+      if (request.material) parts.push(request.material);
+      if (request.color) parts.push(`Color: ${request.color}`);
+      filamentInfo = parts.join(", ");
+    }
+
+    // Format notes with truncation
+    let notesDisplay = "No notes";
+    if (request.notes && request.notes.trim()) {
+      const maxLength = 50;
+      const truncated =
+        request.notes.length > maxLength
+          ? request.notes.substring(0, maxLength) + "..."
+          : request.notes;
+      notesDisplay = `<span title="${request.notes}">${truncated}</span>`;
+    }
+
     row.innerHTML = `
       <td title="${request.id}">${request.id}</td>
       <td title="${request.user_id}">${userDisplay}</td>
       <td></td>
+      <td class="filament-cell">${filamentInfo}</td>
+      <td class="notes-cell">${notesDisplay}</td>
       <td>
           <span class="status-badge status-${request.status
             .toLowerCase()
@@ -136,13 +219,15 @@ function displayPrintRequests(printRequests) {
 // Global function to load print requests
 async function loadPrintRequests() {
   try {
-    // Load users in parallel if not already loaded
+    // Load users and spoolman config in parallel if not already loaded
     const usersPromise = usersMap.size === 0 ? loadUsers() : Promise.resolve();
+    const spoolmanPromise =
+      spoolmanConfig === null ? loadSpoolmanConfig() : Promise.resolve();
 
     const status = document.getElementById("statusFilter").value;
     const url = status
-      ? `/api/print-requests?status=${status}`
-      : "/api/print-requests";
+      ? `/api/admin/print-requests?status=${status}`
+      : "/api/admin/print-requests";
 
     const response = await fetch(url, {
       headers: {
@@ -154,7 +239,11 @@ async function loadPrintRequests() {
       throw new Error("Failed to fetch print requests");
     }
 
-    const [printRequests] = await Promise.all([response.json(), usersPromise]);
+    const [printRequests] = await Promise.all([
+      response.json(),
+      usersPromise,
+      spoolmanPromise,
+    ]);
 
     displayPrintRequests(printRequests);
   } catch (error) {

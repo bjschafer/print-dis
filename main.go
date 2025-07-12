@@ -86,9 +86,9 @@ func main() {
 	sessionStore := middleware.NewSessionStore(cfg, db)
 
 	// Create handlers
-	printRequestHandler := handlers.NewPrintRequestHandler(printRequestService)
+	printRequestHandler := handlers.NewPrintRequestHandler(printRequestService, spoolmanService)
 	authHandler := handlers.NewAuthHandler(userService, sessionStore, cfg)
-	adminHandler := handlers.NewAdminHandler(userService)
+	adminHandler := handlers.NewAdminHandler(userService, cfg)
 	var spoolmanHandler *api.SpoolmanHandler
 	if spoolmanService != nil {
 		spoolmanHandler = api.NewSpoolmanHandler(spoolmanService)
@@ -233,6 +233,26 @@ func main() {
 		}
 	})
 	mux.Handle("/api/admin/stats", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminStatsHandler))))
+
+	// Admin print requests route with enhanced details
+	adminPrintRequestsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			printRequestHandler.ListPrintRequestsEnhanced(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.Handle("/api/admin/print-requests", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminPrintRequestsHandler))))
+
+	// Admin spoolman config route
+	adminSpoolmanConfigHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			adminHandler.GetSpoolmanConfig(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.Handle("/api/admin/spoolman-config", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminSpoolmanConfigHandler))))
 
 	// Set the server's handler
 	server.Handler = mux
