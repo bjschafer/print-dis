@@ -15,6 +15,7 @@ import (
 	"github.com/bjschafer/print-dis/internal/database"
 	"github.com/bjschafer/print-dis/internal/handlers"
 	"github.com/bjschafer/print-dis/internal/middleware"
+	"github.com/bjschafer/print-dis/internal/router"
 	"github.com/bjschafer/print-dis/internal/services"
 	"github.com/bjschafer/print-dis/internal/spoolman"
 )
@@ -100,159 +101,19 @@ func main() {
 		Addr: addr,
 	}
 
-	// Create a new mux for API routes
+	// Setup routes using the router package
 	mux := http.NewServeMux()
-
-	// Serve static files
-	fs := http.FileServer(http.Dir("static"))
-	mux.Handle("/", fs)
-
-	// Authentication routes (no auth middleware required)
-	mux.Handle("/api/auth/login", sessionStore.SessionMiddleware()(http.HandlerFunc(authHandler.Login)))
-	mux.Handle("/api/auth/logout", sessionStore.SessionMiddleware()(http.HandlerFunc(authHandler.Logout)))
-	mux.Handle("/api/auth/register", sessionStore.SessionMiddleware()(http.HandlerFunc(authHandler.Register)))
-	mux.Handle("/api/auth/me", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(http.HandlerFunc(authHandler.GetCurrentUser))))
-	mux.Handle("/api/auth/change-password", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(http.HandlerFunc(authHandler.ChangePassword))))
-
-	// Set up API routes with auth middleware
-	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			printRequestHandler.CreatePrintRequest(w, r)
-		case http.MethodGet:
-			if r.URL.Query().Get("id") != "" {
-				printRequestHandler.GetPrintRequest(w, r)
-			} else {
-				printRequestHandler.ListPrintRequests(w, r)
-			}
-		case http.MethodPut:
-			printRequestHandler.UpdatePrintRequest(w, r)
-		case http.MethodDelete:
-			printRequestHandler.DeletePrintRequest(w, r)
-		default:
-			slog.Warn("invalid method for print requests endpoint",
-				"method", r.Method,
-				"path", r.URL.Path,
-			)
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.Handle("/api/print-requests", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(apiHandler)))
-
-	// Add user-specific print requests route
-	userRequestsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			printRequestHandler.ListUserPrintRequests(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.Handle("/api/user/print-requests", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(userRequestsHandler)))
-
-	// Add Spoolman routes if enabled
-	if spoolmanHandler != nil {
-		spoolsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				spoolmanHandler.GetSpools(w, r)
-			} else {
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			}
-		})
-		mux.Handle("/api/spoolman/spools", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(spoolsHandler)))
-
-		spoolHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				spoolmanHandler.GetSpool(w, r)
-			} else {
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			}
-		})
-		mux.Handle("/api/spoolman/spool", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(spoolHandler)))
-
-		materialsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodGet {
-				spoolmanHandler.GetMaterials(w, r)
-			} else {
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			}
-		})
-		mux.Handle("/api/spoolman/materials", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(materialsHandler)))
+	
+	deps := &router.Dependencies{
+		Config:              cfg,
+		SessionStore:        sessionStore,
+		PrintRequestHandler: printRequestHandler,
+		AuthHandler:         authHandler,
+		AdminHandler:        adminHandler,
+		SpoolmanHandler:     spoolmanHandler,
 	}
-
-	// Add route for status updates
-	statusHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPatch {
-			printRequestHandler.UpdatePrintRequestStatus(w, r)
-		} else {
-			slog.Warn("invalid method for print request status endpoint",
-				"method", r.Method,
-				"path", r.URL.Path,
-			)
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.Handle("/api/print-requests/status", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(statusHandler)))
-
-	// Admin routes - require moderator or admin permissions
-	adminUsersHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			adminHandler.ListUsers(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.Handle("/api/admin/users", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminUsersHandler))))
-
-	adminUserRoleHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPut:
-			adminHandler.UpdateUserRole(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.Handle("/api/admin/users/role", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireAdmin(sessionStore, cfg)(adminUserRoleHandler))))
-
-	adminUserStatusHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPut:
-			adminHandler.ToggleUserStatus(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.Handle("/api/admin/users/status", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminUserStatusHandler))))
-
-	adminStatsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			adminHandler.GetUserStats(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.Handle("/api/admin/stats", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminStatsHandler))))
-
-	// Admin print requests route with enhanced details
-	adminPrintRequestsHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			printRequestHandler.ListPrintRequestsEnhanced(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.Handle("/api/admin/print-requests", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminPrintRequestsHandler))))
-
-	// Admin spoolman config route
-	adminSpoolmanConfigHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			adminHandler.GetSpoolmanConfig(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
-	mux.Handle("/api/admin/spoolman-config", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminSpoolmanConfigHandler))))
+	
+	router.SetupRoutes(mux, deps)
 
 	// Set the server's handler with security middleware
 	server.Handler = middleware.SecurityHeaders()(mux)
