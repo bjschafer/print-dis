@@ -28,7 +28,7 @@ func NewUserService(db database.DBClient) *UserService {
 }
 
 // RegisterUser creates a new user account with local authentication using a transaction to prevent race conditions
-func (s *UserService) RegisterUser(ctx context.Context, username, email, password string) (*models.User, error) {
+func (s *UserService) RegisterUser(ctx context.Context, username, email, password string) (user *models.User, err error) {
 	// Validate input
 	if strings.TrimSpace(username) == "" {
 		return nil, fmt.Errorf("username is required")
@@ -71,7 +71,7 @@ func (s *UserService) RegisterUser(ctx context.Context, username, email, passwor
 	}
 
 	// Create new user
-	user := models.NewUser(username, emailPtr)
+	user = models.NewUser(username, emailPtr)
 	user.ID = uuid.New().String()
 
 	// Set password
