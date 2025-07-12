@@ -254,8 +254,8 @@ func main() {
 	})
 	mux.Handle("/api/admin/spoolman-config", sessionStore.SessionMiddleware()(sessionStore.AuthMiddleware(cfg)(middleware.RequireModerator(sessionStore, cfg)(adminSpoolmanConfigHandler))))
 
-	// Set the server's handler
-	server.Handler = mux
+	// Set the server's handler with security middleware
+	server.Handler = middleware.SecurityHeaders()(mux)
 
 	// Create a channel to listen for errors coming from the server
 	serverErrors := make(chan error, 1)
