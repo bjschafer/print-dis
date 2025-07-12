@@ -114,7 +114,7 @@ func initPostgresSchema(db *sqlx.DB) error {
 			user_id VARCHAR(36) NOT NULL REFERENCES users(id),
 			file_link VARCHAR(255) NOT NULL,
 			notes TEXT,
-			spool_id VARCHAR(255),
+			spool_id INTEGER,
 			color VARCHAR(255),
 			material VARCHAR(255),
 			status INTEGER NOT NULL,
@@ -138,6 +138,11 @@ func initPostgresSchema(db *sqlx.DB) error {
 		if _, err := db.Exec(query); err != nil {
 			return fmt.Errorf("failed to execute migration query: %w", err)
 		}
+	}
+
+	// Migration: Change spool_id from VARCHAR to INTEGER to match Spoolman's integer IDs
+	if err := migratePostgresPrintRequestsSpoolID(db); err != nil {
+		return fmt.Errorf("failed to migrate print_requests.spool_id: %w", err)
 	}
 
 	return nil
@@ -668,4 +673,55 @@ func (c *postgresClient) ListUsers(ctx context.Context) ([]*models.User, error) 
 	}
 
 	return users, nil
+}
+
+// migratePostgresPrintRequestsSpoolID migrates the spool_id column from VARCHAR to INTEGER
+func migratePostgresPrintRequestsSpoolID(db *sqlx.DB) error {
+	// Check if migration is needed by checking the data type
+	var dataType string
+	err := db.Get(&dataType, `
+		SELECT data_type 
+		FROM information_schema.columns 
+		WHERE table_name = 'print_requests' 
+		AND column_name = 'spool_id'
+	`)
+	if err != nil {
+		// If we can't get the column type, assume it's already migrated or doesn't exist
+		return nil
+	}
+
+	// If it's already integer, no migration needed
+	if dataType == "integer" {
+		return nil
+	}
+
+	// Migration needed - PostgreSQL supports ALTER COLUMN directly
+	// Start a transaction for the migration
+	tx, err := db.Beginx()
+	if err != nil {
+		return fmt.Errorf("failed to begin migration transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Convert VARCHAR spool_id to INTEGER
+	// This will convert valid numeric strings to integers and set invalid/empty values to NULL
+	migrationQuery := `
+		ALTER TABLE print_requests 
+		ALTER COLUMN spool_id TYPE INTEGER 
+		USING CASE 
+			WHEN spool_id ~ '^[0-9]+$' THEN spool_id::INTEGER
+			ELSE NULL
+		END
+	`
+
+	if _, err := tx.Exec(migrationQuery); err != nil {
+		return fmt.Errorf("failed to migrate spool_id column: %w", err)
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit migration transaction: %w", err)
+	}
+
+	return nil
 }

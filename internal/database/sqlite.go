@@ -111,7 +111,7 @@ func initSQLiteSchema(db *sqlx.DB) error {
 			user_id TEXT NOT NULL,
 			file_link TEXT NOT NULL,
 			notes TEXT,
-			spool_id TEXT,
+			spool_id INTEGER,
 			color TEXT,
 			material TEXT,
 			status INTEGER NOT NULL,
@@ -140,6 +140,12 @@ func initSQLiteSchema(db *sqlx.DB) error {
 				return fmt.Errorf("failed to execute migration query: %w", err)
 			}
 		}
+	}
+
+	// Migration: Change spool_id from TEXT to INTEGER to match Spoolman's integer IDs
+	// SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+	if err := migratePrintRequestsSpoolID(db); err != nil {
+		return fmt.Errorf("failed to migrate print_requests.spool_id: %w", err)
 	}
 
 	return nil
@@ -688,6 +694,92 @@ func (c *sqliteClient) ListUsers(ctx context.Context) ([]*models.User, error) {
 	}
 
 	return users, nil
+}
+
+// migratePrintRequestsSpoolID migrates the spool_id column from TEXT to INTEGER
+func migratePrintRequestsSpoolID(db *sqlx.DB) error {
+	// Check if migration is needed by checking the schema
+	var columnType string
+	err := db.Get(&columnType, "SELECT type FROM pragma_table_info('print_requests') WHERE name = 'spool_id'")
+	if err != nil {
+		// If we can't get the column type, assume it's already migrated or doesn't exist
+		return nil
+	}
+
+	// If it's already INTEGER, no migration needed
+	if strings.ToUpper(columnType) == "INTEGER" {
+		return nil
+	}
+
+	// Migration needed - recreate the table with INTEGER spool_id
+	// SQLite doesn't support ALTER COLUMN, so we need to:
+	// 1. Create a new table with the correct schema
+	// 2. Copy data from old table, converting TEXT spool_id to INTEGER
+	// 3. Drop old table and rename new table
+
+	// Start a transaction for the migration
+	tx, err := db.Beginx()
+	if err != nil {
+		return fmt.Errorf("failed to begin migration transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Create new table with INTEGER spool_id
+	createNewTable := `
+		CREATE TABLE print_requests_new (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			file_link TEXT NOT NULL,
+			notes TEXT,
+			spool_id INTEGER,
+			color TEXT,
+			material TEXT,
+			status INTEGER NOT NULL,
+			created_at TIMESTAMP NOT NULL,
+			updated_at TIMESTAMP NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`
+
+	if _, err := tx.Exec(createNewTable); err != nil {
+		return fmt.Errorf("failed to create new print_requests table: %w", err)
+	}
+
+	// Copy data from old table to new table, converting spool_id
+	// Handle NULL values and convert valid numeric strings to integers
+	copyData := `
+		INSERT INTO print_requests_new (
+			id, user_id, file_link, notes, spool_id, color, material, status, created_at, updated_at
+		)
+		SELECT 
+			id, user_id, file_link, notes,
+			CASE 
+				WHEN spool_id IS NULL OR spool_id = '' THEN NULL
+				WHEN spool_id GLOB '[0-9]*' THEN CAST(spool_id AS INTEGER)
+				ELSE NULL
+			END as spool_id,
+			color, material, status, created_at, updated_at
+		FROM print_requests`
+
+	if _, err := tx.Exec(copyData); err != nil {
+		return fmt.Errorf("failed to copy data to new print_requests table: %w", err)
+	}
+
+	// Drop old table
+	if _, err := tx.Exec("DROP TABLE print_requests"); err != nil {
+		return fmt.Errorf("failed to drop old print_requests table: %w", err)
+	}
+
+	// Rename new table to original name
+	if _, err := tx.Exec("ALTER TABLE print_requests_new RENAME TO print_requests"); err != nil {
+		return fmt.Errorf("failed to rename new print_requests table: %w", err)
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit migration transaction: %w", err)
+	}
+
+	return nil
 }
 
 func isColumnExistsError(err error) bool {
