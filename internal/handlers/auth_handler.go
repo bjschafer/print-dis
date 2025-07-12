@@ -9,6 +9,7 @@ import (
 	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/middleware"
 	"github.com/bjschafer/print-dis/internal/services"
+	"github.com/bjschafer/print-dis/internal/validation"
 )
 
 // AuthHandler handles authentication-related HTTP requests
@@ -33,11 +34,45 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// Validate validates the login request
+func (r *LoginRequest) Validate() validation.ValidationErrors {
+	validator := validation.NewValidator()
+	
+	// Sanitize inputs
+	r.Username = validation.SanitizeString(r.Username)
+	
+	validator.ValidateRequired("username", r.Username)
+	validator.ValidateRequired("password", r.Password)
+	validator.ValidateLength("username", r.Username, 1, 100)
+	validator.ValidateLength("password", r.Password, 1, 500)
+	
+	return validator.Errors()
+}
+
 // RegisterRequest represents a registration request
 type RegisterRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email,omitempty"`
 	Password string `json:"password"`
+}
+
+// Validate validates the registration request
+func (r *RegisterRequest) Validate() validation.ValidationErrors {
+	validator := validation.NewValidator()
+	
+	// Sanitize inputs
+	r.Username = validation.SanitizeString(r.Username)
+	r.Email = validation.SanitizeString(r.Email)
+	
+	validator.ValidateRequired("username", r.Username)
+	validator.ValidateRequired("password", r.Password)
+	validator.ValidateUsername("username", r.Username)
+	validator.ValidateEmail("email", r.Email)
+	validator.ValidateLength("password", r.Password, 8, 128)
+	validator.ValidateNoHTML("username", r.Username)
+	validator.ValidateNoHTML("email", r.Email)
+	
+	return validator.Errors()
 }
 
 // UserResponse represents a user in API responses
@@ -64,8 +99,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input
-	if strings.TrimSpace(req.Username) == "" || strings.TrimSpace(req.Password) == "" {
-		http.Error(w, "Username and password are required", http.StatusBadRequest)
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		validation.WriteValidationError(w, validationErrors)
 		return
 	}
 
@@ -149,12 +184,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input
-	if strings.TrimSpace(req.Username) == "" {
-		http.Error(w, "Username is required", http.StatusBadRequest)
-		return
-	}
-	if strings.TrimSpace(req.Password) == "" {
-		http.Error(w, "Password is required", http.StatusBadRequest)
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		validation.WriteValidationError(w, validationErrors)
 		return
 	}
 
@@ -238,6 +269,18 @@ type ChangePasswordRequest struct {
 	NewPassword     string `json:"new_password"`
 }
 
+// Validate validates the change password request
+func (r *ChangePasswordRequest) Validate() validation.ValidationErrors {
+	validator := validation.NewValidator()
+	
+	validator.ValidateRequired("current_password", r.CurrentPassword)
+	validator.ValidateRequired("new_password", r.NewPassword)
+	validator.ValidateLength("current_password", r.CurrentPassword, 1, 500)
+	validator.ValidateLength("new_password", r.NewPassword, 8, 128)
+	
+	return validator.Errors()
+}
+
 // ChangePassword handles password changes for authenticated users
 func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -259,8 +302,8 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate input
-	if strings.TrimSpace(req.CurrentPassword) == "" || strings.TrimSpace(req.NewPassword) == "" {
-		http.Error(w, "Current password and new password are required", http.StatusBadRequest)
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		validation.WriteValidationError(w, validationErrors)
 		return
 	}
 
