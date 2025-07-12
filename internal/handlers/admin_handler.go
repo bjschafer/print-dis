@@ -9,6 +9,7 @@ import (
 	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/middleware"
 	"github.com/bjschafer/print-dis/internal/models"
+	"github.com/bjschafer/print-dis/internal/response"
 	"github.com/bjschafer/print-dis/internal/services"
 )
 
@@ -110,12 +111,10 @@ func (h *AdminHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 		"old_role", targetUser.Role,
 		"new_role", newRole)
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "User role updated successfully",
-		"user":    targetUser,
-	})
+	userResponse := map[string]interface{}{
+		"user": targetUser,
+	}
+	response.WriteSuccessResponse(w, userResponse, "User role updated successfully")
 }
 
 // ToggleUserStatus handles PUT /api/admin/users/{id}/status
@@ -175,11 +174,7 @@ func (h *AdminHandler) ToggleUserStatus(w http.ResponseWriter, r *http.Request) 
 		"target_user_id", userID,
 		"enabled", req.Enabled)
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"message": "User status updated successfully",
-	})
+	response.WriteSuccessResponse(w, nil, "User status updated successfully")
 }
 
 // GetUserStats handles GET /api/admin/stats
@@ -214,8 +209,7 @@ func (h *AdminHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 		roleStats[string(user.Role)]++
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	response.WriteSuccessResponse(w, stats, "")
 }
 
 // GetSpoolmanConfig returns the spoolman configuration status

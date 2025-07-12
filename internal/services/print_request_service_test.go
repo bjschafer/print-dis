@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bjschafer/print-dis/internal/database"
 	"github.com/bjschafer/print-dis/internal/models"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -14,6 +15,76 @@ import (
 // MockDBClient is a mock implementation of database.DBClient
 type MockDBClient struct {
 	mock.Mock
+}
+
+// MockTx is a mock implementation of database.Tx
+type MockTx struct {
+	mock.Mock
+}
+
+// Transaction methods
+func (m *MockTx) Commit() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockTx) Rollback() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+// User operations
+func (m *MockTx) CreateUser(ctx context.Context, user *models.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+func (m *MockTx) GetUser(ctx context.Context, id string) (*models.User, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
+func (m *MockTx) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
+	args := m.Called(ctx, username)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
+func (m *MockTx) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	args := m.Called(ctx, email)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
+func (m *MockTx) UpdateUser(ctx context.Context, user *models.User) error {
+	args := m.Called(ctx, user)
+	return args.Error(0)
+}
+
+// PrintRequest operations
+func (m *MockTx) CreatePrintRequest(ctx context.Context, request *models.PrintRequest) error {
+	args := m.Called(ctx, request)
+	return args.Error(0)
+}
+
+func (m *MockTx) GetPrintRequest(ctx context.Context, id string) (*models.PrintRequest, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PrintRequest), args.Error(1)
+}
+
+func (m *MockTx) UpdatePrintRequest(ctx context.Context, request *models.PrintRequest) error {
+	args := m.Called(ctx, request)
+	return args.Error(0)
 }
 
 func (m *MockDBClient) CreatePrintRequest(ctx context.Context, request *models.PrintRequest) error {
@@ -134,6 +205,15 @@ func (m *MockDBClient) Close() error {
 	return nil
 }
 
+// BeginTx starts a new transaction
+func (m *MockDBClient) BeginTx(ctx context.Context) (database.Tx, error) {
+	args := m.Called(ctx)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(database.Tx), args.Error(1)
+}
+
 func TestPrintRequestStatusValidation(t *testing.T) {
 	mockDB := new(MockDBClient)
 	service := NewPrintRequestService(mockDB)
@@ -156,46 +236,46 @@ func TestPrintRequestStatusValidation(t *testing.T) {
 		shouldError   bool
 	}{
 		{
-			name:          "Transition: PendingApproval to Enqueued",
+			name:          "Valid Transition: PendingApproval to Enqueued",
 			currentStatus: models.StatusPendingApproval,
 			newStatus:     models.StatusEnqueued,
 			shouldError:   false,
 		},
 		{
-			name:          "Transition: PendingApproval to InProgress",
-			currentStatus: models.StatusPendingApproval,
-			newStatus:     models.StatusInProgress,
-			shouldError:   false,
-		},
-		{
-			name:          "Transition: Enqueued to InProgress",
+			name:          "Valid Transition: Enqueued to InProgress",
 			currentStatus: models.StatusEnqueued,
 			newStatus:     models.StatusInProgress,
 			shouldError:   false,
 		},
 		{
-			name:          "Transition: InProgress to Done",
+			name:          "Valid Transition: InProgress to Done",
 			currentStatus: models.StatusInProgress,
 			newStatus:     models.StatusDone,
 			shouldError:   false,
 		},
 		{
-			name:          "Transition: PendingApproval to Done",
+			name:          "Invalid Transition: PendingApproval to InProgress",
+			currentStatus: models.StatusPendingApproval,
+			newStatus:     models.StatusInProgress,
+			shouldError:   true,
+		},
+		{
+			name:          "Invalid Transition: PendingApproval to Done",
 			currentStatus: models.StatusPendingApproval,
 			newStatus:     models.StatusDone,
-			shouldError:   false,
+			shouldError:   true,
 		},
 		{
-			name:          "Transition: Enqueued to Done",
+			name:          "Invalid Transition: Enqueued to Done",
 			currentStatus: models.StatusEnqueued,
 			newStatus:     models.StatusDone,
-			shouldError:   false,
+			shouldError:   true,
 		},
 		{
-			name:          "Transition: Done to InProgress",
+			name:          "Invalid Transition: Done to InProgress",
 			currentStatus: models.StatusDone,
 			newStatus:     models.StatusInProgress,
-			shouldError:   false,
+			shouldError:   true,
 		},
 	}
 
@@ -208,23 +288,42 @@ func TestPrintRequestStatusValidation(t *testing.T) {
 			testRequest := *request
 			testRequest.Status = tt.currentStatus
 
-			// Set up the mock for GetPrintRequest
-			mockDB.On("GetPrintRequest", ctx, testRequest.ID).Return(&testRequest, nil)
+			// Create a mock transaction
+			mockTx := new(MockTx)
+			
+			// Set up the mock for BeginTx
+			mockDB.On("BeginTx", ctx).Return(mockTx, nil)
+			
+			// Set up the mock for GetPrintRequest within the transaction
+			mockTx.On("GetPrintRequest", ctx, testRequest.ID).Return(&testRequest, nil)
 
-			// Set up UpdatePrintRequest mock for all transitions since they're all valid now
-			mockDB.On("UpdatePrintRequest", ctx, mock.MatchedBy(func(req *models.PrintRequest) bool {
-				return req.ID == testRequest.ID && req.Status == tt.newStatus
-			})).Return(nil)
+			if !tt.shouldError {
+				// Set up UpdatePrintRequest mock for valid transitions
+				mockTx.On("UpdatePrintRequest", ctx, mock.MatchedBy(func(req *models.PrintRequest) bool {
+					return req.ID == testRequest.ID && req.Status == tt.newStatus
+				})).Return(nil)
+				
+				// Set up transaction commit for valid transitions
+				mockTx.On("Commit").Return(nil)
+			}
+			
+			// Set up transaction rollback for any case (will be called by defer if error occurs)
+			mockTx.On("Rollback").Return(nil).Maybe()
 
 			// Try to update the status
 			updatedRequest := *request
 			updatedRequest.Status = tt.newStatus
 			err := service.UpdatePrintRequest(ctx, &updatedRequest)
 
-			assert.NoError(t, err)
+			if tt.shouldError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 
 			// Verify all expectations were met
 			mockDB.AssertExpectations(t)
+			mockTx.AssertExpectations(t)
 		})
 	}
 }

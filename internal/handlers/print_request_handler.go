@@ -7,8 +7,10 @@ import (
 
 	"github.com/bjschafer/print-dis/internal/middleware"
 	"github.com/bjschafer/print-dis/internal/models"
+	"github.com/bjschafer/print-dis/internal/response"
 	"github.com/bjschafer/print-dis/internal/services"
 	"github.com/bjschafer/print-dis/internal/spoolman"
+	"github.com/bjschafer/print-dis/internal/validation"
 	"github.com/google/uuid"
 )
 
@@ -37,6 +39,36 @@ type CreatePrintRequestRequest struct {
 	Material *string `json:"material,omitempty"`
 }
 
+// Validate validates the print request creation data
+func (r *CreatePrintRequestRequest) Validate() validation.ValidationErrors {
+	validator := validation.NewValidator()
+	
+	// Sanitize inputs
+	r.FileLink = validation.SanitizeString(r.FileLink)
+	r.Notes = validation.SanitizeNotes(r.Notes)
+	if r.Color != nil {
+		*r.Color = validation.SanitizeColor(*r.Color)
+	}
+	if r.Material != nil {
+		*r.Material = validation.SanitizeMaterial(*r.Material)
+	}
+	
+	// Validate
+	validator.ValidateRequired("file_link", r.FileLink)
+	validator.ValidateFileURL("file_link", r.FileLink)
+	validator.ValidateNotes("notes", r.Notes)
+	
+	if r.Color != nil {
+		validator.ValidateColor("color", *r.Color)
+	}
+	
+	if r.Material != nil {
+		validator.ValidateMaterial("material", *r.Material)
+	}
+	
+	return validator.Errors()
+}
+
 // UpdatePrintRequestStatusRequest represents the request body for updating a print request's status
 type UpdatePrintRequestStatusRequest struct {
 	Status models.PrintRequestStatus `json:"status"`
@@ -52,7 +84,7 @@ type EnhancedPrintRequest struct {
 func (h *PrintRequestHandler) CreatePrintRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.logger.Warn("invalid method for create print request", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.WriteErrorResponse(w, http.StatusMethodNotAllowed, response.BadRequest, "Method not allowed", "")
 		return
 	}
 
@@ -60,14 +92,13 @@ func (h *PrintRequestHandler) CreatePrintRequest(w http.ResponseWriter, r *http.
 	var req CreatePrintRequestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Error("failed to decode request body", "error", err)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		response.WriteBadRequestError(w, "Invalid request body", err.Error())
 		return
 	}
 
-	// Validate required fields
-	if req.FileLink == "" {
-		h.logger.Warn("missing required field", "field", "file_link")
-		http.Error(w, "File link is required", http.StatusBadRequest)
+	// Validate input
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		validation.WriteValidationError(w, validationErrors)
 		return
 	}
 
@@ -75,11 +106,11 @@ func (h *PrintRequestHandler) CreatePrintRequest(w http.ResponseWriter, r *http.
 	userID := middleware.GetUserID(r)
 	if userID == "" {
 		h.logger.Warn("user not authenticated")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response.WriteUnauthorizedError(w, "Authentication required")
 		return
 	}
 
-	// Create print request
+	// Create print request with sanitized data
 	printRequest := &models.PrintRequest{
 		ID:       uuid.New().String(),
 		UserID:   userID,
@@ -93,19 +124,15 @@ func (h *PrintRequestHandler) CreatePrintRequest(w http.ResponseWriter, r *http.
 
 	// Save print request
 	if err := h.service.CreatePrintRequest(r.Context(), printRequest); err != nil {
-		h.logger.Error("failed to create print request", "error", err)
-		http.Error(w, "Failed to create print request", http.StatusInternalServerError)
+		h.logger.Error("failed to create print request", 
+			"error", err,
+			"user_id", validation.SanitizeLogString(userID),
+			"file_link", validation.SanitizeLogString(req.FileLink))
+		response.WriteInternalError(w, "Failed to create print request", err.Error())
 		return
 	}
 
-	// Return created print request
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(printRequest); err != nil {
-		h.logger.Error("failed to encode response", "error", err)
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-		return
-	}
+	response.WriteCreatedResponse(w, printRequest, "Print request created successfully")
 }
 
 // GetPrintRequest handles retrieving a print request by ID
@@ -269,7 +296,7 @@ func (h *PrintRequestHandler) ListUserPrintRequests(w http.ResponseWriter, r *ht
 func (h *PrintRequestHandler) UpdatePrintRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		h.logger.Warn("invalid method for update print request", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.WriteErrorResponse(w, http.StatusMethodNotAllowed, response.BadRequest, "Method not allowed", "")
 		return
 	}
 
@@ -277,30 +304,44 @@ func (h *PrintRequestHandler) UpdatePrintRequest(w http.ResponseWriter, r *http.
 	id := r.URL.Query().Get("id")
 	if id == "" {
 		h.logger.Warn("missing print request ID")
-		http.Error(w, "Print request ID is required", http.StatusBadRequest)
+		response.WriteBadRequestError(w, "Print request ID is required", "")
+		return
+	}
+	
+	// Validate ID format and length
+	validator := validation.NewValidator()
+	validator.ValidateID("id", id)
+	if validationErrors := validator.Errors(); len(validationErrors) > 0 {
+		validation.WriteValidationError(w, validationErrors)
 		return
 	}
 
-	h.logger.Info("updating print request", "id", id)
+	h.logger.Info("updating print request", "id", validation.SanitizeLogString(id))
 
 	// Get existing print request
 	printRequest, err := h.service.GetPrintRequest(r.Context(), id)
 	if err != nil {
-		h.logger.Error("failed to get print request for update", "error", err, "id", id)
-		http.Error(w, "Failed to get print request", http.StatusInternalServerError)
+		h.logger.Error("failed to get print request for update", "error", err, "id", validation.SanitizeLogString(id))
+		response.WriteInternalError(w, "Failed to get print request", err.Error())
 		return
 	}
 	if printRequest == nil {
-		h.logger.Warn("print request not found for update", "id", id)
-		http.Error(w, "Print request not found", http.StatusNotFound)
+		h.logger.Warn("print request not found for update", "id", validation.SanitizeLogString(id))
+		response.WriteNotFoundError(w, "Print request not found")
 		return
 	}
 
 	// Decode request body
 	var req CreatePrintRequestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.Error("failed to decode update request body", "error", err, "id", id)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		h.logger.Error("failed to decode update request body", "error", err, "id", validation.SanitizeLogString(id))
+		response.WriteBadRequestError(w, "Invalid request body", err.Error())
+		return
+	}
+
+	// Validate input
+	if validationErrors := req.Validate(); len(validationErrors) > 0 {
+		validation.WriteValidationError(w, validationErrors)
 		return
 	}
 
@@ -308,11 +349,11 @@ func (h *PrintRequestHandler) UpdatePrintRequest(w http.ResponseWriter, r *http.
 	userID := middleware.GetUserID(r)
 	if userID == "" {
 		h.logger.Warn("user not authenticated")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		response.WriteUnauthorizedError(w, "Authentication required")
 		return
 	}
 
-	// Update print request fields
+	// Update print request fields with sanitized data
 	printRequest.UserID = userID
 	printRequest.FileLink = req.FileLink
 	printRequest.Notes = req.Notes
@@ -321,23 +362,20 @@ func (h *PrintRequestHandler) UpdatePrintRequest(w http.ResponseWriter, r *http.
 	printRequest.Material = req.Material
 
 	h.logger.Info("updating print request fields",
-		"id", printRequest.ID,
-		"user_id", printRequest.UserID,
-		"file_link", printRequest.FileLink,
+		"id", validation.SanitizeLogString(printRequest.ID),
+		"user_id", validation.SanitizeLogString(printRequest.UserID),
+		"file_link", validation.SanitizeLogString(printRequest.FileLink),
 		"spool_id", printRequest.SpoolID,
-		"color", printRequest.Color,
-		"material", printRequest.Material,
 	)
 
 	// Save updates through service layer
 	if err := h.service.UpdatePrintRequest(r.Context(), printRequest); err != nil {
-		h.logger.Error("failed to update print request", "error", err, "id", id)
-		http.Error(w, "Failed to update print request", http.StatusInternalServerError)
+		h.logger.Error("failed to update print request", "error", err, "id", validation.SanitizeLogString(id))
+		response.WriteInternalError(w, "Failed to update print request", err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(printRequest)
+	response.WriteSuccessResponse(w, printRequest, "Print request updated successfully")
 }
 
 // DeletePrintRequest handles deleting a print request
@@ -372,7 +410,7 @@ func (h *PrintRequestHandler) DeletePrintRequest(w http.ResponseWriter, r *http.
 func (h *PrintRequestHandler) UpdatePrintRequestStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
 		h.logger.Warn("invalid method for update print request status", "method", r.Method)
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		response.WriteErrorResponse(w, http.StatusMethodNotAllowed, response.BadRequest, "Method not allowed", "")
 		return
 	}
 
@@ -380,37 +418,45 @@ func (h *PrintRequestHandler) UpdatePrintRequestStatus(w http.ResponseWriter, r 
 	id := r.URL.Query().Get("id")
 	if id == "" {
 		h.logger.Warn("missing print request ID")
-		http.Error(w, "Print request ID is required", http.StatusBadRequest)
+		response.WriteBadRequestError(w, "Print request ID is required", "")
+		return
+	}
+	
+	// Validate ID format and length
+	validator := validation.NewValidator()
+	validator.ValidateID("id", id)
+	if validationErrors := validator.Errors(); len(validationErrors) > 0 {
+		validation.WriteValidationError(w, validationErrors)
 		return
 	}
 
-	h.logger.Info("updating print request status", "id", id)
+	h.logger.Info("updating print request status", "id", validation.SanitizeLogString(id))
 
 	// Get existing print request
 	printRequest, err := h.service.GetPrintRequest(r.Context(), id)
 	if err != nil {
-		h.logger.Error("failed to get print request for status update", "error", err, "id", id)
-		http.Error(w, "Failed to get print request", http.StatusInternalServerError)
+		h.logger.Error("failed to get print request for status update", "error", err, "id", validation.SanitizeLogString(id))
+		response.WriteInternalError(w, "Failed to get print request", err.Error())
 		return
 	}
 	if printRequest == nil {
-		h.logger.Warn("print request not found for status update", "id", id)
-		http.Error(w, "Print request not found", http.StatusNotFound)
+		h.logger.Warn("print request not found for status update", "id", validation.SanitizeLogString(id))
+		response.WriteNotFoundError(w, "Print request not found")
 		return
 	}
 
 	// Decode request body
 	var req UpdatePrintRequestStatusRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.Error("failed to decode status update request body", "error", err, "id", id)
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		h.logger.Error("failed to decode status update request body", "error", err, "id", validation.SanitizeLogString(id))
+		response.WriteBadRequestError(w, "Invalid request body", err.Error())
 		return
 	}
 
 	// Validate status
 	if !req.Status.IsAPrintRequestStatus() {
 		h.logger.Warn("invalid status value", "status", req.Status)
-		http.Error(w, "Invalid status value", http.StatusBadRequest)
+		response.WriteBadRequestError(w, "Invalid status value", "")
 		return
 	}
 
@@ -418,17 +464,16 @@ func (h *PrintRequestHandler) UpdatePrintRequestStatus(w http.ResponseWriter, r 
 	printRequest.Status = req.Status
 
 	h.logger.Info("updating print request status",
-		"id", printRequest.ID,
+		"id", validation.SanitizeLogString(printRequest.ID),
 		"status", printRequest.Status.String(),
 	)
 
 	// Save updates through service layer
 	if err := h.service.UpdatePrintRequest(r.Context(), printRequest); err != nil {
-		h.logger.Error("failed to update print request status", "error", err, "id", id)
-		http.Error(w, "Failed to update print request status", http.StatusInternalServerError)
+		h.logger.Error("failed to update print request status", "error", err, "id", validation.SanitizeLogString(id))
+		response.WriteInternalError(w, "Failed to update print request status", err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(printRequest)
+	response.WriteSuccessResponse(w, printRequest, "Print request status updated successfully")
 }
