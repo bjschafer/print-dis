@@ -1,7 +1,10 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -117,6 +120,12 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid session timeout: %w", err)
 	}
 
+	// Handle session secret with security checks
+	sessionSecret, err := getSessionSecret(v)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session secret: %w", err)
+	}
+
 	// Create config struct
 	config := &Config{
 		Server: ServerConfig{
@@ -141,7 +150,7 @@ func Load() (*Config, error) {
 		},
 		Auth: AuthConfig{
 			Enabled:        v.GetBool("auth.enabled"),
-			SessionSecret:  v.GetString("auth.session_secret"),
+			SessionSecret:  sessionSecret,
 			SessionTimeout: sessionTimeout,
 			LocalAuth: LocalAuthConfig{
 				Enabled:           v.GetBool("auth.local_auth.enabled"),
@@ -210,7 +219,7 @@ func setDefaults(v *viper.Viper) {
 
 	// Auth defaults
 	v.SetDefault("auth.enabled", true)
-	v.SetDefault("auth.session_secret", "change-me-in-production")
+	v.SetDefault("auth.session_secret", "") // Empty by default, will be auto-generated if needed
 	v.SetDefault("auth.session_timeout", "24h")
 	v.SetDefault("auth.local_auth.enabled", true)
 	v.SetDefault("auth.local_auth.allow_registration", false)
@@ -271,4 +280,45 @@ func setupFlags(v *viper.Viper) {
 	v.BindPFlag("auth.session_timeout", flags.Lookup("auth-session-timeout"))
 	v.BindPFlag("auth.local_auth.enabled", flags.Lookup("auth-local-enabled"))
 	v.BindPFlag("auth.local_auth.allow_registration", flags.Lookup("auth-local-registration"))
+}
+
+// getSessionSecret handles session secret retrieval with security checks and auto-generation
+func getSessionSecret(v *viper.Viper) (string, error) {
+	secret := v.GetString("auth.session_secret")
+	
+	// Check for insecure default
+	if secret == "change-me-in-production" {
+		slog.Error("Using insecure default session secret. Please set PRINT_DIS_AUTH_SESSION_SECRET environment variable or auth.session_secret in config file.")
+		return "", fmt.Errorf("insecure default session secret detected")
+	}
+	
+	// If no secret provided, auto-generate one with warning
+	if secret == "" {
+		slog.Warn("No session secret provided. Auto-generating one. For production, please set PRINT_DIS_AUTH_SESSION_SECRET environment variable or auth.session_secret in config file.")
+		generatedSecret, err := generateSessionSecret()
+		if err != nil {
+			return "", fmt.Errorf("failed to generate session secret: %w", err)
+		}
+		slog.Info("Generated session secret. Sessions will not persist across application restarts.")
+		return generatedSecret, nil
+	}
+	
+	// Validate secret length (minimum 32 bytes when base64 decoded)
+	if len(secret) < 32 {
+		slog.Warn("Session secret is shorter than recommended 32 characters. Consider using a longer, randomly generated secret.")
+	}
+	
+	return secret, nil
+}
+
+// generateSessionSecret creates a cryptographically secure random session secret
+func generateSessionSecret() (string, error) {
+	// Generate 32 random bytes (256 bits)
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", fmt.Errorf("failed to generate random bytes: %w", err)
+	}
+	
+	// Encode as base64 for easy handling
+	return base64.URLEncoding.EncodeToString(bytes), nil
 }
