@@ -103,6 +103,11 @@ func (s *UserService) AuthenticateUser(ctx context.Context, username, password s
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
+	// User not found (database returns nil, nil when not found)
+	if user == nil {
+		return nil, fmt.Errorf("invalid credentials")
+	}
+
 	if !user.Enabled {
 		return nil, fmt.Errorf("account is disabled")
 	}

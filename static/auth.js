@@ -171,7 +171,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         body: JSON.stringify({ username, password }),
       });
 
-      const responseData = await response.json();
+      // Try to parse as JSON, fall back to text if it fails
+      let responseData;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        responseData = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || `HTTP error! status: ${response.status}`);
+      }
       
       if (!response.ok) {
         // Extract error message from JSON error response
