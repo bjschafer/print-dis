@@ -263,26 +263,17 @@ func (h *PrintRequestHandler) ListUserPrintRequests(w http.ResponseWriter, r *ht
 
 	h.logger.Info("listing print requests for user", "user_id", userID)
 
-	// Get print requests from service
-	printRequests, err := h.service.ListPrintRequests(r.Context())
+	// Get print requests for user directly from database
+	userPrintRequests, err := h.service.ListPrintRequestsByUserID(r.Context(), userID)
 	if err != nil {
-		h.logger.Error("failed to list print requests", "error", err)
+		h.logger.Error("failed to list print requests for user", "error", err, "user_id", userID)
 		response.WriteErrorResponse(w, http.StatusInternalServerError, response.InternalError, "Failed to list print requests", "")
 		return
 	}
 
-	// Filter requests for the current user
-	userPrintRequests := make([]*models.PrintRequest, 0)
-	for _, request := range printRequests {
-		if request.UserID == userID {
-			userPrintRequests = append(userPrintRequests, request)
-		}
-	}
-
-	h.logger.Info("filtered print requests for user",
+	h.logger.Info("retrieved print requests for user",
 		"user_id", userID,
-		"total_requests", len(printRequests),
-		"user_requests", len(userPrintRequests),
+		"count", len(userPrintRequests),
 	)
 
 	response.WriteSuccessResponse(w, userPrintRequests, "")

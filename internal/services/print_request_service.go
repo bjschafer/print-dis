@@ -206,3 +206,24 @@ func (s *PrintRequestService) ListPrintRequests(ctx context.Context) ([]*models.
 
 	return requests, nil
 }
+
+// ListPrintRequestsByUserID retrieves print requests for a specific user
+func (s *PrintRequestService) ListPrintRequestsByUserID(ctx context.Context, userID string) ([]*models.PrintRequest, error) {
+	s.logger.Info("retrieving print requests for user", "user_id", userID)
+
+	requests, err := s.db.ListPrintRequestsByUserID(ctx, userID)
+	if err != nil {
+		s.logger.Error("failed to retrieve print requests for user",
+			"error", err,
+			"user_id", userID,
+		)
+		return nil, err
+	}
+
+	s.logger.Info("retrieved print requests for user",
+		"user_id", userID,
+		"count", len(requests),
+	)
+
+	return requests, nil
+}

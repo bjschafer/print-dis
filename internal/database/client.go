@@ -54,6 +54,7 @@ type DBClient interface {
 	UpdatePrintRequest(ctx context.Context, request *models.PrintRequest) error
 	DeletePrintRequest(ctx context.Context, id string) error
 	ListPrintRequests(ctx context.Context) ([]*models.PrintRequest, error)
+	ListPrintRequestsByUserID(ctx context.Context, userID string) ([]*models.PrintRequest, error)
 
 	// Transaction operations
 	BeginTx(ctx context.Context) (Tx, error)
@@ -173,7 +174,7 @@ func (t *txWrapper) CreateUser(ctx context.Context, user *models.User) error {
 func (t *txWrapper) GetUser(ctx context.Context, id string) (*models.User, error) {
 	var user models.User
 	query := `SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled FROM users WHERE id = ?`
-	
+
 	err := t.tx.GetContext(ctx, &user, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -188,7 +189,7 @@ func (t *txWrapper) GetUser(ctx context.Context, id string) (*models.User, error
 func (t *txWrapper) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	var user models.User
 	query := `SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled FROM users WHERE username = ?`
-	
+
 	err := t.tx.GetContext(ctx, &user, query, username)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -203,7 +204,7 @@ func (t *txWrapper) GetUserByUsername(ctx context.Context, username string) (*mo
 func (t *txWrapper) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	var user models.User
 	query := `SELECT id, username, email, password_hash, display_name, role, created_at, updated_at, enabled FROM users WHERE email = ?`
-	
+
 	err := t.tx.GetContext(ctx, &user, query, email)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -265,7 +266,7 @@ func (t *txWrapper) CreatePrintRequest(ctx context.Context, request *models.Prin
 func (t *txWrapper) GetPrintRequest(ctx context.Context, id string) (*models.PrintRequest, error) {
 	var request models.PrintRequest
 	query := `SELECT id, user_id, file_link, notes, material, color, status, spool_id, created_at, updated_at FROM print_requests WHERE id = ?`
-	
+
 	err := t.tx.GetContext(ctx, &request, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {

@@ -457,6 +457,33 @@ func (c *sqliteClient) ListPrintRequests(ctx context.Context) ([]*models.PrintRe
 	return requests, nil
 }
 
+func (c *sqliteClient) ListPrintRequestsByUserID(ctx context.Context, userID string) ([]*models.PrintRequest, error) {
+	query := `
+		SELECT id, user_id, file_link, notes, spool_id, color, material, status, created_at, updated_at
+		FROM print_requests
+		WHERE user_id = ?
+		ORDER BY created_at DESC`
+
+	c.logger.Debug("executing list print requests by user query", "user_id", userID)
+
+	requests := []*models.PrintRequest{}
+	err := c.db.SelectContext(ctx, &requests, query, userID)
+	if err != nil {
+		c.logger.Error("failed to query print requests for user",
+			"error", err,
+			"user_id", userID,
+		)
+		return nil, fmt.Errorf("failed to query print requests for user: %w", err)
+	}
+
+	c.logger.Debug("retrieved print requests for user",
+		"user_id", userID,
+		"count", len(requests),
+	)
+
+	return requests, nil
+}
+
 // User operations
 func (c *sqliteClient) CreateUser(ctx context.Context, user *models.User) error {
 	query := `

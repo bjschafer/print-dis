@@ -116,6 +116,14 @@ func (m *MockDBClient) ListPrintRequests(ctx context.Context) ([]*models.PrintRe
 	return args.Get(0).([]*models.PrintRequest), args.Error(1)
 }
 
+func (m *MockDBClient) ListPrintRequestsByUserID(ctx context.Context, userID string) ([]*models.PrintRequest, error) {
+	args := m.Called(ctx, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*models.PrintRequest), args.Error(1)
+}
+
 // Implement other required interface methods...
 func (m *MockDBClient) CreatePrinter(ctx context.Context, printer *models.Printer) error {
 	return nil
@@ -313,10 +321,10 @@ func TestPrintRequestStatusValidation(t *testing.T) {
 
 			// Create a mock transaction
 			mockTx := new(MockTx)
-			
+
 			// Set up the mock for BeginTx
 			mockDB.On("BeginTx", ctx).Return(mockTx, nil)
-			
+
 			// Set up the mock for GetPrintRequest within the transaction
 			mockTx.On("GetPrintRequest", ctx, testRequest.ID).Return(&testRequest, nil)
 
@@ -325,11 +333,11 @@ func TestPrintRequestStatusValidation(t *testing.T) {
 				mockTx.On("UpdatePrintRequest", ctx, mock.MatchedBy(func(req *models.PrintRequest) bool {
 					return req.ID == testRequest.ID && req.Status == tt.newStatus
 				})).Return(nil)
-				
+
 				// Set up transaction commit for valid transitions
 				mockTx.On("Commit").Return(nil)
 			}
-			
+
 			// Set up transaction rollback for any case (will be called by defer if error occurs)
 			mockTx.On("Rollback").Return(nil).Maybe()
 
