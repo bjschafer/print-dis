@@ -38,7 +38,8 @@ class UserManagement {
       if (!response.ok) {
         throw new Error("Failed to load users");
       }
-      this.users = await response.json();
+      const responseData = await response.json();
+      this.users = responseData.data || responseData;
       this.renderUsers();
     } catch (error) {
       console.error("Failed to load users:", error);
@@ -52,7 +53,8 @@ class UserManagement {
       if (!response.ok) {
         throw new Error("Failed to load stats");
       }
-      const stats = await response.json();
+      const responseData = await response.json();
+      const stats = responseData.data || responseData;
       this.renderStats(stats);
     } catch (error) {
       console.error("Failed to load stats:", error);

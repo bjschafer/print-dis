@@ -64,7 +64,7 @@ table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 1rem;
-    table-layout: fixed;
+    table-layout: auto;
 }
 
 th,
@@ -223,13 +223,13 @@ tr:hover {
 }
 
 .status-badge {
-    padding: 0.25rem 0.75rem;
+    padding: 0.25rem 0.5rem;
     border-radius: 20px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    font-size: 0.75rem;
+    font-weight: 600;
     display: inline-block;
     text-align: center;
-    min-width: 100px;
+    white-space: nowrap;
 }
 
 .status-statuspendingapproval {
@@ -297,7 +297,7 @@ tr:hover {
 }
 
 .container {
-    max-width: 1200px;
+    max-width: 1600px;
     margin: 0 auto;
     padding: 2rem;
 }

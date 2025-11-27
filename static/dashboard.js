@@ -177,7 +177,8 @@ document.addEventListener("DOMContentLoaded", () => {
         throw new Error(`Failed to load print requests: ${response.status}`);
       }
 
-      allRequests = await response.json();
+      const responseData = await response.json();
+      allRequests = responseData.data || responseData;
       filteredRequests = [...allRequests];
 
       updateStats();

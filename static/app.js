@@ -74,12 +74,16 @@ document.addEventListener("DOMContentLoaded", () => {
   function hideSpoolmanButton() {
     const spoolmanSection = spoolmanEnabled.closest(".selection-option");
     const selectionDivider = document.querySelector(".selection-divider");
+    const selectionDescription = document.querySelector(".selection-description");
     
     if (spoolmanSection) {
       spoolmanSection.style.display = "none";
     }
     if (selectionDivider) {
       selectionDivider.style.display = "none";
+    }
+    if (selectionDescription) {
+      selectionDescription.style.display = "none";
     }
     
     // Update the manual section title to remove "OR" implication

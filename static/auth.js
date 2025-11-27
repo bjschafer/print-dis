@@ -176,7 +176,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error(errorText || `HTTP error! status: ${response.status}`);
       }
 
-      const user = await response.json();
+      const responseData = await response.json();
+      const user = responseData.data || responseData;
       
       // Set user in shared auth module
       window.authModule.setCurrentUser(user);
