@@ -171,12 +171,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         body: JSON.stringify({ username, password }),
       });
 
+      const responseData = await response.json();
+      
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `HTTP error! status: ${response.status}`);
+        // Extract error message from JSON error response
+        const errorMessage = responseData.error?.message || responseData.message || `HTTP error! status: ${response.status}`;
+        throw new Error(errorMessage);
       }
 
-      const responseData = await response.json();
       const user = responseData.data || responseData;
       
       // Set user in shared auth module
