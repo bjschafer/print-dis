@@ -241,12 +241,14 @@ async function loadPrintRequests() {
       throw new Error("Failed to fetch print requests");
     }
 
-    const [printRequests] = await Promise.all([
+    const [responseData] = await Promise.all([
       response.json(),
       usersPromise,
       spoolmanPromise,
     ]);
 
+    // Extract data from response wrapper (API returns {success, data, message})
+    const printRequests = responseData.data || responseData;
     displayPrintRequests(printRequests);
   } catch (error) {
     console.error("Error loading print requests:", error);

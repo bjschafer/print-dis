@@ -4,23 +4,52 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Print Request Admin</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="theme.css" />
+    <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin.css" />
     <link rel="stylesheet" href="accessibility.css" />
   </head>
   <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
-    <div class="container">
-      <header role="banner">
-        <h1>Print Request Admin</h1>
-        <nav class="admin-nav" role="navigation" aria-label="Admin navigation">
-          <a href="admin.html" class="active" aria-current="page">Print Requests</a>
-          <a href="admin-users.html">Users</a>
-        </nav>
-        <div class="status-filter" role="region" aria-labelledby="filter-heading">
-          <h2 id="filter-heading" class="sr-only">Filters</h2>
-          <label for="statusFilter">Filter by Status:</label>
-          <select id="statusFilter" aria-describedby="filter-help">
+    
+    <!-- Navigation Bar -->
+    <nav class="navbar" role="navigation" aria-label="Main navigation">
+      <div class="nav-container">
+        <div class="nav-left">
+          <h1 class="nav-title">Print-Dis</h1>
+        </div>
+        <div class="nav-center">
+          <ul class="nav-menu" role="menubar">
+            <li role="none"><a href="dashboard.html" class="nav-link" role="menuitem">Dashboard</a></li>
+            <li role="none"><a href="index.html" class="nav-link" role="menuitem">Submit Job</a></li>
+            <li role="none"><a href="admin.html" class="nav-link active" role="menuitem" aria-current="page">Admin</a></li>
+          </ul>
+        </div>
+        <div class="nav-right">
+          <div class="user-menu">
+            <span id="username" class="username">Admin</span>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="dashboard" role="main" id="main-content">
+      <div class="dashboard-header">
+        <h2>Print Request Administration</h2>
+      </div>
+
+      <div class="admin-nav-tabs">
+        <a href="admin.html" class="admin-tab active" aria-current="page">Print Requests</a>
+        <a href="admin-users.html" class="admin-tab">Users</a>
+      </div>
+
+      <div class="filters">
+        <div class="filter-group">
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter" class="filter-select" aria-describedby="filter-help">
             <option value="">All Statuses</option>
             <option value="StatusPendingApproval">Pending Approval</option>
             <option value="StatusEnqueued">Enqueued</option>
@@ -29,11 +58,11 @@
           </select>
           <span id="filter-help" class="sr-only">Select a status to filter the print requests table</span>
         </div>
-      </header>
+      </div>
 
-      <main role="main" id="main-content">
-        <div class="print-requests-list">
-          <table role="table" aria-labelledby="table-caption">
+      <div class="requests-container">
+        <div class="table-container">
+          <table class="table-modern" role="table" aria-labelledby="table-caption">
             <caption id="table-caption" class="sr-only">Print requests table with sorting and filtering options</caption>
             <thead>
               <tr>
@@ -47,7 +76,7 @@
                   File <span class="sort-indicator" aria-hidden="true"></span>
                 </th>
                 <th class="sortable" data-sort="filament" role="columnheader" aria-sort="none" tabindex="0">
-                  Filament/Spool <span class="sort-indicator" aria-hidden="true"></span>
+                  Filament <span class="sort-indicator" aria-hidden="true"></span>
                 </th>
                 <th class="sortable" data-sort="notes" role="columnheader" aria-sort="none" tabindex="0">
                   Notes <span class="sort-indicator" aria-hidden="true"></span>
@@ -66,8 +95,8 @@
             </tbody>
           </table>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
     <div id="statusUpdateModal" class="modal" role="dialog" aria-labelledby="modal-title" aria-hidden="true">
       <div class="modal-content">
         <h2 id="modal-title">Update Status</h2>

@@ -1,3 +1,42 @@
+/* Admin Navigation Tabs */
+.admin-nav-tabs {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-6);
+    border-bottom: 2px solid var(--neutral-200);
+    padding-bottom: var(--space-2);
+}
+
+.admin-tab {
+    padding: var(--space-3) var(--space-5);
+    text-decoration: none;
+    color: var(--neutral-500);
+    font-weight: 600;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    transition: all var(--transition-fast);
+    position: relative;
+}
+
+.admin-tab:hover {
+    color: var(--primary-600);
+    background: var(--primary-50);
+}
+
+.admin-tab.active {
+    color: var(--primary-600);
+    background: var(--primary-50);
+}
+
+.admin-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--gradient-primary);
+}
+
 .status-filter {
     margin: 1rem 0;
     display: flex;
@@ -28,14 +67,17 @@ table {
     table-layout: fixed;
 }
 
-th, td {
+th,
+td {
     padding: 1rem;
     text-align: left;
     border-bottom: 1px solid #eee;
 }
 
 /* Add column width specifications */
-th:nth-child(1), td:nth-child(1) { /* ID column */
+th:nth-child(1),
+td:nth-child(1) {
+    /* ID column */
     width: 100px;
     max-width: 100px;
     overflow: hidden;
@@ -45,35 +87,50 @@ th:nth-child(1), td:nth-child(1) { /* ID column */
     color: #6c757d;
     font-size: 0.875rem;
     transition: color 0.2s ease;
-    padding-right: 20px; /* Add padding to prevent text from being cut off */
+    padding-right: 20px;
+    /* Add padding to prevent text from being cut off */
 }
 
-th:nth-child(2), td:nth-child(2) { /* User column */
+th:nth-child(2),
+td:nth-child(2) {
+    /* User column */
     width: 120px;
     min-width: 120px;
 }
 
-th:nth-child(3), td:nth-child(3) { /* File column */
+th:nth-child(3),
+td:nth-child(3) {
+    /* File column */
     width: 150px;
 }
 
-th:nth-child(4), td:nth-child(4) { /* Filament/Spool column */
+th:nth-child(4),
+td:nth-child(4) {
+    /* Filament/Spool column */
     width: 200px;
 }
 
-th:nth-child(5), td:nth-child(5) { /* Notes column */
+th:nth-child(5),
+td:nth-child(5) {
+    /* Notes column */
     width: 150px;
 }
 
-th:nth-child(6), td:nth-child(6) { /* Status column */
+th:nth-child(6),
+td:nth-child(6) {
+    /* Status column */
     width: 120px;
 }
 
-th:nth-child(7), td:nth-child(7) { /* Created column */
+th:nth-child(7),
+td:nth-child(7) {
+    /* Created column */
     width: 140px;
 }
 
-th:nth-child(8), td:nth-child(8) { /* Actions column */
+th:nth-child(8),
+td:nth-child(8) {
+    /* Actions column */
     width: 150px;
 }
 
@@ -176,27 +233,27 @@ tr:hover {
 }
 
 .status-statuspendingapproval {
-    background-color: #fff3cd;
-    color: #856404;
-    border: 1px solid #ffeeba;
+    background: linear-gradient(135deg, var(--warning-100) 0%, var(--warning-50) 100%);
+    color: var(--warning-600);
+    border: 1px solid var(--warning-500);
 }
 
 .status-statusenqueued {
-    background-color: #cce5ff;
-    color: #004085;
-    border: 1px solid #b8daff;
+    background: linear-gradient(135deg, var(--success-100) 0%, var(--success-50) 100%);
+    color: var(--success-700);
+    border: 1px solid var(--success-500);
 }
 
 .status-statusinprogress {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
+    background: linear-gradient(135deg, var(--primary-100) 0%, var(--primary-50) 100%);
+    color: var(--primary-700);
+    border: 1px solid var(--primary-500);
 }
 
 .status-statusdone {
-    background-color: #e2e3e5;
-    color: #383d41;
-    border: 1px solid #d6d8db;
+    background: linear-gradient(135deg, var(--accent-400) 0%, var(--accent-500) 100%);
+    color: white;
+    border: none;
 }
 
 .action-buttons {
@@ -220,21 +277,23 @@ tr:hover {
 }
 
 .action-button.update {
-    background-color: #007bff;
+    background: var(--gradient-primary);
     color: white;
+    border: none;
 }
 
 .action-button.update:hover {
-    background-color: #0056b3;
+    box-shadow: var(--shadow-md);
 }
 
 .action-button.delete {
-    background-color: #dc3545;
+    background: linear-gradient(135deg, var(--error-500) 0%, var(--error-600) 100%);
     color: white;
+    border: none;
 }
 
 .action-button.delete:hover {
-    background-color: #c82333;
+    box-shadow: var(--shadow-md);
 }
 
 .container {
@@ -480,6 +539,7 @@ header h1 {
         transform: translateX(100%);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -561,4 +621,4 @@ header h1 {
 .notes-cell span[title] {
     cursor: help;
     border-bottom: 1px dotted #999;
-} 
+}
