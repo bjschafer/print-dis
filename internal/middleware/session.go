@@ -53,12 +53,14 @@ func NewSessionStore(cfg *config.Config, db database.DBClient) *SessionStore {
 func (s *SessionStore) SessionMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Get the session
+			// Get the session - if there's an error (e.g., invalid cookie from old session secret),
+			// gorilla/sessions still returns a new session, so we can safely ignore the error
+			// and just log it for debugging
 			session, err := s.store.Get(r, "print-dis-session")
 			if err != nil {
-				slog.Error("failed to get session", "error", err)
-				http.Error(w, "Session error", http.StatusInternalServerError)
-				return
+				slog.Warn("session decode error (likely stale cookie), using new session", "error", err)
+				// The session returned is still valid (it's a new empty session),
+				// so we can continue. The old invalid cookie will be overwritten on save.
 			}
 
 			// Add session to context
@@ -199,21 +201,21 @@ func isHTTPS(cfg *config.Config) bool {
 	if cfg.Server.HTTPS != nil {
 		return *cfg.Server.HTTPS
 	}
-	
+
 	// Auto-detect based on host/port
 	host := strings.ToLower(cfg.Server.Host)
 	port := cfg.Server.Port
-	
+
 	// Production indicators
 	if host != "localhost" && host != "127.0.0.1" && host != "0.0.0.0" {
 		return true
 	}
-	
+
 	// HTTPS port
 	if port == "443" {
 		return true
 	}
-	
+
 	// Development default
 	return false
 }
