@@ -165,27 +165,37 @@ func (s *SessionStore) LogoutUser(w http.ResponseWriter, r *http.Request) error 
 
 // RegenerateSession regenerates the session ID to prevent session fixation attacks
 func (s *SessionStore) RegenerateSession(w http.ResponseWriter, r *http.Request, userID string) error {
-	// Get current session
+	// Try to invalidate old session if it exists, but don't fail if this doesn't work
+	// (e.g., if there's a stale cookie with invalid signature)
 	oldSession := GetSession(r)
-	if oldSession == nil {
-		return fmt.Errorf("session not found")
+	if oldSession != nil {
+		oldSession.Options.MaxAge = -1
+		// Ignore errors from saving the old session - it might have an invalid signature
+		_ = oldSession.Save(r, w)
 	}
 
-	// Invalidate old session
-	oldSession.Options.MaxAge = -1
-	if err := oldSession.Save(r, w); err != nil {
-		return fmt.Errorf("failed to invalidate old session: %w", err)
-	}
-
-	// Create new session with new ID
-	newSession, err := s.store.New(r, "print-dis-session")
+	// Create new session with new ID - use Get instead of New to handle existing cookies
+	newSession, err := s.store.Get(r, "print-dis-session")
 	if err != nil {
-		return fmt.Errorf("failed to create new session: %w", err)
+		// If there's an error (e.g., stale cookie), create a truly new session
+		slog.Warn("error getting session during regeneration, creating fresh session", "error", err)
+		newSession, err = s.store.New(r, "print-dis-session")
+		if err != nil {
+			return fmt.Errorf("failed to create new session: %w", err)
+		}
+	}
+
+	// Clear any existing values and set fresh data
+	for key := range newSession.Values {
+		delete(newSession.Values, key)
 	}
 
 	// Set user in new session
 	newSession.Values["user_id"] = userID
 	newSession.Values["created_at"] = time.Now()
+
+	// Ensure the session is marked as new/modified so it gets a fresh ID
+	newSession.IsNew = true
 
 	// Save new session
 	if err := newSession.Save(r, w); err != nil {
