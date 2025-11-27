@@ -35,12 +35,21 @@ type SessionStore struct {
 func NewSessionStore(cfg *config.Config, db database.DBClient) *SessionStore {
 	// Create session store with secret key
 	store := sessions.NewCookieStore([]byte(cfg.Auth.SessionSecret))
+
+	// Determine if we're in development mode (localhost)
+	isDev := cfg.Server.Host == "localhost" || cfg.Server.Host == "127.0.0.1" || cfg.Server.Host == "0.0.0.0"
+
 	store.Options = &sessions.Options{
 		Path:     "/",
 		MaxAge:   int(cfg.Auth.SessionTimeout.Seconds()),
 		HttpOnly: true,
 		Secure:   isHTTPS(cfg), // Environment-aware secure flag
 		SameSite: http.SameSiteLaxMode,
+	}
+
+	// In development, don't set a specific domain to allow both localhost and 127.0.0.1
+	if !isDev {
+		store.Options.Domain = cfg.Server.Host
 	}
 
 	return &SessionStore{
@@ -165,39 +174,18 @@ func (s *SessionStore) LogoutUser(w http.ResponseWriter, r *http.Request) error 
 
 // RegenerateSession regenerates the session ID to prevent session fixation attacks
 func (s *SessionStore) RegenerateSession(w http.ResponseWriter, r *http.Request, userID string) error {
-	// Try to invalidate old session if it exists, but don't fail if this doesn't work
-	// (e.g., if there's a stale cookie with invalid signature)
-	oldSession := GetSession(r)
-	if oldSession != nil {
-		oldSession.Options.MaxAge = -1
-		// Ignore errors from saving the old session - it might have an invalid signature
-		_ = oldSession.Save(r, w)
-	}
-
-	// Create new session with new ID - use Get instead of New to handle existing cookies
-	newSession, err := s.store.Get(r, "print-dis-session")
+	// Create a completely new session - don't try to invalidate old one as that
+	// can cause issues with shared Options objects in gorilla/sessions
+	newSession, err := s.store.New(r, "print-dis-session")
 	if err != nil {
-		// If there's an error (e.g., stale cookie), create a truly new session
-		slog.Warn("error getting session during regeneration, creating fresh session", "error", err)
-		newSession, err = s.store.New(r, "print-dis-session")
-		if err != nil {
-			return fmt.Errorf("failed to create new session: %w", err)
-		}
-	}
-
-	// Clear any existing values and set fresh data
-	for key := range newSession.Values {
-		delete(newSession.Values, key)
+		return fmt.Errorf("failed to create new session: %w", err)
 	}
 
 	// Set user in new session
 	newSession.Values["user_id"] = userID
 	newSession.Values["created_at"] = time.Now()
 
-	// Ensure the session is marked as new/modified so it gets a fresh ID
-	newSession.IsNew = true
-
-	// Save new session
+	// Save new session - this will overwrite any existing cookie
 	if err := newSession.Save(r, w); err != nil {
 		return fmt.Errorf("failed to save new session: %w", err)
 	}
