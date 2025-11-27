@@ -1,7 +1,3 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
 Print-dis is a Go web application for managing 3D printing requests with user authentication, role-based access control, and optional Spoolman integration. It serves static HTML/JS/CSS frontend files and provides a REST API backend.
