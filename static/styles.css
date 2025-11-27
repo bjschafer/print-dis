@@ -1,23 +1,14 @@
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    line-height: 1.6;
-    color: #333;
-    background-color: #f5f5f5;
-}
+/* Note: Base styles now defined in theme.css */
+/* This file contains form and component-specific styles */
 
 .container {
     max-width: 600px;
-    margin: 2rem auto;
-    padding: 2rem;
+    margin: var(--space-8) auto;
+    padding: var(--space-8);
     background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--neutral-100);
 }
 
 h1 {
@@ -54,8 +45,10 @@ input[type="number"]::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
 }
+
 input[type="number"] {
     -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 input[type="text"]:focus,
@@ -70,19 +63,21 @@ textarea:focus {
 button {
     display: block;
     width: 100%;
-    padding: 0.75rem;
-    background-color: #3498db;
+    padding: var(--space-3);
+    background: var(--gradient-primary);
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-lg);
     font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all var(--transition-base);
+    box-shadow: var(--shadow-md), var(--shadow-colored);
 }
 
 button:hover {
-    background-color: #2980b9;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg), 0 15px 50px -15px rgba(99, 102, 241, 0.5);
 }
 
 .status {
@@ -348,7 +343,8 @@ button:hover {
     justify-content: flex-end;
 }
 
-.cancel-btn, .submit-btn {
+.cancel-btn,
+.submit-btn {
     padding: 0.75rem 1.5rem;
     border: none;
     border-radius: 6px;
@@ -368,17 +364,18 @@ button:hover {
 }
 
 .submit-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--gradient-primary);
     color: white;
+    box-shadow: var(--shadow-md), var(--shadow-colored);
 }
 
 .submit-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg), 0 15px 50px -15px rgba(99, 102, 241, 0.5);
 }
 
 .submit-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none !important;
-} 
+}

@@ -4,13 +4,255 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Print-Dis - Authentication</title>
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="auth.css" />
     <link rel="stylesheet" href="accessibility.css" />
+    <style>
+      .auth-page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--space-4);
+      }
+
+      .auth-wrapper {
+        width: 100%;
+        max-width: 420px;
+      }
+
+      .auth-container {
+        background: white;
+        border-radius: var(--radius-2xl);
+        box-shadow: var(--shadow-xl);
+        padding: var(--space-10);
+        border: 1px solid var(--neutral-100);
+        animation: scaleIn 0.3s ease-out;
+      }
+
+      .auth-logo {
+        width: 64px;
+        height: 64px;
+        background: var(--gradient-primary);
+        border-radius: var(--radius-xl);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto var(--space-6);
+        box-shadow: var(--shadow-colored);
+      }
+
+      .auth-logo svg {
+        width: 32px;
+        height: 32px;
+        color: white;
+      }
+
+      .auth-header {
+        text-align: center;
+        margin-bottom: var(--space-8);
+      }
+
+      .auth-header h1 {
+        font-size: 1.75rem;
+        font-weight: 800;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: var(--space-2);
+      }
+
+      .auth-header p {
+        color: var(--neutral-500);
+        font-size: 0.9375rem;
+      }
+
+      .auth-form h2 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--neutral-800);
+        text-align: center;
+        margin-bottom: var(--space-6);
+      }
+
+      .form-group {
+        margin-bottom: var(--space-5);
+      }
+
+      .form-group label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--neutral-700);
+        margin-bottom: var(--space-2);
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: var(--space-3) var(--space-4);
+        font-size: 0.9375rem;
+        border: 2px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        transition: all var(--transition-fast);
+        background: white;
+      }
+
+      .form-group input:hover {
+        border-color: var(--neutral-300);
+      }
+
+      .form-group input:focus {
+        outline: none;
+        border-color: var(--primary-500);
+        box-shadow: 0 0 0 4px var(--primary-100);
+      }
+
+      .auth-btn {
+        width: 100%;
+        padding: var(--space-3) var(--space-4);
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: var(--radius-lg);
+        cursor: pointer;
+        transition: all var(--transition-base);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+      }
+
+      .auth-btn.primary {
+        background: var(--gradient-primary);
+        color: white;
+        box-shadow: var(--shadow-md), var(--shadow-colored);
+      }
+
+      .auth-btn.primary:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg), 0 15px 50px -15px rgba(99, 102, 241, 0.5);
+      }
+
+      .auth-btn.primary:active {
+        transform: translateY(0);
+      }
+
+      .auth-links {
+        text-align: center;
+        margin-top: var(--space-6);
+        padding-top: var(--space-6);
+        border-top: 1px solid var(--neutral-100);
+      }
+
+      .auth-links p {
+        color: var(--neutral-500);
+        font-size: 0.9375rem;
+      }
+
+      .auth-links a {
+        color: var(--primary-600);
+        font-weight: 600;
+        text-decoration: none;
+        transition: color var(--transition-fast);
+      }
+
+      .auth-links a:hover {
+        color: var(--primary-700);
+        text-decoration: underline;
+      }
+
+      .oidc-divider {
+        position: relative;
+        text-align: center;
+        margin: var(--space-6) 0;
+      }
+
+      .oidc-divider::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: var(--neutral-200);
+      }
+
+      .oidc-divider span {
+        background: white;
+        padding: 0 var(--space-4);
+        color: var(--neutral-400);
+        font-size: 0.875rem;
+        font-weight: 500;
+        position: relative;
+      }
+
+      .oidc-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        border: 2px solid var(--neutral-200);
+        border-radius: var(--radius-lg);
+        background: white;
+        color: var(--neutral-700);
+        text-decoration: none;
+        font-weight: 600;
+        transition: all var(--transition-base);
+        margin-bottom: var(--space-3);
+      }
+
+      .oidc-btn:hover {
+        border-color: var(--neutral-300);
+        background: var(--neutral-50);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+      }
+
+      .status {
+        margin-top: var(--space-4);
+        padding: var(--space-4);
+        border-radius: var(--radius-lg);
+        text-align: center;
+        font-weight: 500;
+      }
+
+      .status.success {
+        background: var(--success-50);
+        color: var(--success-700);
+        border: 1px solid var(--success-500);
+      }
+
+      .status.error {
+        background: var(--error-50);
+        color: var(--error-600);
+        border: 1px solid var(--error-500);
+      }
+
+      @keyframes scaleIn {
+        from {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+    </style>
   </head>
-  <body>
-    <div class="container">
+  <body class="auth-page">
+    <div class="auth-wrapper">
       <main class="auth-container" role="main" id="main-content">
+        <div class="auth-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
         <div class="auth-header">
           <h1>Print-Dis</h1>
           <p>3D Print Request Management</p>

@@ -4,133 +4,439 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Welcome to Print-Dis</title>
-    <link rel="stylesheet" href="styles.css" />
-    <link rel="stylesheet" href="dashboard.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="accessibility.css" />
     <style>
-      .welcome-container {
-        max-width: 800px;
-        margin: 4rem auto;
-        padding: 2rem;
-        text-align: center;
+      .welcome-page {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
       }
 
+      .welcome-container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: var(--space-8);
+        flex: 1;
+      }
+
+      /* Hero Section */
       .welcome-hero {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: var(--gradient-primary);
         color: white;
-        padding: 4rem 2rem;
-        border-radius: 1rem;
-        margin-bottom: 3rem;
+        padding: var(--space-16) var(--space-8);
+        border-radius: var(--radius-2xl);
+        margin-bottom: var(--space-12);
+        position: relative;
+        overflow: hidden;
+        text-align: center;
+        box-shadow: var(--shadow-xl), 0 25px 60px -15px rgba(99, 102, 241, 0.4);
+      }
+
+      .welcome-hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      }
+
+      .welcome-hero::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 60%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+        pointer-events: none;
+      }
+
+      .hero-content {
+        position: relative;
+        z-index: 1;
+      }
+
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        padding: var(--space-2) var(--space-4);
+        border-radius: var(--radius-full);
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-bottom: var(--space-6);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .hero-badge svg {
+        width: 16px;
+        height: 16px;
       }
 
       .welcome-hero h1 {
-        font-size: 3rem;
-        margin: 0 0 1rem 0;
+        font-size: clamp(2.5rem, 6vw, 4rem);
+        font-weight: 800;
+        margin: 0 0 var(--space-4) 0;
+        letter-spacing: -0.02em;
+        line-height: 1.1;
       }
 
       .welcome-hero p {
-        font-size: 1.25rem;
+        font-size: clamp(1.125rem, 2vw, 1.5rem);
         margin: 0;
         opacity: 0.9;
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.5;
+      }
+
+      /* Features Section */
+      .features-section {
+        margin-bottom: var(--space-12);
+      }
+
+      .section-header {
+        text-align: center;
+        margin-bottom: var(--space-10);
+      }
+
+      .section-header h2 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--neutral-800);
+        margin-bottom: var(--space-2);
+      }
+
+      .section-header p {
+        color: var(--neutral-500);
+        font-size: 1.125rem;
       }
 
       .features-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 2rem;
-        margin: 3rem 0;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: var(--space-6);
       }
 
       .feature-card {
         background: white;
-        padding: 2rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s;
+        padding: var(--space-8);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--neutral-100);
+        transition: all var(--transition-base);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--gradient-primary);
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform var(--transition-base);
       }
 
       .feature-card:hover {
-        transform: translateY(-4px);
+        transform: translateY(-6px);
+        box-shadow: var(--shadow-xl);
+      }
+
+      .feature-card:hover::before {
+        transform: scaleX(1);
       }
 
       .feature-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
+        width: 56px;
+        height: 56px;
+        background: var(--primary-100);
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: var(--space-5);
+        transition: all var(--transition-base);
+      }
+
+      .feature-card:hover .feature-icon {
+        background: var(--gradient-primary);
+        transform: scale(1.1) rotate(-5deg);
+      }
+
+      .feature-icon svg {
+        width: 28px;
+        height: 28px;
+        color: var(--primary-600);
+        transition: color var(--transition-fast);
+      }
+
+      .feature-card:hover .feature-icon svg {
+        color: white;
+      }
+
+      .feature-card h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--neutral-800);
+        margin-bottom: var(--space-3);
+      }
+
+      .feature-card p {
+        color: var(--neutral-500);
+        font-size: 0.9375rem;
+        line-height: 1.6;
+        margin: 0;
+      }
+
+      /* CTA Section */
+      .cta-section {
+        background: white;
+        border-radius: var(--radius-2xl);
+        padding: var(--space-12) var(--space-8);
+        box-shadow: var(--shadow-lg);
+        text-align: center;
+        border: 1px solid var(--neutral-100);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .cta-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--gradient-mesh);
+        opacity: 0.5;
+      }
+
+      .cta-content {
+        position: relative;
+        z-index: 1;
+      }
+
+      .cta-section h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--neutral-800);
+        margin-bottom: var(--space-3);
+      }
+
+      .cta-section p {
+        color: var(--neutral-500);
+        font-size: 1.125rem;
+        margin-bottom: var(--space-8);
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
       }
 
       .action-buttons {
         display: flex;
-        gap: 1rem;
+        gap: var(--space-4);
         justify-content: center;
         flex-wrap: wrap;
-        margin-top: 3rem;
       }
 
-      .btn-large {
-        padding: 1rem 2rem;
-        font-size: 1.125rem;
+      .btn-hero {
+        padding: var(--space-4) var(--space-8);
+        font-size: 1.0625rem;
+        font-weight: 600;
+        border-radius: var(--radius-xl);
+        transition: all var(--transition-base);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+
+      .btn-hero-primary {
+        background: var(--gradient-primary);
+        color: white;
+        box-shadow: var(--shadow-lg), var(--shadow-colored);
+        border: none;
+      }
+
+      .btn-hero-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-xl), 0 20px 60px -15px rgba(99, 102, 241, 0.5);
+      }
+
+      .btn-hero-primary svg {
+        transition: transform var(--transition-fast);
+      }
+
+      .btn-hero-primary:hover svg {
+        transform: translateX(4px);
+      }
+
+      .btn-hero-secondary {
+        background: white;
+        color: var(--neutral-700);
+        border: 2px solid var(--neutral-200);
+      }
+
+      .btn-hero-secondary:hover {
+        border-color: var(--primary-300);
+        color: var(--primary-600);
+        background: var(--primary-50);
+      }
+
+      /* Footer */
+      .welcome-footer {
+        text-align: center;
+        padding: var(--space-8);
+        color: var(--neutral-400);
+        font-size: 0.875rem;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .welcome-container {
+          padding: var(--space-4);
+        }
+
+        .welcome-hero {
+          padding: var(--space-10) var(--space-6);
+        }
+
+        .cta-section {
+          padding: var(--space-8) var(--space-6);
+        }
+
+        .action-buttons {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .btn-hero {
+          justify-content: center;
+        }
       }
     </style>
   </head>
-  <body>
+  <body class="welcome-page">
     <a href="#main-content" class="skip-link">Skip to main content</a>
+    
     <div class="welcome-container">
-      <div class="welcome-hero" role="banner">
-        <h1>Print-Dis</h1>
-        <p>Your 3D Printing Request Management System</p>
+      <!-- Hero Section -->
+      <div class="welcome-hero animate-fade-in" role="banner">
+        <div class="hero-content">
+          <div class="hero-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            3D Print Management
+          </div>
+          <h1>Print-Dis</h1>
+          <p>Streamline your 3D printing workflow with our modern request management system</p>
+        </div>
       </div>
 
       <main id="main-content" role="main">
-        <div class="features-grid" role="region" aria-labelledby="features-heading">
-          <h2 id="features-heading" class="sr-only">Key Features</h2>
+        <!-- Features Section -->
+        <section class="features-section" aria-labelledby="features-heading">
+          <div class="section-header">
+            <h2 id="features-heading">Everything you need</h2>
+            <p>Powerful features to manage your 3D printing requests efficiently</p>
+          </div>
           
-          <div class="feature-card">
-            <div class="feature-icon" aria-hidden="true">📋</div>
-            <h3>Easy Submissions</h3>
-            <p>
-              Submit print requests with file links, material preferences, and
-              detailed notes.
-            </p>
-          </div>
+          <div class="features-grid stagger-children">
+            <div class="feature-card">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+              </div>
+              <h3>Easy Submissions</h3>
+              <p>Submit print requests with file links, material preferences, and detailed notes in seconds.</p>
+            </div>
 
-          <div class="feature-card">
-            <div class="feature-icon" aria-hidden="true">📊</div>
-            <h3>Track Progress</h3>
-            <p>
-              Monitor your requests from submission to completion with real-time
-              status updates.
-            </p>
-          </div>
+            <div class="feature-card">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+              </div>
+              <h3>Track Progress</h3>
+              <p>Monitor your requests from submission to completion with real-time status updates.</p>
+            </div>
 
-          <div class="feature-card">
-            <div class="feature-icon" aria-hidden="true">👥</div>
-            <h3>User Management</h3>
-            <p>
-              Role-based access control with admin and moderator capabilities.
-            </p>
-          </div>
+            <div class="feature-card">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <h3>User Management</h3>
+              <p>Role-based access control with admin and moderator capabilities for your team.</p>
+            </div>
 
-          <div class="feature-card">
-            <div class="feature-icon" aria-hidden="true">🎯</div>
-            <h3>Organized Queue</h3>
-            <p>
-              Efficient print queue management with priority and status tracking.
-            </p>
+            <div class="feature-card">
+              <div class="feature-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <circle cx="12" cy="12" r="6"/>
+                  <circle cx="12" cy="12" r="2"/>
+                </svg>
+              </div>
+              <h3>Organized Queue</h3>
+              <p>Efficient print queue management with priority and status tracking for all requests.</p>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div class="action-buttons" role="region" aria-labelledby="actions-heading">
-          <h2 id="actions-heading" class="sr-only">Actions</h2>
-          <a href="dashboard.html" class="btn btn-primary btn-large" aria-describedby="dashboard-desc">
-            Go to Dashboard
-          </a>
-          <span id="dashboard-desc" class="sr-only">View your print requests and account dashboard</span>
-          <a href="index.html" class="btn btn-secondary btn-large" aria-describedby="submit-desc">
-            Submit a Request
-          </a>
-          <span id="submit-desc" class="sr-only">Submit a new 3D print request</span>
-        </div>
+        <!-- CTA Section -->
+        <section class="cta-section animate-slide-up" aria-labelledby="cta-heading">
+          <div class="cta-content">
+            <h2 id="cta-heading">Ready to get started?</h2>
+            <p>Join your team and start managing print requests today</p>
+            
+            <div class="action-buttons">
+              <a href="dashboard.html" class="btn-hero btn-hero-primary" aria-describedby="dashboard-desc">
+                Go to Dashboard
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+              </a>
+              <span id="dashboard-desc" class="sr-only">View your print requests and account dashboard</span>
+              
+              <a href="index.html" class="btn-hero btn-hero-secondary" aria-describedby="submit-desc">
+                Submit a Request
+              </a>
+              <span id="submit-desc" class="sr-only">Submit a new 3D print request</span>
+            </div>
+          </div>
+        </section>
       </main>
+      
+      <footer class="welcome-footer">
+        <p>Print-Dis &mdash; Modern 3D Print Request Management</p>
+      </footer>
     </div>
 
     <script src="accessibility.js"></script>
@@ -144,19 +450,18 @@
           });
 
           if (response.ok) {
-            // User is authenticated, they can stay on this page or go to dashboard
             console.log("User is authenticated");
           } else {
-            // User is not authenticated, redirect to auth
+            // User is not authenticated, redirect to auth after brief delay
             setTimeout(() => {
               window.location.href = "/auth.html";
-            }, 2000); // Give them time to see the welcome page
+            }, 3000);
           }
         } catch (error) {
           console.error("Auth check failed:", error);
           setTimeout(() => {
             window.location.href = "/auth.html";
-          }, 2000);
+          }, 3000);
         }
       });
     </script>
