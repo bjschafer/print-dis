@@ -58,73 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
       window.location.href = "/index.html";
     });
 
-    // User menu dropdown
-    const dropdownBtn = document.querySelector('.dropdown-btn');
-    const dropdownContent = document.querySelector('.dropdown-content');
-    
-    if (dropdownBtn && dropdownContent) {
-      dropdownBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const isExpanded = dropdownBtn.getAttribute('aria-expanded') === 'true';
-        dropdownBtn.setAttribute('aria-expanded', !isExpanded);
-        dropdownContent.classList.toggle('show');
-        
-        if (!isExpanded) {
-          // Focus first menu item when opened
-          const firstMenuItem = dropdownContent.querySelector('a[role="menuitem"]');
-          if (firstMenuItem) {
-            firstMenuItem.focus();
-          }
-        }
-      });
-
-      // Close dropdown on outside click
-      document.addEventListener('click', (e) => {
-        if (!dropdownBtn.contains(e.target) && !dropdownContent.contains(e.target)) {
-          dropdownBtn.setAttribute('aria-expanded', 'false');
-          dropdownContent.classList.remove('show');
-        }
-      });
-
-      // Keyboard navigation for dropdown
-      dropdownContent.addEventListener('keydown', (e) => {
-        const menuItems = dropdownContent.querySelectorAll('a[role="menuitem"]');
-        const currentIndex = Array.from(menuItems).indexOf(document.activeElement);
-        
-        switch (e.key) {
-          case 'ArrowDown':
-            e.preventDefault();
-            const nextIndex = currentIndex < menuItems.length - 1 ? currentIndex + 1 : 0;
-            menuItems[nextIndex].focus();
-            break;
-          case 'ArrowUp':
-            e.preventDefault();
-            const prevIndex = currentIndex > 0 ? currentIndex - 1 : menuItems.length - 1;
-            menuItems[prevIndex].focus();
-            break;
-          case 'Escape':
-            e.preventDefault();
-            dropdownBtn.setAttribute('aria-expanded', 'false');
-            dropdownContent.classList.remove('show');
-            dropdownBtn.focus();
-            break;
-        }
-      });
-    }
-
-    // User menu
-    document
-      .getElementById("logoutBtn")
-      .addEventListener("click", function(e) {
-        e.preventDefault();
-        window.authModule.handleLogout();
-      });
-    document
-      .getElementById("changePasswordBtn")
-      .addEventListener("click", function(e) {
-        e.preventDefault();
-        window.authModule.showChangePasswordModal();
-      });
+    // User menu dropdown and buttons are handled by shared-auth.js
 
     // Filters
     document
@@ -174,7 +108,9 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to load print requests: ${response.status}`);
+        const errorText = await response.text();
+        console.error("API error response:", response.status, errorText);
+        throw new Error(`Failed to load print requests: ${response.status} - ${errorText}`);
       }
 
       const responseData = await response.json();
@@ -191,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showEmptyState();
       }
     } catch (error) {
-      console.error("Failed to load print requests:", error);
+      console.error("Failed to load print requests:", error.message || error);
       showError("Failed to load your print requests. Please try again.");
       showLoading(false);
     }

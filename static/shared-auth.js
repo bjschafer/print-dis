@@ -87,11 +87,76 @@ window.authModule = (function() {
         }
     }
 
+    // Create change password modal if it doesn't exist
+    function createChangePasswordModal() {
+        if (document.getElementById("changePasswordModal")) {
+            return; // Already exists
+        }
+        
+        const modal = document.createElement("div");
+        modal.id = "changePasswordModal";
+        modal.className = "modal";
+        modal.setAttribute("role", "dialog");
+        modal.setAttribute("aria-modal", "true");
+        modal.setAttribute("aria-labelledby", "changePasswordTitle");
+        modal.style.display = "none";
+        
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="changePasswordTitle">Change Password</h3>
+                    <button class="close" id="closeChangePasswordModal" aria-label="Close">&times;</button>
+                </div>
+                <form id="changePasswordForm">
+                    <div class="form-group">
+                        <label for="currentPassword">Current Password:</label>
+                        <input type="password" id="currentPassword" name="current_password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPassword">New Password:</label>
+                        <input type="password" id="newPassword" name="new_password" required minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm New Password:</label>
+                        <input type="password" id="confirmPassword" name="confirm_password" required minlength="8">
+                    </div>
+                    <div id="changePasswordError" class="error-message" style="display: none; color: #dc3545; margin-bottom: 1rem;"></div>
+                    <div class="modal-buttons">
+                        <button type="button" class="btn btn-secondary" id="cancelChangePassword">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Change Password</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Set up event listeners for the new modal
+        document.getElementById("closeChangePasswordModal").addEventListener("click", hideChangePasswordModal);
+        document.getElementById("cancelChangePassword").addEventListener("click", hideChangePasswordModal);
+        
+        document.getElementById("changePasswordForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+            const currentPassword = document.getElementById("currentPassword").value;
+            const newPassword = document.getElementById("newPassword").value;
+            const confirmPassword = document.getElementById("confirmPassword").value;
+            
+            if (newPassword !== confirmPassword) {
+                showPasswordChangeError("New passwords do not match");
+                return;
+            }
+            
+            await handlePasswordChange(currentPassword, newPassword);
+        });
+    }
+
     // Show change password modal
     function showChangePasswordModal() {
+        createChangePasswordModal();
+        
         const modal = document.getElementById("changePasswordModal");
         if (modal) {
-            modal.style.display = "block";
+            modal.style.display = "flex";
             // Clear previous form data
             const form = document.getElementById("changePasswordForm");
             if (form) {
@@ -101,6 +166,11 @@ window.authModule = (function() {
             const errorDiv = document.getElementById("changePasswordError");
             if (errorDiv) {
                 errorDiv.style.display = "none";
+            }
+            // Focus first input
+            const firstInput = document.getElementById("currentPassword");
+            if (firstInput) {
+                firstInput.focus();
             }
         }
     }
@@ -250,31 +320,41 @@ window.authModule = (function() {
 
     // Set up common event listeners
     function setupEventListeners() {
-        // User menu button
-        const userMenuButton = document.getElementById("userMenuButton");
-        if (userMenuButton) {
-            userMenuButton.addEventListener("click", function(e) {
+        // User menu dropdown button (navbar style)
+        const dropdownBtn = document.querySelector('.dropdown-btn');
+        const dropdownContent = document.querySelector('.dropdown-content');
+        
+        if (dropdownBtn && dropdownContent) {
+            dropdownBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                const dropdown = document.getElementById("userDropdown");
-                if (dropdown) {
-                    dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+                e.stopPropagation();
+                const isExpanded = dropdownBtn.getAttribute('aria-expanded') === 'true';
+                dropdownBtn.setAttribute('aria-expanded', !isExpanded);
+                dropdownContent.classList.toggle('show');
+            });
+
+            // Close dropdown on outside click
+            document.addEventListener('click', (e) => {
+                if (!dropdownBtn.contains(e.target) && !dropdownContent.contains(e.target)) {
+                    dropdownBtn.setAttribute('aria-expanded', 'false');
+                    dropdownContent.classList.remove('show');
                 }
             });
         }
 
-        // Logout button
-        const logoutButton = document.getElementById("logoutButton");
-        if (logoutButton) {
-            logoutButton.addEventListener("click", function(e) {
+        // Logout button (supports both ID formats)
+        const logoutBtn = document.getElementById("logoutBtn") || document.getElementById("logoutButton");
+        if (logoutBtn) {
+            logoutBtn.addEventListener("click", function(e) {
                 e.preventDefault();
                 handleLogout();
             });
         }
 
-        // Change password button
-        const changePasswordButton = document.getElementById("changePasswordButton");
-        if (changePasswordButton) {
-            changePasswordButton.addEventListener("click", function(e) {
+        // Change password button (supports both ID formats)
+        const changePasswordBtn = document.getElementById("changePasswordBtn") || document.getElementById("changePasswordButton");
+        if (changePasswordBtn) {
+            changePasswordBtn.addEventListener("click", function(e) {
                 e.preventDefault();
                 showChangePasswordModal();
             });
@@ -303,15 +383,6 @@ window.authModule = (function() {
             }
         });
 
-        // Close dropdowns when clicking outside
-        window.addEventListener("click", function(event) {
-            if (!event.target.matches('#userMenuButton')) {
-                const dropdown = document.getElementById("userDropdown");
-                if (dropdown && dropdown.style.display === "block") {
-                    dropdown.style.display = "none";
-                }
-            }
-        });
     }
 
     // Redirect to auth page if not authenticated
@@ -331,7 +402,7 @@ window.authModule = (function() {
         }
         
         if (!hasRole(requiredRole)) {
-            window.location.href = "/welcome.html";
+            window.location.href = "/dashboard.html";
             return false;
         }
         

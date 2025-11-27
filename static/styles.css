@@ -11,10 +11,14 @@
     border: 1px solid var(--neutral-100);
 }
 
-h1 {
+/* Page title styling for main content headings */
+.page-title,
+.container h2 {
     text-align: center;
     margin-bottom: 2rem;
     color: #2c3e50;
+    font-size: 1.75rem;
+    font-weight: 600;
 }
 
 .form-group {
@@ -60,7 +64,9 @@ textarea:focus {
     box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
 }
 
-button {
+/* Form submit buttons (scoped to container to not affect navbar) */
+.container button,
+button[type="submit"] {
     display: block;
     width: 100%;
     padding: var(--space-3);
@@ -75,7 +81,8 @@ button {
     box-shadow: var(--shadow-md), var(--shadow-colored);
 }
 
-button:hover {
+.container button:hover,
+button[type="submit"]:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-lg), 0 15px 50px -15px rgba(99, 102, 241, 0.5);
 }
@@ -214,8 +221,8 @@ button:hover {
     font-weight: 500;
 }
 
-/* User menu styles */
-.user-menu {
+/* User menu styles (only applies outside navbar context) */
+.container .user-menu {
     margin-bottom: 1rem;
     display: flex;
     justify-content: flex-end;
@@ -235,11 +242,12 @@ button:hover {
     font-weight: 600;
 }
 
-.user-dropdown {
+/* User dropdown styles (only applies outside navbar context) */
+.container .user-dropdown {
     position: relative;
 }
 
-.dropdown-btn {
+.container .dropdown-btn {
     background: #f7fafc;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
@@ -249,11 +257,11 @@ button:hover {
     transition: background-color 0.2s ease;
 }
 
-.dropdown-btn:hover {
+.container .dropdown-btn:hover {
     background: #edf2f7;
 }
 
-.dropdown-content {
+.container .dropdown-content {
     display: none;
     position: absolute;
     right: 0;
@@ -267,11 +275,11 @@ button:hover {
     z-index: 1000;
 }
 
-.user-dropdown:hover .dropdown-content {
+.container .user-dropdown:hover .dropdown-content {
     display: block;
 }
 
-.dropdown-content a {
+.container .dropdown-content a {
     display: block;
     padding: 0.75rem 1rem;
     color: #2d3748;
@@ -279,7 +287,7 @@ button:hover {
     transition: background-color 0.2s ease;
 }
 
-.dropdown-content a:hover {
+.container .dropdown-content a:hover {
     background: #f7fafc;
 }
 

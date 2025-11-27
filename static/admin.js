@@ -265,7 +265,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
   
   if (!window.authModule.hasRole('moderator')) {
-    window.location.href = "/welcome.html";
+    window.location.href = "/dashboard.html";
     return;
   }
 

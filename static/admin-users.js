@@ -36,14 +36,15 @@ class UserManagement {
     try {
       const response = await fetch("/api/admin/users");
       if (!response.ok) {
-        throw new Error("Failed to load users");
+        const errorText = await response.text();
+        throw new Error(`Failed to load users: ${response.status} - ${errorText}`);
       }
       const responseData = await response.json();
       this.users = responseData.data || responseData;
       this.renderUsers();
     } catch (error) {
-      console.error("Failed to load users:", error);
-      this.showError("Failed to load users");
+      console.error("Failed to load users:", error.message);
+      this.showError(error.message || "Failed to load users");
     }
   }
 
@@ -51,13 +52,14 @@ class UserManagement {
     try {
       const response = await fetch("/api/admin/stats");
       if (!response.ok) {
-        throw new Error("Failed to load stats");
+        const errorText = await response.text();
+        throw new Error(`Failed to load stats: ${response.status} - ${errorText}`);
       }
       const responseData = await response.json();
       const stats = responseData.data || responseData;
       this.renderStats(stats);
     } catch (error) {
-      console.error("Failed to load stats:", error);
+      console.error("Failed to load stats:", error.message);
     }
   }
 
