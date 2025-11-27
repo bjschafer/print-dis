@@ -260,38 +260,38 @@ func setupFlags(v *viper.Viper) {
 	flags.Bool("auth-local-registration", v.GetBool("auth.local_auth.allow_registration"), "Allow user registration")
 
 	// Parse flags
-	flags.Parse(os.Args[1:])
+	_ = flags.Parse(os.Args[1:])
 
 	// Bind flags to viper
-	v.BindPFlag("server.host", flags.Lookup("host"))
-	v.BindPFlag("server.port", flags.Lookup("port"))
-	v.BindPFlag("db.type", flags.Lookup("db-type"))
-	v.BindPFlag("db.host", flags.Lookup("db-host"))
-	v.BindPFlag("db.port", flags.Lookup("db-port"))
-	v.BindPFlag("db.user", flags.Lookup("db-user"))
-	v.BindPFlag("db.password", flags.Lookup("db-pass"))
-	v.BindPFlag("db.database", flags.Lookup("db-path"))
-	v.BindPFlag("db.ssl_mode", flags.Lookup("db-ssl-mode"))
-	v.BindPFlag("log.level", flags.Lookup("log-level"))
-	v.BindPFlag("spoolman.enabled", flags.Lookup("spoolman-enabled"))
-	v.BindPFlag("spoolman.endpoint", flags.Lookup("spoolman-endpoint"))
-	v.BindPFlag("auth.enabled", flags.Lookup("auth-enabled"))
-	v.BindPFlag("auth.session_secret", flags.Lookup("auth-session-secret"))
-	v.BindPFlag("auth.session_timeout", flags.Lookup("auth-session-timeout"))
-	v.BindPFlag("auth.local_auth.enabled", flags.Lookup("auth-local-enabled"))
-	v.BindPFlag("auth.local_auth.allow_registration", flags.Lookup("auth-local-registration"))
+	_ = v.BindPFlag("server.host", flags.Lookup("host"))
+	_ = v.BindPFlag("server.port", flags.Lookup("port"))
+	_ = v.BindPFlag("db.type", flags.Lookup("db-type"))
+	_ = v.BindPFlag("db.host", flags.Lookup("db-host"))
+	_ = v.BindPFlag("db.port", flags.Lookup("db-port"))
+	_ = v.BindPFlag("db.user", flags.Lookup("db-user"))
+	_ = v.BindPFlag("db.password", flags.Lookup("db-pass"))
+	_ = v.BindPFlag("db.database", flags.Lookup("db-path"))
+	_ = v.BindPFlag("db.ssl_mode", flags.Lookup("db-ssl-mode"))
+	_ = v.BindPFlag("log.level", flags.Lookup("log-level"))
+	_ = v.BindPFlag("spoolman.enabled", flags.Lookup("spoolman-enabled"))
+	_ = v.BindPFlag("spoolman.endpoint", flags.Lookup("spoolman-endpoint"))
+	_ = v.BindPFlag("auth.enabled", flags.Lookup("auth-enabled"))
+	_ = v.BindPFlag("auth.session_secret", flags.Lookup("auth-session-secret"))
+	_ = v.BindPFlag("auth.session_timeout", flags.Lookup("auth-session-timeout"))
+	_ = v.BindPFlag("auth.local_auth.enabled", flags.Lookup("auth-local-enabled"))
+	_ = v.BindPFlag("auth.local_auth.allow_registration", flags.Lookup("auth-local-registration"))
 }
 
 // getSessionSecret handles session secret retrieval with security checks and auto-generation
 func getSessionSecret(v *viper.Viper) (string, error) {
 	secret := v.GetString("auth.session_secret")
-	
+
 	// Check for insecure default
 	if secret == "change-me-in-production" {
 		slog.Error("Using insecure default session secret. Please set PRINT_DIS_AUTH_SESSION_SECRET environment variable or auth.session_secret in config file.")
 		return "", fmt.Errorf("insecure default session secret detected")
 	}
-	
+
 	// If no secret provided, auto-generate one with warning
 	if secret == "" {
 		slog.Warn("No session secret provided. Auto-generating one. For production, please set PRINT_DIS_AUTH_SESSION_SECRET environment variable or auth.session_secret in config file.")
@@ -302,12 +302,12 @@ func getSessionSecret(v *viper.Viper) (string, error) {
 		slog.Info("Generated session secret. Sessions will not persist across application restarts.")
 		return generatedSecret, nil
 	}
-	
+
 	// Validate secret length (minimum 32 bytes when base64 decoded)
 	if len(secret) < 32 {
 		slog.Warn("Session secret is shorter than recommended 32 characters. Consider using a longer, randomly generated secret.")
 	}
-	
+
 	return secret, nil
 }
 
@@ -318,7 +318,7 @@ func generateSessionSecret() (string, error) {
 	if _, err := rand.Read(bytes); err != nil {
 		return "", fmt.Errorf("failed to generate random bytes: %w", err)
 	}
-	
+
 	// Encode as base64 for easy handling
 	return base64.URLEncoding.EncodeToString(bytes), nil
 }

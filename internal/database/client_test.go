@@ -15,7 +15,7 @@ func TestSQLiteClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	// Create a new SQLite client
 	cfg := &Config{
@@ -26,7 +26,7 @@ func TestSQLiteClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create SQLite client: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Run the test suite
 	testDatabaseClient(t, client, "sqlite")
@@ -55,7 +55,7 @@ func TestPostgresClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create PostgreSQL client: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	// Run the test suite
 	testDatabaseClient(t, client, "postgres")
@@ -63,13 +63,13 @@ func TestPostgresClient(t *testing.T) {
 
 func testDatabaseClient(t *testing.T, client DBClient, dbType string) {
 	ctx := context.Background()
-	
+
 	// Run migrations to set up the database schema
 	rawDB := client.GetDB()
 	if rawDB == nil {
 		t.Fatal("Failed to get raw database connection")
 	}
-	
+
 	migrator := migrations.NewMigrator(rawDB, dbType)
 	if err := migrator.Up(); err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)

@@ -58,7 +58,7 @@ func (c *Client) GetFilament(ctx context.Context, id int) (*Filament, error) {
 		slog.Error("failed to execute filament request", "url", u, "error", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Error("unexpected status code from Spoolman", "url", u, "status", resp.StatusCode)
@@ -101,7 +101,7 @@ func (c *Client) FindFilaments(ctx context.Context, query *FilamentRequest) ([]F
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -132,7 +132,7 @@ func (c *Client) GetSpool(ctx context.Context, id int) (*Spool, error) {
 		slog.Error("failed to execute spool request", "url", u, "error", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Error("unexpected status code from Spoolman", "url", u, "status", resp.StatusCode)
@@ -173,7 +173,7 @@ func (c *Client) GetSpools(ctx context.Context) ([]Spool, error) {
 		slog.Error("failed to execute spools request", "url", u, "error", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Error("unexpected status code from Spoolman", "url", u, "status", resp.StatusCode)
@@ -214,7 +214,7 @@ func (c *Client) GetMaterials(ctx context.Context) ([]string, error) {
 		slog.Error("failed to execute materials request", "url", u, "error", err)
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Error("unexpected status code from Spoolman", "url", u, "status", resp.StatusCode)

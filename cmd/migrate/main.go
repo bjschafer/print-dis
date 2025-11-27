@@ -25,7 +25,7 @@ func main() {
 	if *verbose {
 		logLevel = slog.LevelDebug
 	}
-	
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: logLevel,
 	}))
@@ -61,7 +61,7 @@ func main() {
 		slog.Error("Failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Get raw database connection for migrations
 	rawDB := db.GetDB()
@@ -98,7 +98,7 @@ func main() {
 			slog.Error("Failed to get migration status", "error", err)
 			os.Exit(1)
 		}
-		
+
 		fmt.Println("Migration Status:")
 		fmt.Println("Version | Description                                    | Applied")
 		fmt.Println("--------|------------------------------------------------|--------")
@@ -109,7 +109,7 @@ func main() {
 			}
 			fmt.Printf("%-7d | %-46s | %s\n", s.Version, s.Description, applied)
 		}
-		
+
 		currentVersion, err := migrator.GetCurrentVersion()
 		if err != nil {
 			slog.Error("Failed to get current version", "error", err)
@@ -129,7 +129,7 @@ func main() {
 		slog.Warn("Resetting database - this will drop all tables!")
 		fmt.Print("Are you sure you want to reset the database? (y/N): ")
 		var confirm string
-		fmt.Scanln(&confirm)
+		_, _ = fmt.Scanln(&confirm)
 		if confirm != "y" && confirm != "Y" {
 			slog.Info("Reset cancelled")
 			return

@@ -120,7 +120,7 @@ func (s *PrintRequestService) UpdatePrintRequest(ctx context.Context, request *m
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 

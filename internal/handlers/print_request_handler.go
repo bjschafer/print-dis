@@ -42,7 +42,7 @@ type CreatePrintRequestRequest struct {
 // Validate validates the print request creation data
 func (r *CreatePrintRequestRequest) Validate() validation.ValidationErrors {
 	validator := validation.NewValidator()
-	
+
 	// Sanitize inputs
 	r.FileLink = validation.SanitizeString(r.FileLink)
 	r.Notes = validation.SanitizeNotes(r.Notes)
@@ -52,20 +52,20 @@ func (r *CreatePrintRequestRequest) Validate() validation.ValidationErrors {
 	if r.Material != nil {
 		*r.Material = validation.SanitizeMaterial(*r.Material)
 	}
-	
+
 	// Validate
 	validator.ValidateRequired("file_link", r.FileLink)
 	validator.ValidateFileURL("file_link", r.FileLink)
 	validator.ValidateNotes("notes", r.Notes)
-	
+
 	if r.Color != nil {
 		validator.ValidateColor("color", *r.Color)
 	}
-	
+
 	if r.Material != nil {
 		validator.ValidateMaterial("material", *r.Material)
 	}
-	
+
 	return validator.Errors()
 }
 
@@ -124,7 +124,7 @@ func (h *PrintRequestHandler) CreatePrintRequest(w http.ResponseWriter, r *http.
 
 	// Save print request
 	if err := h.service.CreatePrintRequest(r.Context(), printRequest); err != nil {
-		h.logger.Error("failed to create print request", 
+		h.logger.Error("failed to create print request",
 			"error", err,
 			"user_id", validation.SanitizeLogString(userID),
 			"file_link", validation.SanitizeLogString(req.FileLink))
@@ -242,8 +242,7 @@ func (h *PrintRequestHandler) ListPrintRequestsEnhanced(w http.ResponseWriter, r
 		enhancedRequests[i] = enhanced
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(enhancedRequests)
+	response.WriteSuccessResponse(w, enhancedRequests, "")
 }
 
 // ListUserPrintRequests handles retrieving print requests for the current user
@@ -286,8 +285,7 @@ func (h *PrintRequestHandler) ListUserPrintRequests(w http.ResponseWriter, r *ht
 		"user_requests", len(userPrintRequests),
 	)
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(userPrintRequests)
+	response.WriteSuccessResponse(w, userPrintRequests, "")
 }
 
 // UpdatePrintRequest handles updating a print request
@@ -305,7 +303,7 @@ func (h *PrintRequestHandler) UpdatePrintRequest(w http.ResponseWriter, r *http.
 		response.WriteBadRequestError(w, "Print request ID is required", "")
 		return
 	}
-	
+
 	// Validate ID format and length
 	validator := validation.NewValidator()
 	validator.ValidateID("id", id)
@@ -419,7 +417,7 @@ func (h *PrintRequestHandler) UpdatePrintRequestStatus(w http.ResponseWriter, r 
 		response.WriteBadRequestError(w, "Print request ID is required", "")
 		return
 	}
-	
+
 	// Validate ID format and length
 	validator := validation.NewValidator()
 	validator.ValidateID("id", id)

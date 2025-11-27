@@ -44,7 +44,7 @@ func (s *UserService) RegisterUser(ctx context.Context, username, email, passwor
 	}
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 

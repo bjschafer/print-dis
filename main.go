@@ -25,7 +25,7 @@ import (
 func main() {
 	// Register types for gob encoding used by session store
 	gob.Register(time.Time{})
-	
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -72,7 +72,7 @@ func main() {
 		slog.Error("failed to create database client", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Run database migrations
 	rawDB := db.GetDB()
@@ -80,7 +80,7 @@ func main() {
 		slog.Error("failed to get raw database connection for migrations")
 		os.Exit(1)
 	}
-	
+
 	migrator := migrations.NewMigrator(rawDB, cfg.DB.Type)
 	if err := migrator.Up(); err != nil {
 		slog.Error("failed to run database migrations", "error", err)
@@ -122,7 +122,7 @@ func main() {
 
 	// Setup routes using the router package
 	mux := http.NewServeMux()
-	
+
 	deps := &router.Dependencies{
 		Config:              cfg,
 		SessionStore:        sessionStore,
@@ -131,7 +131,7 @@ func main() {
 		AdminHandler:        adminHandler,
 		SpoolmanHandler:     spoolmanHandler,
 	}
-	
+
 	router.SetupRoutes(mux, deps)
 
 	// Set the server's handler with security middleware
