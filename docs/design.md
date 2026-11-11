@@ -2,7 +2,7 @@
 
 Status: accepted, 2026-11-11. Open decision 1 is overruled: friends can upload files (section 6a).
 
-Progress (branch `v2`): M0, M1, M2, M4, M5 and M7 are built and pass `make check`. M6 is built; its done-when (a dry run of the real export) is pending. M3 (deploy) has not started.
+Progress: M0 to M7 are built and pass `make check`. Deployed 2026-11-11 at https://prints.cmdcentral.xyz (tf/authentik `fd6ad20`, k8s/generators `4d57a247`, bucket `print-dis` on versitygw).
 
 This is a ground-up rewrite in the existing repository. The current code (Go, static HTML, SQLite/Postgres, local password accounts) is replaced, not extended; only `internal/spoolman/types.go` is worth carrying over.
 
