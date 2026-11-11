@@ -1,13 +1,22 @@
 {{define "thread"}}
 <ol class="thread" id="thread-events">
   {{range .Events}}
-  <li class="event {{.Kind}}">
-    <div class="event-head"><strong>{{.UserName}}</strong> <time>{{when .CreatedAt}}</time></div>
-    {{if eq .Kind "comment"}}<p class="body">{{.Body}}</p>
-    {{else}}<p class="muted">{{if eq .Kind "status"}}moved {{else if eq .Kind "file"}}{{end}}{{.Body}}</p>{{end}}
+  {{if eq .Kind "comment"}}
+  <li class="event comment">
+    <span class="avatar">{{initial .UserName}}</span>
+    <div class="bubble">
+      <div class="event-head"><strong>{{.UserName}}</strong> <time>{{when .CreatedAt}}</time></div>
+      <p class="body">{{.Body}}</p>
+    </div>
   </li>
   {{else}}
-  <li class="muted">Nothing yet.</li>
+  <li class="event system {{.Kind}}">
+    <span class="tick" aria-hidden="true"></span>
+    <p><strong>{{.UserName}}</strong> {{if eq .Kind "status"}}moved {{end}}{{.Body}} <time>{{when .CreatedAt}}</time></p>
+  </li>
+  {{end}}
+  {{else}}
+  <li class="empty muted">Nothing yet.</li>
   {{end}}
 </ol>
 {{end}}

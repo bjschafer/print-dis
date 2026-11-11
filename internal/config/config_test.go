@@ -43,6 +43,8 @@ func TestFromEnv(t *testing.T) {
 		{"dir without dir", with("FILES_BACKEND", "dir"), "FILES_DIR"},
 		{"s3 without creds", with("FILES_BACKEND", "s3", "S3_ENDPOINT", "https://s3"), "S3_BUCKET"},
 		{"bad max", with("UPLOAD_MAX_BYTES", "-1"), "UPLOAD_MAX_BYTES"},
+		{"bad accent", with("ACCENT_COLOR", "green"), "ACCENT_COLOR"},
+		{"accent too long", with("ACCENT_COLOR", "#12345678"), "ACCENT_COLOR"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -63,5 +65,18 @@ func TestFromEnv(t *testing.T) {
 				t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestAccentColor(t *testing.T) {
+	for in, want := range map[string]string{"": "", "#00AE42": "#00ae42", "3b82f6": "#3b82f6", "#f80": "#ff8800", " #abc ": "#aabbcc"} {
+		m := map[string]string{"DATABASE_URL": "postgres://x", "BASE_URL": "http://localhost:8080", "DEV_USER": "me@example.com", "ACCENT_COLOR": in}
+		c, err := FromEnv(env(m))
+		if err != nil {
+			t.Fatalf("%q: %v", in, err)
+		}
+		if c.AccentColor != want {
+			t.Errorf("%q: got %q, want %q", in, c.AccentColor, want)
+		}
 	}
 }

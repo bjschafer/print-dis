@@ -1,5 +1,10 @@
 {{define "content"}}
-<h1>Signed out</h1>
-<p>You're signed out of print-dis.</p>
-<p><a class="button primary" href="/auth/login">Sign in again</a></p>
+<section class="panel narrow-panel center">
+  <div class="panel-body">
+    <span class="brand-mark big">{{template "icon" "logo"}}</span>
+    <h1>Signed out</h1>
+    <p class="muted">You're signed out of print-dis.</p>
+    <p><a class="button primary" href="/auth/login">Sign in again</a></p>
+  </div>
+</section>
 {{end}}

@@ -1,12 +1,16 @@
 {{define "content"}}
 <div class="toolbar">
-  <h1>Board</h1>
+  <div class="page-title"><h1>Board</h1></div>
   {{template "filters" .Filters}}
 </div>
 <div class="board" {{if canMove .User}}data-can-move{{end}}>
   {{range .Columns}}
-  <section class="column">
-    <h2>{{.Status.Label}} <span class="count">{{len .Requests}}</span></h2>
+  <section class="column s-{{.Status}}">
+    <header class="column-head">
+      <span class="dot" aria-hidden="true"></span>
+      <h2>{{.Status.Label}}</h2>
+      <span class="count">{{len .Requests}}</span>
+    </header>
     <div class="column-list" data-status="{{.Status}}">
       {{range .Requests}}{{template "cardctx" (dict "R" . "Today" $.Today)}}{{end}}
     </div>

@@ -36,6 +36,9 @@ type Config struct {
 	S3SecretAccessKey string
 	S3Region          string
 	UploadMaxBytes    int64
+
+	// AccentColor is the UI accent as "#rrggbb", or "" for the default.
+	AccentColor string
 }
 
 // FromEnv reads configuration using getenv (os.Getenv in production).
@@ -91,6 +94,13 @@ func FromEnv(getenv func(string) string) (*Config, error) {
 			c.UploadMaxBytes = n
 		}
 	}
+	if raw := strings.TrimSpace(getenv("ACCENT_COLOR")); raw != "" {
+		if h, ok := parseHex(raw); ok {
+			c.AccentColor = h
+		} else {
+			errs = append(errs, fmt.Errorf("ACCENT_COLOR %q is not a hex colour like #00ae42", raw))
+		}
+	}
 	switch c.FilesBackend {
 	case "":
 	case "dir":
@@ -130,4 +140,19 @@ func splitList(s string) []string {
 		}
 	}
 	return out
+}
+
+// parseHex accepts "#rgb" or "#rrggbb", with or without the "#", and returns "#rrggbb".
+func parseHex(s string) (string, bool) {
+	s = strings.ToLower(strings.TrimPrefix(s, "#"))
+	if len(s) == 3 {
+		s = string([]byte{s[0], s[0], s[1], s[1], s[2], s[2]})
+	}
+	if len(s) != 6 {
+		return "", false
+	}
+	if _, err := strconv.ParseUint(s, 16, 32); err != nil {
+		return "", false
+	}
+	return "#" + s, true
 }

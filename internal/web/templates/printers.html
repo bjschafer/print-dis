@@ -16,22 +16,37 @@
 {{end}}
 
 {{define "content"}}
-<h1>Printers</h1>
+<div class="page-title"><h1>Printers</h1></div>
 {{template "errors" .Errors}}
-<div class="printer-list">
+<div class="printer-grid">
 {{range .Printers}}
-<details class="printer {{if not .Active}}inactive{{end}}" {{if and $.Draft (eq $.Draft.ID .ID)}}open{{end}}>
-  <summary><strong>{{.Name}}</strong> <span class="muted">{{.BedX}}×{{.BedY}}×{{.BedZ}} mm{{if .MultiMaterial}} · multi-material{{end}}{{if .Enclosed}} · enclosed{{end}}{{if not .Active}} · inactive{{end}}</span></summary>
-  <form method="post" action="/printers/{{.ID}}">
+<details class="panel printer {{if not .Active}}inactive{{end}}" {{if and $.Draft (eq $.Draft.ID .ID)}}open{{end}}>
+  <summary class="printer-head">
+    <span class="printer-icon">{{template "icon" "printer"}}</span>
+    <span class="printer-title">
+      <strong>{{.Name}}</strong>
+      <span class="state">{{if .Active}}<span class="dot on"></span>Active{{else}}<span class="dot"></span>Inactive{{end}}</span>
+    </span>
+    <span class="printer-specs">
+      <span class="chip mono">{{.BedX}}×{{.BedY}}×{{.BedZ}} mm</span>
+      {{if .MultiMaterial}}<span class="chip">multi-material</span>{{end}}
+      {{if .Enclosed}}<span class="chip">enclosed</span>{{end}}
+    </span>
+    {{with .Notes}}<span class="printer-notes muted">{{.}}</span>{{end}}
+    <span class="edit-hint">Edit</span>
+  </summary>
+  <form method="post" action="/printers/{{.ID}}" class="panel-body">
     {{template "printer_fields" (dict "CSRF" $.CSRF "P" (or (and $.Draft (eq $.Draft.ID .ID) $.Draft) .))}}
-    <button class="primary">Save</button>
+    <button class="primary">{{template "icon" "check"}}Save</button>
   </form>
 </details>
 {{end}}
 </div>
-<h2>Add a printer</h2>
-<form method="post" action="/printers" class="card-form">
-  {{template "printer_fields" (dict "CSRF" .CSRF "P" (or (and .Draft (eq .Draft.ID 0) .Draft) (newPrinter)))}}
-  <button class="primary">Add printer</button>
-</form>
+<section class="panel add-printer">
+  <header class="panel-head">{{template "icon" "plus"}}<h2>Add a printer</h2></header>
+  <form method="post" action="/printers" class="panel-body">
+    {{template "printer_fields" (dict "CSRF" .CSRF "P" (or (and .Draft (eq .Draft.ID 0) .Draft) (newPrinter)))}}
+    <button class="primary">{{template "icon" "plus"}}Add printer</button>
+  </form>
+</section>
 {{end}}

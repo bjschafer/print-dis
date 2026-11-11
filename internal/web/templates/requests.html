@@ -8,11 +8,11 @@
 {{end}}
 {{define "content"}}
 <div class="toolbar">
-  <h1>All requests</h1>
+  <div class="page-title"><h1>All requests</h1></div>
   {{template "filters" .Filters}}
 </div>
 {{$q := .Filters.Query}}
-<div class="table-wrap">
+<div class="panel table-wrap">
 <table class="requests">
   <thead><tr>
     <th><a href="{{sortLink $q "title"}}">Title{{sortMark $q "title"}}</a></th>
@@ -27,17 +27,17 @@
   <tbody>
   {{range .Requests}}
   <tr class="{{if urgent . $.Today}}urgent{{end}} status-{{.Status}}">
-    <td><a href="/requests/{{.ID}}">{{.Title}}</a></td>
+    <td class="title-cell"><a href="/requests/{{.ID}}">{{.Title}}</a></td>
     {{if isAdmin $.User}}<td>{{.RequesterName}}</td>{{end}}
     <td><span class="badge {{.Status}}">{{.Status.Label}}</span></td>
-    <td>{{with progress .}}{{.}}{{else}}{{.Quantity}}{{end}}</td>
+    <td class="num">{{with progress .}}{{.}}{{else}}{{.Quantity}}{{end}}</td>
     <td>{{with swatch .FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}{{if .FilamentLabel}}{{.FilamentLabel}}{{else}}{{.Material}}{{end}}</td>
-    <td>{{date .NeededBy}}{{if and .NeededBy (eq .Timing "firm")}} ⚑{{end}}</td>
+    <td class="num">{{date .NeededBy}}{{if and .NeededBy (eq .Timing "firm")}} <span class="firm-flag" title="Firm deadline">{{template "icon" "flag"}}</span>{{end}}</td>
     <td>{{.PrinterName}}</td>
-    <td>{{.CreatedAt.Local.Format "2006-01-02"}}</td>
+    <td class="num muted">{{.CreatedAt.Local.Format "2006-01-02"}}</td>
   </tr>
   {{else}}
-  <tr><td colspan="8" class="muted">No requests match.</td></tr>
+  <tr><td colspan="8" class="muted empty">No requests match.</td></tr>
   {{end}}
   </tbody>
 </table>

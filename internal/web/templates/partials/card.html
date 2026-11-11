@@ -1,20 +1,29 @@
 {{/* cardctx takes (dict "R" core.Request "Today" time.Time) */}}
 {{define "cardctx"}}
 {{$r := .R}}
-<article class="card{{if urgent $r .Today}} urgent{{end}}" data-id="{{$r.ID}}">
-  <a class="card-title" href="/requests/{{$r.ID}}">{{$r.Title}}</a>
-  <div class="card-meta">
-    <span>{{$r.RequesterName}}</span>
-    {{with progress $r}}<span class="pill">{{.}}</span>{{else}}{{if gt $r.Quantity 1}}<span class="pill">×{{$r.Quantity}}</span>{{end}}{{end}}
+<article class="card{{if urgent $r .Today}} urgent{{end}}" data-id="{{$r.ID}}"{{with swatch $r.FilamentColorHex}} style="--fil: {{.}}"{{end}}>
+  <div class="card-top">
+    <a class="card-title" href="/requests/{{$r.ID}}" draggable="false">{{$r.Title}}</a>
+    {{if and (not (progress $r)) (gt $r.Quantity 1)}}<span class="qty">×{{$r.Quantity}}</span>{{end}}
   </div>
   <div class="card-meta">
+    <span class="who-sm"><span class="avatar sm">{{initial $r.RequesterName}}</span>{{$r.RequesterName}}</span>
+  </div>
+  {{if or $r.FilamentLabel $r.Material $r.ColorNote}}
+  <div class="card-meta filament">
     {{with swatch $r.FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}
-    {{if $r.FilamentLabel}}<span>{{$r.FilamentLabel}}</span>{{else if $r.Material}}<span>{{$r.Material}}</span>{{end}}
+    {{if $r.FilamentLabel}}<span>{{$r.FilamentLabel}}</span>{{else if $r.Material}}<span class="chip">{{$r.Material}}</span>{{end}}
     {{with $r.ColorNote}}<span class="muted">{{.}}</span>{{end}}
   </div>
-  <div class="card-meta">
-    {{with $r.NeededBy}}<span class="due" title="{{$r.Timing.Label}} deadline">{{if eq $r.Timing "firm"}}⚑ {{end}}{{shortDate .}}</span>{{end}}
-    {{with $r.PrinterName}}<span class="printer">{{.}}</span>{{end}}
+  {{end}}
+  {{with progress $r}}
+  <div class="progress" title="{{.}} printed"><span class="bar"><span style="width: {{pct $r}}%"></span></span><span class="progress-text">{{.}}</span></div>
+  {{end}}
+  {{if or $r.NeededBy $r.PrinterName}}
+  <div class="card-foot">
+    {{with $r.NeededBy}}<span class="due{{if eq $r.Timing "firm"}} firm{{end}}" title="{{$r.Timing.Label}} deadline">{{if eq $r.Timing "firm"}}{{template "icon" "flag"}}{{else}}{{template "icon" "calendar"}}{{end}}{{shortDate .}}</span>{{end}}
+    {{with $r.PrinterName}}<span class="printer">{{template "icon" "printer"}}{{.}}</span>{{end}}
   </div>
+  {{end}}
 </article>
 {{end}}

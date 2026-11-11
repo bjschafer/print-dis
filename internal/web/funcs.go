@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bjschafer/print-dis/internal/core"
@@ -108,6 +109,20 @@ var funcs = template.FuncMap{
 			return " ▾"
 		}
 		return " ▴"
+	},
+	// pct is the printed share of a request, 0 to 100, for progress bars.
+	"pct": func(r core.Request) int {
+		if r.Quantity <= 0 {
+			return 0
+		}
+		return min(100, max(0, r.Printed*100/r.Quantity))
+	},
+	// initial is the first letter of a name, upper-cased, for avatars.
+	"initial": func(name string) string {
+		for _, c := range name {
+			return strings.ToUpper(string(c))
+		}
+		return "?"
 	},
 	"bytes": func(n int64) string {
 		switch {

@@ -1,12 +1,17 @@
 {{define "content"}}
-<h1>New request</h1>
+<div class="page-title"><h1>New request</h1><p class="muted">Paste a link and say what you need.</p></div>
 {{template "errors" .Errors}}
-{{with .PreviewNote}}<p class="flash" role="status">{{.}}</p>{{end}}
-{{with .Thumb}}<p class="preview"><img class="thumb" src="{{.}}" alt="Preview of the linked model"></p>{{end}}
-<form method="post" action="/requests" class="request-form">
-  <input type="hidden" name="csrf" value="{{.CSRF}}">
-  {{if .FetchImage}}<input type="hidden" name="fetch_image" value="1">{{end}}
-  {{template "request_fields" .}}
-  <div class="actions"><button class="primary">File request</button> <a href="/">Cancel</a></div>
-</form>
+{{with .PreviewNote}}<p class="flash" role="status">{{template "icon" "link"}}<span>{{.}}</span></p>{{end}}
+<div class="form-layout">
+  <section class="panel">
+    <header class="panel-head">{{template "icon" "cube"}}<h2>Request</h2></header>
+    <form method="post" action="/requests" class="panel-body request-form">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      {{if .FetchImage}}<input type="hidden" name="fetch_image" value="1">{{end}}
+      {{template "request_fields" .}}
+      <div class="actions"><button class="primary">{{template "icon" "check"}}File request</button> <a class="button ghost" href="/">Cancel</a></div>
+    </form>
+  </section>
+  {{with .Thumb}}<aside class="panel preview"><img class="thumb" src="{{.}}" alt="Preview of the linked model"></aside>{{end}}
+</div>
 {{end}}

@@ -89,6 +89,7 @@ func (s *Server) routes() http.Handler {
 	public := http.NewServeMux()
 	public.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok\n")) })
 	public.HandleFunc("GET /readyz", s.readyz)
+	public.HandleFunc("GET /favicon.svg", s.favicon)
 	static, _ := fs.Sub(staticFS, "static")
 	public.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
 
@@ -173,6 +174,7 @@ type base struct {
 	Path  string
 	Flash string
 	Today time.Time
+	Theme template.CSS
 }
 
 func (s *Server) base(r *http.Request, title string) base {
@@ -183,6 +185,7 @@ func (s *Server) base(r *http.Request, title string) base {
 		Path:  r.URL.Path,
 		Flash: s.Auth.Sessions.PopString(r.Context(), "flash"),
 		Today: s.Now(),
+		Theme: s.themeCSS(),
 	}
 }
 

@@ -1,56 +1,67 @@
 {{define "content"}}
 {{$r := .Request}}
 <div class="detail-head">
-  <div>
+  <div class="page-title">
+    <span class="badge {{$r.Status}}">{{$r.Status.Label}}</span>
     <h1>{{$r.Title}}</h1>
-    <p class="muted">For {{$r.RequesterName}} · filed {{when $r.CreatedAt}}</p>
+    <p class="muted"><span class="who-sm"><span class="avatar sm">{{initial $r.RequesterName}}</span>For {{$r.RequesterName}}</span> · filed {{when $r.CreatedAt}}</p>
   </div>
-  <span class="badge {{$r.Status}}">{{$r.Status.Label}}</span>
+  <div class="status-actions">
+    {{range statuses}}{{if canSetStatus $.User $r .}}
+    <form method="post" action="/requests/{{$r.ID}}/status" class="inline">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <input type="hidden" name="status" value="{{.}}">
+      <button class="to to-{{.}}{{if eq . "cancelled"}} danger{{end}}" {{if eq . "cancelled"}}data-confirm="Cancel this request?"{{end}}>{{if eq . "cancelled"}}{{template "icon" "x"}}Cancel request{{else}}<span class="dot" aria-hidden="true"></span>{{.Label}}{{end}}</button>
+    </form>
+    {{end}}{{end}}
+  </div>
 </div>
 
-<div class="status-actions">
-  {{range statuses}}{{if canSetStatus $.User $r .}}
-  <form method="post" action="/requests/{{$r.ID}}/status" class="inline">
-    <input type="hidden" name="csrf" value="{{$.CSRF}}">
-    <input type="hidden" name="status" value="{{.}}">
-    <button class="{{if eq . "cancelled"}}danger{{end}}" {{if eq . "cancelled"}}data-confirm="Cancel this request?"{{end}}>{{if eq . "cancelled"}}Cancel request{{else}}→ {{.Label}}{{end}}</button>
-  </form>
-  {{end}}{{end}}
-</div>
+{{with progress $r}}
+<div class="progress big" title="{{.}} printed"><span class="bar"><span style="width: {{pct $r}}%"></span></span><span class="progress-text">{{.}} printed</span></div>
+{{end}}
 
 <div class="detail-grid">
 <div class="detail-main">
-  {{if $r.SourceImageType}}<img class="thumb" src="/requests/{{$r.ID}}/image" alt="">{{end}}
-  {{with $r.SourceURL}}<p class="source"><a href="{{.}}" rel="noopener noreferrer" target="_blank">{{with $r.SourceTitle}}{{.}}{{else}}{{.}}{{end}}</a></p>{{end}}
+  {{if or $r.SourceImageType $r.SourceURL}}
+  <section class="panel source-panel">
+    {{if $r.SourceImageType}}<div class="thumb-wrap"><img class="thumb" src="/requests/{{$r.ID}}/image" alt=""></div>{{end}}
+    {{with $r.SourceURL}}<p class="source">{{template "icon" "link"}}<a href="{{.}}" rel="noopener noreferrer" target="_blank">{{with $r.SourceTitle}}{{.}}{{else}}{{.}}{{end}}</a></p>{{end}}
+  </section>
+  {{end}}
 
   {{template "errors" .Errors}}
-  {{if canEdit .User $r}}
-  <form method="post" action="/requests/{{$r.ID}}" class="request-form">
-    <input type="hidden" name="csrf" value="{{.CSRF}}">
-    {{template "request_fields" .}}
-    <div class="actions"><button class="primary">Save changes</button></div>
-  </form>
-  {{else}}
-  <dl class="fields">
-    <dt>Quantity</dt><dd>{{$r.Quantity}}{{if $r.Printed}} ({{$r.Printed}} printed){{end}}</dd>
-    {{with $r.NeededBy}}<dt>Needed by</dt><dd>{{date .}} ({{$r.Timing.Label}})</dd>{{end}}
-    <dt>Filament</dt><dd>{{with swatch $r.FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}{{if $r.FilamentLabel}}{{$r.FilamentLabel}}{{else if $r.Material}}{{$r.Material}}{{else}}any{{end}}{{with $r.ColorNote}} · {{.}}{{end}}</dd>
-    {{if or $r.NeedsMultiMaterial $r.NeedsEnclosure}}<dt>Needs</dt><dd>{{if $r.NeedsMultiMaterial}}multi-material {{end}}{{if $r.NeedsEnclosure}}enclosure{{end}}</dd>{{end}}
-    {{if $r.HasSize}}<dt>Size</dt><dd>{{int $r.SizeX}} × {{int $r.SizeY}} × {{int $r.SizeZ}} mm</dd>{{end}}
-    {{with $r.PrinterName}}<dt>Printer</dt><dd>{{.}}</dd>{{end}}
-    {{with $r.Notes}}<dt>Notes</dt><dd class="body">{{.}}</dd>{{end}}
-  </dl>
-  {{end}}
+  <section class="panel">
+    <header class="panel-head">{{template "icon" "sliders"}}<h2>Details</h2></header>
+    {{if canEdit .User $r}}
+    <form method="post" action="/requests/{{$r.ID}}" class="panel-body request-form">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      {{template "request_fields" .}}
+      <div class="actions"><button class="primary">{{template "icon" "check"}}Save changes</button></div>
+    </form>
+    {{else}}
+    <dl class="fields panel-body">
+      <div><dt>Quantity</dt><dd>{{$r.Quantity}}{{if $r.Printed}} ({{$r.Printed}} printed){{end}}</dd></div>
+      {{with $r.NeededBy}}<div><dt>Needed by</dt><dd>{{date .}} <span class="muted">({{$r.Timing.Label}})</span></dd></div>{{end}}
+      <div><dt>Filament</dt><dd>{{with swatch $r.FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}{{if $r.FilamentLabel}}{{$r.FilamentLabel}}{{else if $r.Material}}{{$r.Material}}{{else}}any{{end}}{{with $r.ColorNote}} · {{.}}{{end}}</dd></div>
+      {{if or $r.NeedsMultiMaterial $r.NeedsEnclosure}}<div><dt>Needs</dt><dd>{{if $r.NeedsMultiMaterial}}multi-material {{end}}{{if $r.NeedsEnclosure}}enclosure{{end}}</dd></div>{{end}}
+      {{if $r.HasSize}}<div><dt>Size</dt><dd>{{int $r.SizeX}} × {{int $r.SizeY}} × {{int $r.SizeZ}} mm</dd></div>{{end}}
+      {{with $r.PrinterName}}<div><dt>Printer</dt><dd>{{.}}</dd></div>{{end}}
+      {{with $r.Notes}}<div class="wide"><dt>Notes</dt><dd class="body">{{.}}</dd></div>{{end}}
+    </dl>
+    {{end}}
+  </section>
 
   {{block "files" .}}
   {{if .FilesEnabled}}
-  <section id="files" class="files">
-    <h2>Files</h2>
+  <section id="files" class="panel files">
+    <header class="panel-head">{{template "icon" "file"}}<h2>Files</h2>{{with .Files}}<span class="count">{{len .}}</span>{{end}}</header>
+    <div class="panel-body">
     {{if .Files}}
     <ul class="file-list">
       {{range .Files}}
       <li>
-        {{if isImage .}}<a href="/files/{{.ID}}"><img class="file-thumb" src="/files/{{.ID}}?inline=1" alt="" loading="lazy"></a>{{end}}
+        {{if isImage .}}<a href="/files/{{.ID}}"><img class="file-thumb" src="/files/{{.ID}}?inline=1" alt="" loading="lazy"></a>{{else}}<span class="file-icon">{{template "icon" "cube"}}</span>{{end}}
         <div class="file-info">
           <a href="/files/{{.ID}}" class="file-name">{{.Filename}}</a>
           <span class="muted">{{bytes .SizeBytes}} · {{.UploaderName}} · {{when .CreatedAt}}</span>
@@ -58,7 +69,7 @@
         {{if canDeleteFile $.User $.Request .}}
         <form method="post" action="/files/{{.ID}}/delete" class="inline">
           <input type="hidden" name="csrf" value="{{$.CSRF}}">
-          <button class="danger" data-confirm="Remove {{.Filename}}?">Remove</button>
+          <button class="danger small" data-confirm="Remove {{.Filename}}?">Remove</button>
         </form>
         {{end}}
       </li>
@@ -69,44 +80,50 @@
     {{end}}
     {{if .CanUpload}}
     <form method="post" action="/requests/{{.Request.ID}}/files?csrf={{.CSRF}}" enctype="multipart/form-data" class="upload-form">
-      <label>Add files
+      <label class="dropzone">{{template "icon" "upload"}}<span>Add files</span>
         <input type="file" name="file" multiple required accept="{{fileAccept}}">
       </label>
-      <p class="muted">STL, 3MF, STEP, OBJ, ZIP and PNG, JPG or WebP images. Up to {{bytes .UploadMax}} each, {{maxFiles}} files per request.</p>
-      <button>Upload</button>
+      <p class="muted hint">STL, 3MF, STEP, OBJ, ZIP and PNG, JPG or WebP images. Up to {{bytes .UploadMax}} each, {{maxFiles}} files per request.</p>
+      <button>{{template "icon" "upload"}}Upload</button>
     </form>
     {{end}}
+    </div>
   </section>
   {{end}}
   {{end}}
 </div>
 
 <aside class="detail-side">
-  <section>
-    <h2>Printers</h2>
+  <section class="panel">
+    <header class="panel-head">{{template "icon" "printer"}}<h2>Printers</h2></header>
+    <div class="panel-body">
     {{with .AssignedReason}}<p class="warning" role="alert">The assigned printer is not eligible: {{range $i, $x := .}}{{if $i}}; {{end}}{{$x}}{{end}}.</p>{{end}}
     <ul class="checks">
       {{range .Checks}}
       <li class="{{if .Eligible}}ok{{else}}no{{end}}">
-        <strong>{{.Printer.Name}}</strong>
-        {{if .Eligible}}<span class="muted">eligible</span>{{else}}<span class="muted">{{range $i, $x := .Reasons}}{{if $i}}; {{end}}{{$x}}{{end}}</span>{{end}}
+        <span class="check-icon">{{if .Eligible}}{{template "icon" "check"}}{{else}}{{template "icon" "x"}}{{end}}</span>
+        <div><strong>{{.Printer.Name}}</strong>
+        {{if .Eligible}}<span class="muted">eligible</span>{{else}}<span class="muted">{{range $i, $x := .Reasons}}{{if $i}}; {{end}}{{$x}}{{end}}</span>{{end}}</div>
       </li>
       {{else}}
       <li class="muted">No printers set up yet.</li>
       {{end}}
     </ul>
+    </div>
   </section>
 
-  <section id="thread">
-    <h2>Conversation</h2>
+  <section id="thread" class="panel">
+    <header class="panel-head">{{template "icon" "chat"}}<h2>Conversation</h2></header>
+    <div class="panel-body">
     {{template "thread" .}}
     {{if canComment .User $r}}
-    <form method="post" action="/requests/{{$r.ID}}/comments" hx-post="/requests/{{$r.ID}}/comments" hx-target="#thread-events" hx-swap="outerHTML" data-reset-on-success>
+    <form method="post" action="/requests/{{$r.ID}}/comments" hx-post="/requests/{{$r.ID}}/comments" hx-target="#thread-events" hx-swap="outerHTML" data-reset-on-success class="comment-form">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
-      <label>Add a comment<textarea name="body" rows="3" required maxlength="5000"></textarea></label>
-      <button>Send</button>
+      <label><span class="sr-only">Add a comment</span><textarea name="body" rows="3" required maxlength="5000" placeholder="Add a comment…"></textarea></label>
+      <button class="primary">{{template "icon" "chat"}}Send</button>
     </form>
     {{end}}
+    </div>
   </section>
 </aside>
 </div>

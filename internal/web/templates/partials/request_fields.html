@@ -1,4 +1,4 @@
-{{define "errors"}}{{with .}}<div class="errors" role="alert"><p>Please fix:</p><ul>{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}{{end}}
+{{define "errors"}}{{with .}}<div class="errors" role="alert"><p>{{template "icon" "x"}}Please fix:</p><ul>{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}{{end}}
 
 {{define "request_fields"}}
 {{$r := .Request}}

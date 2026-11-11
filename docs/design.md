@@ -152,6 +152,8 @@ The request page lists eligible printers and says why each of the others was exc
 
 Server-rendered HTML with `html/template`, htmx for partial updates, and SortableJS for dragging cards. Both scripts are vendored into the repo and embedded in the binary; there is no Node toolchain and no build step for the frontend. It must be usable on a phone.
 
+The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (light when the OS asks for it), a nav rail that becomes a bottom tab bar on phones, panels with header strips, one colour per status, and cards striped with their filament colour. The accent colour comes from `ACCENT_COLOR`. Icons are an inline SVG sprite in `layout.html`; all styling is one hand-written `app.css`. Only admins can drag cards, so only their cards lift on hover and show a grab cursor.
+
 | Route | Purpose |
 |---|---|
 | `GET /` | Board. Columns: Requested, Needs info, Printing, Ready. Admin sees all requests and can drag between columns; requesters see their own, read-only. Cards show title, requester, quantity and progress, filament swatch, needed-by date, and assigned printer. Firm dates that are overdue or within three days are highlighted. Filters: requester, printer, material. |
@@ -221,6 +223,7 @@ Friends often have a model file and nowhere to host it, so a request can carry a
 | `ADMIN_GROUP` | Authentik group whose members are admins. |
 | `SPOOLMAN_URL` | Optional. Integration is off when unset. |
 | `PREVIEW_ALLOW_HOSTS` | Optional, comma-separated internal hosts the preview fetch may reach. |
+| `ACCENT_COLOR` | Optional hex colour for the UI accent, e.g. `#3b82f6`. Default `#00ae42`. Text on it is picked black or white for contrast. |
 | `FILES_BACKEND` | `s3`, `dir`, or empty to disable uploads. |
 | `FILES_DIR` | Directory for the `dir` backend. |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION` | For the `s3` backend. Path-style addressing is always used. |
