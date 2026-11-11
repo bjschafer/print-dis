@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/bjschafer/print-dis/internal/core"
 )
@@ -29,7 +30,9 @@ const (
 	colLink     = "Model / file link"
 	colNeeded   = "Needed by"
 	colTiming   = "Timing"
-	colDetails  = "Request details"
+	// colPrintNotes is optional: the owner's own column, kept in the notes.
+	colPrintNotes = "Print notes / blocker"
+	colDetails    = "Request details"
 )
 
 var columns = []string{colStatus, colItem, colQty, colPrinted, colMethod, colMaterial, colLink, colNeeded, colTiming, colDetails}
@@ -90,6 +93,9 @@ func Map(records [][]string, now time.Time) (*Result, error) {
 		}
 		pos[c] = i
 	}
+	if i, ok := idx[strings.ToLower(colPrintNotes)]; ok {
+		pos[colPrintNotes] = i
+	}
 	if len(missing) > 0 {
 		return nil, fmt.Errorf("missing required column(s): %s", strings.Join(missing, ", "))
 	}
@@ -98,7 +104,7 @@ func Map(records [][]string, now time.Time) (*Result, error) {
 	seen := map[string]int{}
 	for n, rec := range records[1:] {
 		get := func(c string) string {
-			if i := pos[c]; i < len(rec) {
+			if i, ok := pos[c]; ok && i < len(rec) {
 				return strings.TrimSpace(rec[i])
 			}
 			return ""
@@ -226,12 +232,23 @@ func mapRow(num int, get func(string) string, now time.Time) Row {
 	// Timing
 	r.Timing = core.TimingWhenever
 	if t := get(colTiming); t != "" {
-		switch tt := core.Timing(strings.ToLower(t)); tt {
+		// The sheet's values are phrases such as "Firm date" and
+		// "Flexible (+few days)"; the first word decides.
+		var first string
+		if words := strings.FieldsFunc(t, func(c rune) bool { return !unicode.IsLetter(c) }); len(words) > 0 {
+			first = strings.ToLower(words[0])
+		}
+		switch tt := core.Timing(first); tt {
 		case core.TimingFirm, core.TimingFlexible, core.TimingWhenever:
 			r.Timing = tt
 		default:
 			notes = append(notes, "Timing: "+t)
 		}
+	}
+
+	// Optional column; not part of the row key.
+	if pn := get(colPrintNotes); pn != "" {
+		notes = append(notes, "Print notes: "+pn)
 	}
 
 	r.Notes = strings.Join(notes, "\n")
@@ -260,8 +277,14 @@ var materialRE = regexp.MustCompile(`(?i)^(PETG|PCTG|PLA|ABS|ASA|TPU|HIPS|PVA|PE
 
 const separators = " \t-/,;:|"
 
+// A material written in capitals anywhere in the text: "Tinmorry blue PETG-GF".
+var embeddedMaterialRE = regexp.MustCompile(`(?:^|[^A-Za-z0-9])((?:PETG|PCTG|PLA|ABS|ASA|TPU|HIPS|PVA|PET|PC|PA)\d{0,2}(?:\+|-(?:CF|GF|HF|HT|FR|ESD|LW))*)(?:$|[^A-Za-z0-9+])`)
+
 // ParseMaterial splits free text such as "PETG black" into an upper-cased
-// material and the remaining colour note. Unrecognised text is all colour.
+// material and the remaining colour note. A material elsewhere in the text,
+// in capitals, is recognised too, and then the whole text is kept as the
+// colour note since vendor and colour surround it. Unrecognised text is all
+// colour.
 func ParseMaterial(s string) (material, colorNote string) {
 	s = strings.TrimSpace(s)
 	if m := materialRE.FindString(s); m != "" {
@@ -269,6 +292,9 @@ func ParseMaterial(s string) (material, colorNote string) {
 		if rest == "" || !isWordByte(rest[0]) {
 			return strings.ToUpper(m), strings.Trim(rest, separators)
 		}
+	}
+	if m := embeddedMaterialRE.FindStringSubmatch(s); m != nil {
+		return m[1], s
 	}
 	return "", s
 }

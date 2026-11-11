@@ -114,6 +114,13 @@ func TestFields(t *testing.T) {
 		{name: "timing flexible", line: "Requested,X,,,,,,,flexible,", qty: 1, timing: "flexible"},
 		{name: "timing whenever", line: "Requested,X,,,,,,,Whenever,", qty: 1, timing: "whenever"},
 		{name: "timing other", line: "Requested,X,,,,,,,ASAP,", qty: 1, timing: "whenever", notes: "Timing: ASAP"},
+		{name: "timing sheet firm phrase", line: "Requested,X,,,,,,,Firm date,", qty: 1, timing: "firm"},
+		{name: "timing sheet flexible phrase", line: "Requested,X,,,,,,,Flexible (+few days),", qty: 1, timing: "flexible"},
+		{name: "timing punctuation only", line: "Requested,X,,,,,,,???,", qty: 1, timing: "whenever", notes: "Timing: ???"},
+		{name: "mat embedded vendor first", line: "Requested,X,,,,Tinmorry blue PETG-GF,,,,", qty: 1, mat: "PETG-GF", color: "Tinmorry blue PETG-GF", timing: "whenever"},
+		{name: "mat embedded plus", line: "Requested,X,,,,White ABS+ eSun,,,,", qty: 1, mat: "ABS+", color: "White ABS+ eSun", encl: true, timing: "whenever"},
+		{name: "mat embedded sentence", line: "Requested,X,,,,Leftover ABS if there is enough?,,,,", qty: 1, mat: "ABS", color: "Leftover ABS if there is enough?", encl: true, timing: "whenever"},
+		{name: "mat embedded lowercase ignored", line: "Requested,X,,,,a pet bowl,,,,", qty: 1, color: "a pet bowl", timing: "whenever"},
 		{name: "details only", line: "Requested,X,,,,,,,,Please make it blue", qty: 1, timing: "whenever", notes: "Please make it blue"},
 		{
 			name: "all notes", line: `Requested,X,2 plates,lots,Resin,,somewhere,never,ASAP,"Line one
@@ -232,5 +239,26 @@ func TestKeys(t *testing.T) {
 	d := keys("Requested,Vase,1,,,,,,,\nRequested,Vase,1,,,,,,,\n")
 	if d[0] == d[1] || d[0] != a[0] {
 		t.Error("identical rows need distinct keys, the first matching the single-row key")
+	}
+}
+
+func TestPrintNotesColumn(t *testing.T) {
+	csv := hdr + ",Print notes / blocker\nRequested,X,,,,,,,,details,waiting on filament\n"
+	recs, err := ReadCSV(strings.NewReader(csv))
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := Map(recs, time.Date(2026, 11, 11, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := res.Rows[0].Req.Notes; got != "Print notes: waiting on filament\n\ndetails" {
+		t.Fatalf("notes = %q", got)
+	}
+	// The optional column doesn't change the row key.
+	plain, _ := ReadCSV(strings.NewReader(hdr + "\nRequested,X,,,,,,,,details\n"))
+	res2, _ := Map(plain, time.Date(2026, 11, 11, 0, 0, 0, 0, time.UTC))
+	if res.Rows[0].Key != res2.Rows[0].Key {
+		t.Fatal("print notes changed the key")
 	}
 }
