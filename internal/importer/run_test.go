@@ -52,7 +52,7 @@ func TestRun(t *testing.T) {
 	// Dry run writes nothing, not even the placeholder.
 	var out bytes.Buffer
 	res := mapSheet(t)
-	sum, infos, err := importer.Run(ctx, st, res, email, true)
+	sum, infos, err := importer.Run(ctx, st, res, email, "", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestRun(t *testing.T) {
 
 	// Real run.
 	res = mapSheet(t)
-	sum, _, err = importer.Run(ctx, st, res, email, false)
+	sum, _, err = importer.Run(ctx, st, res, email, "Phii", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if u.Name != "friend" || !u.Placeholder() {
+	if u.Name != "Phii" || !u.Placeholder() {
 		t.Errorf("user = %+v", u)
 	}
 	reqs, err := st.ListRequests(ctx, store.Filter{})
@@ -112,7 +112,7 @@ func TestRun(t *testing.T) {
 
 	// Re-run adds nothing.
 	res = mapSheet(t)
-	sum, _, err = importer.Run(ctx, st, res, email, false)
+	sum, _, err = importer.Run(ctx, st, res, email, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestRunRollsBack(t *testing.T) {
 	res := mapSheet(t)
 	// A title containing a NUL byte is rejected by Postgres, failing mid-batch.
 	res.Rows[2].Req.Title = "bad\x00title"
-	_, _, err := importer.Run(ctx, st, res, "x@example.com", false)
+	_, _, err := importer.Run(ctx, st, res, "x@example.com", "", false)
 	if err == nil {
 		t.Fatal("want error")
 	}
@@ -147,7 +147,7 @@ func TestRunRollsBack(t *testing.T) {
 
 func TestRunBadRequester(t *testing.T) {
 	st := storetest.New(t)
-	if _, _, err := importer.Run(context.Background(), st, mapSheet(t), "not-an-email", true); err == nil {
+	if _, _, err := importer.Run(context.Background(), st, mapSheet(t), "not-an-email", "", true); err == nil {
 		t.Error("want error")
 	}
 }

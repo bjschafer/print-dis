@@ -18,6 +18,7 @@ import (
 type importArgs struct {
 	file      string
 	requester string
+	name      string
 	dryRun    bool
 }
 
@@ -26,11 +27,12 @@ func parseImportArgs(args []string, usageOut io.Writer) (*importArgs, error) {
 	fs := flag.NewFlagSet("import-sheet", flag.ContinueOnError)
 	fs.SetOutput(usageOut)
 	fs.Usage = func() {
-		_, _ = fmt.Fprintln(usageOut, "usage: print-dis import-sheet <file.csv> --requester <email> [--dry-run]")
+		_, _ = fmt.Fprintln(usageOut, "usage: print-dis import-sheet <file.csv|-> --requester <email> [--name <name>] [--dry-run]")
 		fs.PrintDefaults()
 	}
 	a := &importArgs{}
 	fs.StringVar(&a.requester, "requester", "", "email of the user who owns every imported request (required)")
+	fs.StringVar(&a.name, "name", "", "name for the requester if they must be created as a placeholder (default: the part of the email before @)")
 	fs.BoolVar(&a.dryRun, "dry-run", false, "map and report, but write nothing")
 
 	var pos []string
@@ -65,12 +67,18 @@ func importSheet(args []string, getenv func(string) string, out io.Writer) error
 	if dbURL == "" {
 		return errors.New("DATABASE_URL is required")
 	}
-	f, err := os.Open(a.file)
-	if err != nil {
-		return err
+	// "-" reads stdin, so the import can run in a one-off pod with the CSV
+	// piped in.
+	in := io.Reader(os.Stdin)
+	if a.file != "-" {
+		f, err := os.Open(a.file)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = f.Close() }()
+		in = f
 	}
-	defer func() { _ = f.Close() }()
-	records, err := importer.ReadCSV(f)
+	records, err := importer.ReadCSV(in)
 	if err != nil {
 		return err
 	}
@@ -87,7 +95,7 @@ func importSheet(args []string, getenv func(string) string, out io.Writer) error
 	}
 	defer st.Close()
 
-	sum, infos, err := importer.Run(ctx, st, res, a.requester, a.dryRun)
+	sum, infos, err := importer.Run(ctx, st, res, a.requester, a.name, a.dryRun)
 	if err != nil {
 		return err
 	}

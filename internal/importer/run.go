@@ -21,13 +21,18 @@ type Summary struct {
 // Run marks rows already in the database, then (unless dryRun) inserts the
 // rest for the requester in one transaction. It writes nothing on a dry run,
 // including the placeholder user. res is updated so Report shows the outcome.
-func Run(ctx context.Context, st *store.Store, res *Result, email string, dryRun bool) (Summary, []string, error) {
+// placeholderName names the requester if they must be created; empty means
+// the part of the email before the @.
+func Run(ctx context.Context, st *store.Store, res *Result, email, placeholderName string, dryRun bool) (Summary, []string, error) {
 	var sum Summary
 	var infos []string
 	email = strings.ToLower(strings.TrimSpace(email))
 	name, _, ok := strings.Cut(email, "@")
 	if !ok || name == "" {
 		return sum, nil, fmt.Errorf("requester %q is not an email address", email)
+	}
+	if n := strings.TrimSpace(placeholderName); n != "" {
+		name = n
 	}
 	if _, err := st.GetUserByEmail(ctx, email); err == nil {
 		infos = append(infos, fmt.Sprintf("requester %s exists", email))

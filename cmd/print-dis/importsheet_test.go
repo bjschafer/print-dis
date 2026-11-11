@@ -12,9 +12,10 @@ func TestParseImportArgs(t *testing.T) {
 		want importArgs
 		ok   bool
 	}{
-		{"file first", []string{"a.csv", "--requester", "x@y.z", "--dry-run"}, importArgs{"a.csv", "x@y.z", true}, true},
-		{"file last", []string{"--requester=x@y.z", "a.csv"}, importArgs{"a.csv", "x@y.z", false}, true},
-		{"file between", []string{"--dry-run", "a.csv", "--requester", "x@y.z"}, importArgs{"a.csv", "x@y.z", true}, true},
+		{"file first", []string{"a.csv", "--requester", "x@y.z", "--dry-run"}, importArgs{"a.csv", "x@y.z", "", true}, true},
+		{"file last", []string{"--requester=x@y.z", "a.csv"}, importArgs{"a.csv", "x@y.z", "", false}, true},
+		{"file between", []string{"--dry-run", "a.csv", "--requester", "x@y.z"}, importArgs{"a.csv", "x@y.z", "", true}, true},
+		{"stdin and name", []string{"-", "--requester", "x@y.z", "--name", "Phii"}, importArgs{"-", "x@y.z", "Phii", false}, true},
 		{"no file", []string{"--requester", "x@y.z"}, importArgs{}, false},
 		{"two files", []string{"a.csv", "b.csv", "--requester", "x@y.z"}, importArgs{}, false},
 		{"no requester", []string{"a.csv"}, importArgs{}, false},
