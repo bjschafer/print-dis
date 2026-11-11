@@ -23,13 +23,28 @@
 
   // Pre-tick "needs enclosure" for materials that want one; the user can untick.
   const enclosureMaterials = /^(ABS|ASA|PC|PA)([-+ 0-9].*)?$/;
-  document.addEventListener("input", (e) => {
+  // The filament picker is a select whose options carry data-material and
+  // data-hex; the swatch beside it follows the choice.
+  function onMaterial(e) {
     const m = e.target.closest("[data-material]");
     if (!m) return;
+    let material = m.value;
+    if (m.tagName === "SELECT") {
+      const opt = m.selectedOptions[0];
+      material = opt ? opt.dataset.material || "" : "";
+      const sw = m.form && m.form.querySelector("[data-swatch]");
+      if (sw) {
+        const hex = opt ? opt.dataset.hex || "" : "";
+        sw.hidden = !hex;
+        sw.style.background = hex;
+      }
+    }
     const form = m.form;
     const box = form && form.querySelector("[data-enclosure]");
-    if (box && !box.dataset.touched && enclosureMaterials.test(m.value.trim().toUpperCase())) box.checked = true;
-  });
+    if (box && !box.dataset.touched && enclosureMaterials.test(material.trim().toUpperCase())) box.checked = true;
+  }
+  document.addEventListener("input", onMaterial);
+  document.addEventListener("change", onMaterial);
   document.addEventListener("change", (e) => {
     if (e.target.matches("[data-enclosure]")) e.target.dataset.touched = "1";
   });

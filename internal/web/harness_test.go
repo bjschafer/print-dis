@@ -30,13 +30,23 @@ type harness struct {
 
 func newHarness(t *testing.T, mutate ...func(*config.Config)) *harness {
 	t.Helper()
+	return newHarnessDeps(t, nil, mutate...)
+}
+
+// newHarnessDeps is newHarness with a hook to adjust Deps before the server is built.
+func newHarnessDeps(t *testing.T, deps func(*Deps), mutate ...func(*config.Config)) *harness {
+	t.Helper()
 	st := storetest.New(t)
 	u, _ := url.Parse("http://localhost:8080")
 	cfg := &config.Config{BaseURL: u, DevUser: "owner@example.com", UploadMaxBytes: 200 << 20}
 	for _, m := range mutate {
 		m(cfg)
 	}
-	s, err := New(context.Background(), Deps{Config: cfg, Store: st})
+	d := Deps{Config: cfg, Store: st}
+	if deps != nil {
+		deps(&d)
+	}
+	s, err := New(context.Background(), d)
 	if err != nil {
 		t.Fatal(err)
 	}

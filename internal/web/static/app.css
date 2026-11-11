@@ -115,6 +115,8 @@ fieldset.admin { border-top: 1px dashed var(--border); padding-top: .6rem; margi
 .card-meta:empty { display: none; }
 .pill { border: 1px solid var(--border); border-radius: 999px; padding: 0 .45rem; }
 .printer { font-style: italic; }
+.filament-note { flex: 1 1 100%; margin: 0 0 .4rem; }
+.swatch[hidden] { display: none; }
 .swatch { display: inline-block; width: .9rem; height: .9rem; border-radius: 50%; border: 1px solid var(--border); vertical-align: -2px; margin-right: .2rem; }
 
 /* table */

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bjschafer/print-dis/internal/config"
+	"github.com/bjschafer/print-dis/internal/spoolman"
 	"github.com/bjschafer/print-dis/internal/store"
 	"github.com/bjschafer/print-dis/internal/web"
 )
@@ -54,7 +55,11 @@ func serve() error {
 	}
 	defer st.Close()
 
-	h, err := web.New(ctx, web.Deps{Config: cfg, Store: st, Log: log})
+	deps := web.Deps{Config: cfg, Store: st, Log: log}
+	if cfg.SpoolmanURL != "" {
+		deps.Filaments = spoolman.New(cfg.SpoolmanURL)
+	}
+	h, err := web.New(ctx, deps)
 	if err != nil {
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/bjschafer/print-dis/internal/auth"
 	"github.com/bjschafer/print-dis/internal/core"
+	"github.com/bjschafer/print-dis/internal/spoolman"
 	"github.com/bjschafer/print-dis/internal/store"
 )
 
@@ -116,6 +117,16 @@ type requestFormView struct {
 	Errors   formErrors
 	People   []core.User    // admins: the "for" picker
 	Printers []core.Printer // admins: assignment
+
+	// Filament picker. FilamentsConfigured is true when a source exists;
+	// FilamentsDown when it is configured but could not be read, in which
+	// case the form falls back to free text.
+	Filaments           []spoolman.MaterialGroup
+	FilamentsConfigured bool
+	FilamentsDown       bool
+	SelectedFilament    int     // the request's current pick, 0 for any
+	SelectedHex         *string // swatch for the current pick
+	CurrentGone         bool    // the current pick is no longer in the list
 }
 
 func (s *Server) formView(r *http.Request, title string, req *core.Request, errs formErrors) (*requestFormView, error) {
@@ -130,7 +141,77 @@ func (s *Server) formView(r *http.Request, title string, req *core.Request, errs
 			return nil, err
 		}
 	}
+	s.fillFilaments(r, v)
 	return v, nil
+}
+
+// fillFilaments loads the picker's options into v.
+func (s *Server) fillFilaments(r *http.Request, v *requestFormView) {
+	if s.Filaments == nil {
+		return
+	}
+	v.FilamentsConfigured = true
+	opts, err := s.Filaments.Filaments(r.Context())
+	if err != nil {
+		s.Log.Warn("filament list unavailable", "err", err)
+		v.FilamentsDown = true
+		return
+	}
+	v.Filaments = spoolman.GroupByMaterial(opts)
+	if id := v.Request.SpoolmanFilamentID; id != nil {
+		v.SelectedFilament = *id
+		v.SelectedHex = v.Request.FilamentColorHex
+		v.CurrentGone = true
+		for _, o := range opts {
+			if o.ID == *id {
+				v.CurrentGone = false
+				v.SelectedHex = optString(o.ColorHex)
+			}
+		}
+	}
+}
+
+// applyFilament handles the filament picker. A pick is looked up in the
+// source and its label, colour and material are snapshotted onto req; what
+// the client posted for those is ignored. A pick the source no longer knows
+// is kept only when it is the request's existing one.
+func (s *Server) applyFilament(r *http.Request, req *core.Request, errs *formErrors) {
+	if !r.PostForm.Has("spoolman_filament_id") {
+		return
+	}
+	raw := trimmed(r, "spoolman_filament_id")
+	if raw == "" {
+		req.SpoolmanFilamentID, req.FilamentLabel, req.FilamentColorHex = nil, "", nil
+		if !r.PostForm.Has("material") {
+			req.Material = ""
+		}
+		return
+	}
+	id, ok := optID(raw)
+	if !ok {
+		errs.add("Pick a filament from the list, or choose Any filament.")
+		return
+	}
+	n := int(id)
+	if s.Filaments != nil {
+		opts, err := s.Filaments.Filaments(r.Context())
+		if err != nil {
+			s.Log.Warn("filament list unavailable", "err", err)
+		}
+		for _, o := range opts {
+			if o.ID == n {
+				req.SpoolmanFilamentID = &n
+				req.FilamentLabel = o.Label
+				req.FilamentColorHex = optString(o.ColorHex)
+				req.Material = o.Material
+				return
+			}
+		}
+	}
+	if req.SpoolmanFilamentID != nil && *req.SpoolmanFilamentID == n {
+		return
+	}
+	errs.add("That filament is not in the list any more. Pick another, or choose Any filament.")
 }
 
 func (s *Server) newRequest(w http.ResponseWriter, r *http.Request) {
@@ -161,6 +242,7 @@ func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
 	req := &core.Request{RequesterID: u.ID, CreatedByID: u.ID, Status: core.StatusRequested}
 	admin := core.CanFileFor(u)
 	errs := applyRequestForm(r, req, admin)
+	s.applyFilament(r, req, &errs)
 	if admin && len(errs) == 0 {
 		if err := s.resolveRequester(r, req); err != nil {
 			errs.add("%s", err.Error())
@@ -249,6 +331,7 @@ func (s *Server) updateRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	before := *req
 	errs := applyRequestForm(r, req, core.CanEditAdminFields(u))
+	s.applyFilament(r, req, &errs)
 	if len(errs) > 0 {
 		s.detail(w, r, http.StatusUnprocessableEntity, req, errs)
 		return
