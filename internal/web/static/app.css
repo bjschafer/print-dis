@@ -166,3 +166,12 @@ details.printer.inactive { opacity: .7; }
 details.new-person { margin: -.4rem 0 .9rem; }
 details.new-person summary { cursor: pointer; color: var(--accent); font-size: .9rem; }
 details.new-person fieldset { margin-top: .5rem; }
+
+/* files */
+.files { margin-top: 1.2rem; }
+ul.file-list { list-style: none; padding: 0; margin: 0 0 .8rem; }
+ul.file-list li { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; padding: .5rem 0; border-bottom: 1px solid var(--border); }
+.file-info { flex: 1 1 12rem; display: flex; flex-direction: column; min-width: 0; }
+.file-name { overflow-wrap: anywhere; }
+.file-thumb { width: 3.5rem; height: 3.5rem; object-fit: cover; border-radius: var(--radius); border: 1px solid var(--border); display: block; }
+.upload-form input[type=file] { max-width: 100%; }

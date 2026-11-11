@@ -19,6 +19,7 @@ import (
 	"github.com/bjschafer/print-dis/internal/auth"
 	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/core"
+	"github.com/bjschafer/print-dis/internal/files"
 	"github.com/bjschafer/print-dis/internal/spoolman"
 	"github.com/bjschafer/print-dis/internal/store"
 )
@@ -44,6 +45,8 @@ type Deps struct {
 	Auth *auth.Auth
 	// Filaments feeds the filament picker; nil when Spoolman is not configured.
 	Filaments FilamentSource
+	// Files stores uploads; nil disables uploads.
+	Files files.Blobs
 	// Now is the clock; time.Now when nil.
 	Now func() time.Time
 	// Previewer fetches link previews; nil turns previews off.
@@ -109,6 +112,7 @@ func (s *Server) routes() http.Handler {
 	signedIn.HandleFunc("POST /printers", s.savePrinter)
 	signedIn.HandleFunc("POST /printers/{id}", s.savePrinter)
 	s.peopleRoutes(signedIn)
+	s.fileRoutes(signedIn)
 	app.Handle("/", s.Auth.RequireUser(signedIn))
 
 	public.Handle("/", securityHeaders(s.Auth.Middleware(s.Auth.RequireCSRF(app))))

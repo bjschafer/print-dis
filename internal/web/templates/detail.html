@@ -42,7 +42,43 @@
   </dl>
   {{end}}
 
-  {{block "files" .}}{{end}}
+  {{block "files" .}}
+  {{if .FilesEnabled}}
+  <section id="files" class="files">
+    <h2>Files</h2>
+    {{if .Files}}
+    <ul class="file-list">
+      {{range .Files}}
+      <li>
+        {{if isImage .}}<a href="/files/{{.ID}}"><img class="file-thumb" src="/files/{{.ID}}?inline=1" alt="" loading="lazy"></a>{{end}}
+        <div class="file-info">
+          <a href="/files/{{.ID}}" class="file-name">{{.Filename}}</a>
+          <span class="muted">{{bytes .SizeBytes}} · {{.UploaderName}} · {{when .CreatedAt}}</span>
+        </div>
+        {{if canDeleteFile $.User $.Request .}}
+        <form method="post" action="/files/{{.ID}}/delete" class="inline">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button class="danger" data-confirm="Remove {{.Filename}}?">Remove</button>
+        </form>
+        {{end}}
+      </li>
+      {{end}}
+    </ul>
+    {{else}}
+    <p class="muted">No files attached.</p>
+    {{end}}
+    {{if .CanUpload}}
+    <form method="post" action="/requests/{{.Request.ID}}/files?csrf={{.CSRF}}" enctype="multipart/form-data" class="upload-form">
+      <label>Add files
+        <input type="file" name="file" multiple required accept="{{fileAccept}}">
+      </label>
+      <p class="muted">STL, 3MF, STEP, OBJ, ZIP and PNG, JPG or WebP images. Up to {{bytes .UploadMax}} each, {{maxFiles}} files per request.</p>
+      <button>Upload</button>
+    </form>
+    {{end}}
+  </section>
+  {{end}}
+  {{end}}
 </div>
 
 <aside class="detail-side">

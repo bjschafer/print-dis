@@ -169,6 +169,7 @@ type File struct {
 	ID           int64
 	RequestID    int64
 	UploadedByID int64
+	UploaderName string
 	ObjectKey    string
 	Filename     string
 	ContentType  string

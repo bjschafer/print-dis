@@ -14,6 +14,7 @@ import (
 
 	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/core"
+	"github.com/bjschafer/print-dis/internal/files"
 	"github.com/bjschafer/print-dis/internal/store"
 	"github.com/bjschafer/print-dis/internal/store/storetest"
 )
@@ -42,7 +43,12 @@ func newHarnessDeps(t *testing.T, deps func(*Deps), mutate ...func(*config.Confi
 	for _, m := range mutate {
 		m(cfg)
 	}
-	d := Deps{Config: cfg, Store: st}
+	// Tests that set FilesBackend get a real backend; the default is none.
+	blobs, err := files.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := Deps{Config: cfg, Store: st, Files: blobs}
 	if deps != nil {
 		deps(&d)
 	}

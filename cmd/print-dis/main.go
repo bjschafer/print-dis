@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bjschafer/print-dis/internal/config"
+	"github.com/bjschafer/print-dis/internal/files"
 	"github.com/bjschafer/print-dis/internal/preview"
 	"github.com/bjschafer/print-dis/internal/spoolman"
 	"github.com/bjschafer/print-dis/internal/store"
@@ -56,7 +57,11 @@ func serve() error {
 	}
 	defer st.Close()
 
-	deps := web.Deps{Config: cfg, Store: st, Log: log}
+	blobs, err := files.New(cfg)
+	if err != nil {
+		return err
+	}
+	deps := web.Deps{Config: cfg, Store: st, Log: log, Files: blobs}
 	if cfg.SpoolmanURL != "" {
 		deps.Filaments = spoolman.New(cfg.SpoolmanURL)
 	}
