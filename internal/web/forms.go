@@ -101,22 +101,12 @@ func applyRequestForm(r *http.Request, req *core.Request, admin bool) formErrors
 		req.SourceTitle = &t
 	}
 
-	req.Material = strings.ToUpper(trimmed(r, "material"))
+	if r.PostForm.Has("material") {
+		req.Material = strings.ToUpper(trimmed(r, "material"))
+	}
 	req.ColorNote = trimmed(r, "color_note")
-	if r.PostForm.Has("filament_label") {
-		req.FilamentLabel = trimmed(r, "filament_label")
-	}
-	if r.PostForm.Has("spoolman_filament_id") {
-		if id, ok := optID(trimmed(r, "spoolman_filament_id")); ok {
-			n := int(id)
-			req.SpoolmanFilamentID = &n
-		} else {
-			req.SpoolmanFilamentID = nil
-		}
-	}
-	if r.PostForm.Has("filament_color_hex") {
-		req.FilamentColorHex = optString(normHex(trimmed(r, "filament_color_hex")))
-	}
+	// spoolman_filament_id and the filament snapshot are handled by
+	// applyFilament, which never trusts a client-supplied label or colour.
 
 	req.NeedsMultiMaterial = checkbox(r, "needs_multi_material")
 	req.NeedsEnclosure = checkbox(r, "needs_enclosure")

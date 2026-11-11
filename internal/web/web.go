@@ -19,8 +19,15 @@ import (
 	"github.com/bjschafer/print-dis/internal/auth"
 	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/core"
+	"github.com/bjschafer/print-dis/internal/spoolman"
 	"github.com/bjschafer/print-dis/internal/store"
 )
+
+// FilamentSource lists the filaments the picker offers. *spoolman.Client
+// implements it; tests use a fake.
+type FilamentSource interface {
+	Filaments(ctx context.Context) ([]spoolman.FilamentOption, error)
+}
 
 //go:embed templates
 var templateFS embed.FS
@@ -35,6 +42,8 @@ type Deps struct {
 	Log    *slog.Logger
 	// Auth is built from Config and Store when nil.
 	Auth *auth.Auth
+	// Filaments feeds the filament picker; nil when Spoolman is not configured.
+	Filaments FilamentSource
 	// Now is the clock; time.Now when nil.
 	Now func() time.Time
 }

@@ -38,6 +38,25 @@
 
 <fieldset class="row" data-filament>
   {{block "filament_picker" .}}
+  {{if .Filaments}}
+  <label>Filament
+    <select name="spoolman_filament_id" data-material data-filament-select>
+      <option value="" data-material="" data-hex="">Any filament</option>
+      {{if .CurrentGone}}<option value="{{.SelectedFilament}}" data-material="{{.Request.Material}}" data-hex="{{str .SelectedHex}}" selected>{{.Request.FilamentLabel}} (no longer in Spoolman)</option>{{end}}
+      {{range .Filaments}}
+      <optgroup label="{{.Material}}">
+        {{range .Options}}<option value="{{.ID}}" data-material="{{.Material}}" data-hex="{{.ColorHex}}" {{if eq .ID $.SelectedFilament}}selected{{end}}>{{.Label}}{{if not .InStock}} (out of stock){{end}}</option>{{end}}
+      </optgroup>
+      {{end}}
+    </select>
+    <small><span class="swatch" data-swatch {{with swatch .SelectedHex}}style="background: {{.}}"{{else}}hidden{{end}}></span></small>
+  </label>
+  <label>Colour note
+    <input name="color_note" value="{{.Request.ColorNote}}" placeholder="optional, e.g. &quot;matte&quot;">
+  </label>
+  {{else}}
+  {{if .FilamentsDown}}<p class="muted filament-note">The filament list is unavailable right now, so type the material and colour instead.</p>{{end}}
+  {{if .Request.FilamentLabel}}<p class="filament-note">Picked filament: {{with swatch .Request.FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}{{.Request.FilamentLabel}} (kept as it was)</p>{{end}}
   <label class="narrow">Material
     <input name="material" value="{{.Request.Material}}" placeholder="any" list="materials" data-material autocapitalize="characters">
     <datalist id="materials"><option>PLA</option><option>PETG</option><option>ABS</option><option>ASA</option><option>TPU</option><option>PC</option><option>PA</option></datalist>
@@ -45,6 +64,7 @@
   <label>Colour
     <input name="color_note" value="{{.Request.ColorNote}}" placeholder="any, or &quot;matte orange&quot;">
   </label>
+  {{end}}
   {{end}}
 </fieldset>
 
