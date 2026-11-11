@@ -190,6 +190,7 @@ type detailView struct {
 	Files          []core.File
 	FilesEnabled   bool
 	CanUpload      bool
+	UploadMax      int64
 }
 
 func (s *Server) detail(w http.ResponseWriter, r *http.Request, status int, req *core.Request, errs formErrors) {

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bjschafer/print-dis/internal/config"
+	"github.com/bjschafer/print-dis/internal/files"
 	"github.com/bjschafer/print-dis/internal/store"
 	"github.com/bjschafer/print-dis/internal/web"
 )
@@ -52,7 +53,11 @@ func serve() error {
 	}
 	defer st.Close()
 
-	h, err := web.New(ctx, web.Deps{Config: cfg, Store: st, Log: log})
+	blobs, err := files.New(cfg)
+	if err != nil {
+		return err
+	}
+	h, err := web.New(ctx, web.Deps{Config: cfg, Store: st, Log: log, Files: blobs})
 	if err != nil {
 		return err
 	}
