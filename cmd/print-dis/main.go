@@ -32,8 +32,10 @@ func run(args []string) error {
 	switch cmd {
 	case "serve":
 		return serve()
+	case "import-sheet":
+		return importSheet(args[1:], os.Getenv, os.Stdout)
 	default:
-		return fmt.Errorf("unknown command %q (want: serve)", cmd)
+		return fmt.Errorf("unknown command %q (want: serve, import-sheet)", cmd)
 	}
 }
 
