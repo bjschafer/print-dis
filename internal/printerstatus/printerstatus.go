@@ -21,7 +21,10 @@ import (
 const (
 	fetchTimeout = 5 * time.Second
 	pollInterval = 15 * time.Second
-	maxBody      = 4 << 20
+	// cameraCheckEvery is how often a Moonraker printer's webcam list is
+	// re-read; cameras come and go far less often than jobs.
+	cameraCheckEvery = 5 * time.Minute
+	maxBody          = 4 << 20
 )
 
 // State is a printer's condition, common to both sources.
@@ -67,6 +70,7 @@ type Status struct {
 	Remaining time.Duration // 0 when unknown
 	Layer     int           // 0 when unknown
 	Layers    int           // 0 when unknown
+	Camera    bool          // a camera can be opened
 	At        time.Time     // when this was read
 }
 
@@ -191,8 +195,13 @@ func (m *Monitor) read(ctx context.Context, t Target) Status {
 	switch {
 	case t.MoonrakerURL != "":
 		s, err = m.moonraker(ctx, strings.TrimRight(t.MoonrakerURL, "/"))
+		if err == nil {
+			s.Camera = m.moonrakerHasCamera(ctx, t)
+		}
 	case t.BambuddyID > 0 && t.BambuddyURL != "":
 		s, err = m.bambuddy(ctx, t)
+		// Every Bambu printer has a camera; Bambuddy serves it while connected.
+		s.Camera = err == nil && s.State != Offline
 	default:
 		s = Status{State: Unknown}
 	}
@@ -206,6 +215,35 @@ func (m *Monitor) read(ctx context.Context, t Target) Status {
 	}
 	s.At = m.opts.Now()
 	return s
+}
+
+type cameraCheck struct {
+	url string
+	has bool
+	at  time.Time
+}
+
+// moonrakerHasCamera reports whether Moonraker lists an enabled webcam,
+// re-reading the list every few minutes. A failed read keeps the last answer.
+func (m *Monitor) moonrakerHasCamera(ctx context.Context, t Target) bool {
+	m.camMu.Lock()
+	c, ok := m.cams[t.PrinterID]
+	m.camMu.Unlock()
+	if ok && c.url == t.MoonrakerURL && m.opts.Now().Sub(c.at) < cameraCheckEvery {
+		return c.has
+	}
+	_, err := m.moonrakerWebcam(ctx, t.MoonrakerURL)
+	has := err == nil
+	if err != nil && !errors.Is(err, ErrNoCamera) && ok && c.url == t.MoonrakerURL {
+		has = c.has
+	}
+	m.camMu.Lock()
+	if m.cams == nil {
+		m.cams = map[int64]cameraCheck{}
+	}
+	m.cams[t.PrinterID] = cameraCheck{url: t.MoonrakerURL, has: has, at: m.opts.Now()}
+	m.camMu.Unlock()
+	return has
 }
 
 func (m *Monitor) getJSON(ctx context.Context, url string, header http.Header, v any) error {

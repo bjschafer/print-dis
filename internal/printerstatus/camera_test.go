@@ -83,12 +83,16 @@ func TestMoonrakerCameraMJPEG(t *testing.T) {
 
 func TestMoonrakerCameraFromSnapshots(t *testing.T) {
 	var shots atomic.Int32
-	cam := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+	cam := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/webrtc" { // camera-streamer's WebRTC page, not MJPEG
+			_, _ = io.WriteString(w, "<html>webrtc</html>")
+			return
+		}
 		w.Header().Set("Content-Type", "image/jpeg")
 		_, _ = fmt.Fprintf(w, "shot%d", shots.Add(1))
 	})
 	// camera-streamer's WebRTC address cannot be proxied; its snapshot can.
-	mr := serve(t, webcams(`[{"name":"cam","service":"webrtc-camerastreamer","stream_url":"/webcam/webrtc","snapshot_url":"`+cam.URL+`/snapshot"}]`))
+	mr := serve(t, webcams(`[{"name":"cam","service":"webrtc-camerastreamer","stream_url":"`+cam.URL+`/webrtc","snapshot_url":"`+cam.URL+`/snapshot"}]`))
 	m := monitor(nil, Options{})
 	s, err := m.OpenCamera(context.Background(), Target{PrinterID: 1, MoonrakerURL: mr.URL})
 	if err != nil {
@@ -97,6 +101,38 @@ func TestMoonrakerCameraFromSnapshots(t *testing.T) {
 	defer func() { _ = s.Body.Close() }()
 	if got := readFrames(t, s, 2); got[0] != "shot1" || got[1] != "shot2" {
 		t.Errorf("frames %q", got)
+	}
+}
+
+// Fluidd's "MJPEG Adaptive" is an mjpg-streamer: its stream is relayed, not
+// one frame a second from snapshots.
+func TestMoonrakerCameraAdaptive(t *testing.T) {
+	var snapshots atomic.Int32
+	cam := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("action") == "snapshot" {
+			snapshots.Add(1)
+			w.Header().Set("Content-Type", "image/jpeg")
+			_, _ = io.WriteString(w, "shot")
+			return
+		}
+		mjpeg(2)(w, r)
+	})
+	mr := serve(t, webcams(`[{"name":"Default","enabled":true,"service":"mjpegstreamer-adaptive",
+		"stream_url":"`+cam.URL+`/webcam/?action=stream","snapshot_url":"`+cam.URL+`/webcam/?action=snapshot",
+		"flip_horizontal":true,"flip_vertical":true,"rotation":0}]`))
+	m := monitor(nil, Options{})
+	tg := Target{PrinterID: 1, MoonrakerURL: mr.URL}
+	info, err := m.Camera(context.Background(), tg)
+	if err != nil || info != (CameraInfo{Name: "Default", FlipH: true, FlipV: true}) {
+		t.Fatalf("info %+v %v", info, err)
+	}
+	s, err := m.OpenCamera(context.Background(), tg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Body.Close() }()
+	if got := readFrames(t, s, 2); got[0] != "frame0" || got[1] != "frame1" || snapshots.Load() != 0 {
+		t.Errorf("frames %q, %d snapshots", got, snapshots.Load())
 	}
 }
 

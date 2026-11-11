@@ -66,7 +66,7 @@
       {{if .Enclosed}}<span class="chip">enclosed</span>{{end}}
       {{if .MoonrakerURL}}<span class="chip src-chip">Moonraker</span>{{else if .BambuddyPrinterID}}<span class="chip src-chip">Bambuddy: {{with index $.BambuddyNames (deref .BambuddyPrinterID)}}{{.}}{{else}}#{{int .BambuddyPrinterID}}{{end}}</span>{{end}}
     </span>
-    {{with index $.LiveByID .ID}}{{if .Printer.ID}}<span class="printer-live">{{template "live_state" .}}{{if and .Known .Status.Job}} <span class="live-job muted" title="{{.Status.Job}}">{{.Status.Job}}</span>{{end}}{{if and .Known .Status.Active}} <span class="muted">{{.Status.Percent}}%</span>{{end}}{{template "camera_button" .Printer}}</span>{{end}}{{end}}
+    {{with index $.LiveByID .ID}}{{if .Printer.ID}}<span class="printer-live">{{template "live_state" .}}{{if and .Known .Status.Job}} <span class="live-job muted" title="{{.Status.Job}}">{{.Status.Job}}</span>{{end}}{{if and .Known .Status.Active}} <span class="muted">{{.Status.Percent}}%</span>{{end}}{{if .Status.Camera}}{{template "camera_button" .Printer}}{{end}}</span>{{end}}{{end}}
     {{with .Notes}}<span class="printer-notes muted">{{.}}</span>{{end}}
     <span class="edit-hint">Edit</span>
   </summary>

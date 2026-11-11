@@ -136,7 +136,7 @@ func newStatusFixture(t *testing.T, withMonitor bool) *statusFixture {
 func TestBoardShowsPrinterStatus(t *testing.T) {
 	f := newStatusFixture(t, true)
 	h := f.h
-	f.fake.set(f.trident, printerstatus.Status{State: printerstatus.Printing, Job: "Spool_holder_PETG", Progress: 0.42, Remaining: 80 * time.Minute})
+	f.fake.set(f.trident, printerstatus.Status{State: printerstatus.Printing, Job: "Spool_holder_PETG", Progress: 0.42, Remaining: 80 * time.Minute, Camera: true})
 	// H2D has a source but has not been read yet.
 
 	code, body := h.get("/")
@@ -146,6 +146,10 @@ func TestBoardShowsPrinterStatus(t *testing.T) {
 	strip := between(t, body, `id="printer-strip"`, "</section>")
 	h.mustContain(strip, `hx-get="/printers/status"`, "Trident", "Printing", "Spool_holder_PETG", "42<small>%</small>", "1h 20m left", "H2D", "Checking…",
 		`href="/printers/`+strconv.FormatInt(f.trident, 10)+`/camera" data-camera`)
+	// Only a printer with a camera gets the button (H2D is not read yet).
+	if n := strings.Count(strip, "data-camera"); n != 1 {
+		t.Errorf("%d camera buttons, want 1", n)
+	}
 	if strings.Contains(strip, "Plain") {
 		t.Error("a printer with no source is in the strip")
 	}

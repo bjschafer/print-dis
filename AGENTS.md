@@ -6,9 +6,13 @@ A print-request queue for one owner and their friends. `docs/design.md` is the s
 
 - `make db`: start a throwaway Postgres 17 on port 55432 (podman).
 - `make run`: build and serve on :8080 with `DEV_USER` sign-in and files in `./.files`.
-- `make check`: vet, golangci-lint, tests. Must pass before any milestone is called done.
+- `make check`: vet, golangci-lint, tests. Must pass before any work is called done.
 - Tests that need Postgres read `TEST_DATABASE_URL` and skip without it. Locally:
   `TEST_DATABASE_URL='postgres://postgres:pg@localhost:55432/printdis?sslmode=disable' make check`
+
+## Done
+
+Work in this repo is done when `make check` passes, it is committed to `main`, and it is pushed. Pushing is part of finishing, not a separate request: do it without asking. A push to `main` builds and publishes the image through CI, so watch the run (`gh run watch`) and report if it fails.
 
 ## Layout
 

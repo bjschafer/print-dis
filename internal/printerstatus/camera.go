@@ -203,7 +203,6 @@ func refused(err error) bool {
 type moonrakerWebcam struct {
 	Name        string `json:"name"`
 	Enabled     *bool  `json:"enabled"`
-	Service     string `json:"service"`
 	StreamURL   string `json:"stream_url"`
 	SnapshotURL string `json:"snapshot_url"`
 	FlipH       bool   `json:"flip_horizontal"`
@@ -266,17 +265,16 @@ func webcamURL(moonraker, ref string) (string, error) {
 	return root.ResolveReference(r).String(), nil
 }
 
-// mjpegServices stream MJPEG at stream_url. Others (WebRTC, HLS, the
-// "adaptive" mode that polls snapshots in the browser) get a stream built
-// from snapshots instead.
-var mjpegServices = map[string]bool{"mjpegstreamer": true, "uv4l-mjpeg": true, "ipstream": true}
-
+// openMoonrakerCamera tries the webcam's stream address as MJPEG first,
+// whatever its service says: Fluidd's "MJPEG Adaptive" is an ordinary
+// mjpg-streamer that Fluidd happens to poll for snapshots. When the stream
+// address is not MJPEG (WebRTC, HLS), it builds a stream from snapshots.
 func (m *Monitor) openMoonrakerCamera(ctx context.Context, base string) (*CameraStream, error) {
 	w, err := m.moonrakerWebcam(ctx, base)
 	if err != nil {
 		return nil, err
 	}
-	if mjpegServices[w.Service] && w.StreamURL != "" {
+	if w.StreamURL != "" {
 		if u, err := webcamURL(base, w.StreamURL); err == nil {
 			if s, err := m.openMJPEG(ctx, u, nil); err == nil {
 				return s, nil
@@ -426,4 +424,6 @@ type streamState struct {
 	token      bambuddyToken
 	listMu     sync.Mutex
 	list       printerList
+	camMu      sync.Mutex
+	cams       map[int64]cameraCheck
 }

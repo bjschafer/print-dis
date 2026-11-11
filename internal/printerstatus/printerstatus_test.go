@@ -64,6 +64,10 @@ func TestMoonraker(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var path string
 			srv := serve(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/server/webcams/list" {
+					json200(`{"result":{"webcams":[]}}`)(w, r)
+					return
+				}
 				path = r.URL.RequestURI()
 				json200(tt.body)(w, r)
 			})
@@ -87,17 +91,17 @@ func TestBambuddy(t *testing.T) {
 		want Status
 	}{
 		{"running", `{"id":3,"name":"H2D","connected":true,"state":"RUNNING","subtask_name":"Gridfinity bins","gcode_file":"/data/Metadata/plate_1.gcode","progress":42,"remaining_time":75,"layer_num":30,"total_layers":120,"ams":[]}`,
-			Status{State: Printing, Job: "Gridfinity bins", Progress: 0.42, Remaining: 75 * time.Minute, Layer: 30, Layers: 120, At: t0}},
+			Status{State: Printing, Job: "Gridfinity bins", Progress: 0.42, Remaining: 75 * time.Minute, Layer: 30, Layers: 120, Camera: true, At: t0}},
 		{"preparing uses gcode name without subtask", `{"connected":true,"state":"PREPARE","subtask_name":null,"gcode_file":"/data/Metadata/plate_2.gcode","progress":0,"remaining_time":0}`,
-			Status{State: Printing, Job: "plate_2", At: t0}},
+			Status{State: Printing, Job: "plate_2", Camera: true, At: t0}},
 		{"paused", `{"connected":true,"state":"PAUSE","subtask_name":"Lid","progress":80.4,"remaining_time":10}`,
-			Status{State: Paused, Job: "Lid", Progress: 0.804, Remaining: 10 * time.Minute, At: t0}},
+			Status{State: Paused, Job: "Lid", Progress: 0.804, Remaining: 10 * time.Minute, Camera: true, At: t0}},
 		{"finished", `{"connected":true,"state":"FINISH","subtask_name":"Lid","progress":100,"remaining_time":0}`,
-			Status{State: Finished, Job: "Lid", Progress: 1, At: t0}},
+			Status{State: Finished, Job: "Lid", Progress: 1, Camera: true, At: t0}},
 		{"failed", `{"connected":true,"state":"FAILED","subtask_name":"Lid","progress":12}`,
-			Status{State: Failed, Job: "Lid", Progress: 0.12, At: t0}},
+			Status{State: Failed, Job: "Lid", Progress: 0.12, Camera: true, At: t0}},
 		{"idle hides the old job", `{"connected":true,"state":"IDLE","subtask_name":"Lid","progress":0}`,
-			Status{State: Idle, At: t0}},
+			Status{State: Idle, Camera: true, At: t0}},
 		{"not connected to Bambuddy", `{"id":3,"name":"H2D","connected":false}`,
 			Status{State: Offline, At: t0}},
 	}
@@ -225,5 +229,57 @@ func TestPercentAndJobName(t *testing.T) {
 		if got := jobName(in); got != want {
 			t.Errorf("jobName(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestMoonrakerCameraCheck(t *testing.T) {
+	var lists atomic.Int32
+	var webcam atomic.Value
+	webcam.Store(`[{"name":"Default","enabled":true,"stream_url":"/webcam/?action=stream"}]`)
+	var down atomic.Bool
+	srv := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/server/webcams/list" {
+			lists.Add(1)
+			if down.Load() {
+				http.Error(w, "no", http.StatusServiceUnavailable)
+				return
+			}
+			json200(`{"result":{"webcams":`+webcam.Load().(string)+`}}`)(w, r)
+			return
+		}
+		json200(`{"result":{"status":{"print_stats":{"state":"standby"}}}}`)(w, r)
+	})
+	now := t0
+	m := New(Options{
+		Targets: func(context.Context) ([]Target, error) { return []Target{{PrinterID: 1, MoonrakerURL: srv.URL}}, nil },
+		Now:     func() time.Time { return now },
+		Log:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	poll := func() bool {
+		m.Poll(context.Background())
+		s, _ := m.Status(1)
+		return s.Camera
+	}
+	first := poll()
+	second := poll()
+	if !first || !second || lists.Load() != 1 {
+		t.Fatalf("camera should be found once and cached: %v %v, %d list reads", first, second, lists.Load())
+	}
+	// Removed in Moonraker: gone after the next check.
+	webcam.Store(`[]`)
+	now = now.Add(cameraCheckEvery)
+	if poll() {
+		t.Error("camera still shown after it was removed")
+	}
+	// A failed check keeps the last answer.
+	webcam.Store(`[{"name":"Default","stream_url":"/s"}]`)
+	now = now.Add(cameraCheckEvery)
+	if !poll() {
+		t.Fatal("camera not found again")
+	}
+	down.Store(true)
+	now = now.Add(cameraCheckEvery)
+	if !poll() {
+		t.Error("a failed check hid the camera")
 	}
 }

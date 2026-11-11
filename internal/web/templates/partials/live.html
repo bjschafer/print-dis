@@ -16,7 +16,7 @@
   <div class="ptile st-{{$st}}">
     <div class="ptile-head">
       <span class="ptile-name">{{template "icon" "printer"}}{{.Printer.Name}}</span>
-      {{template "camera_button" .Printer}}
+      {{if .Status.Camera}}{{template "camera_button" .Printer}}{{end}}
     </div>
     <div class="ptile-state">
       <span class="state-pill">{{if .Known}}{{.Status.State.Label}}{{else}}Checking…{{end}}</span>
@@ -53,7 +53,8 @@
 </div>
 {{end}}
 
-{{/* camera_button takes a core.Printer. Without JavaScript it opens the camera page. */}}
+{{/* camera_button takes a core.Printer. Without JavaScript it opens the
+     camera page. Callers show it only when the reading says there is a camera. */}}
 {{define "camera_button"}}<a class="icon-btn cam-btn" href="/printers/{{.ID}}/camera" data-camera title="Camera" aria-label="Camera for {{.Name}}">{{template "icon" "camera"}}</a>{{end}}
 
 {{/* camera_dialog is the empty dialog the camera buttons open. */}}
