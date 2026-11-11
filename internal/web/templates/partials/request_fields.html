@@ -7,8 +7,17 @@
   <select name="requester_id">
     {{range .People}}<option value="{{.ID}}" {{if eq .ID $r.RequesterID}}selected{{end}}>{{.Name}}{{if .Placeholder}} (not signed in yet){{end}}</option>{{end}}
   </select>
-  <small><a href="/people">Add someone who hasn't signed in</a></small>
 </label>
+{{if not $r.ID}}
+<details class="new-person">
+  <summary>Someone not in the list?</summary>
+  <fieldset class="row">
+    <label>Their name <input name="new_person_name" autocomplete="off"></label>
+    <label>Email, if known <input name="new_person_email" type="email" autocomplete="off"></label>
+  </fieldset>
+  <small class="muted">When they first sign in with this email, they'll see this request.</small>
+</details>
+{{end}}
 {{end}}
 
 <label>What is it?

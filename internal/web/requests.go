@@ -316,7 +316,7 @@ func (s *Server) moveRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var order []int64
-	for _, part := range strings.Split(r.PostFormValue("order"), ",") {
+	for part := range strings.SplitSeq(r.PostFormValue("order"), ",") {
 		if id, ok := optID(strings.TrimSpace(part)); ok {
 			order = append(order, id)
 		}
@@ -365,8 +365,24 @@ func (s *Server) addComment(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/requests/"+strconv.FormatInt(req.ID, 10)+"#thread")
 }
 
-// resolveRequester validates the admin's "for" choice.
+// resolveRequester validates the admin's "for" choice, creating a
+// placeholder person when a new name is given.
 func (s *Server) resolveRequester(r *http.Request, req *core.Request) error {
+	if name := trimmed(r, "new_person_name"); name != "" {
+		email := trimmed(r, "new_person_email")
+		if email != "" {
+			if existing, err := s.Store.GetUserByEmail(r.Context(), email); err == nil {
+				req.RequesterID = existing.ID
+				return nil
+			}
+		}
+		p, err := s.Store.CreatePlaceholder(r.Context(), name, email)
+		if err != nil {
+			return err
+		}
+		req.RequesterID = p.ID
+		return nil
+	}
 	if req.RequesterID == 0 {
 		req.RequesterID = auth.UserFrom(r.Context()).ID
 	}

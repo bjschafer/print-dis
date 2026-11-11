@@ -160,3 +160,7 @@ details.printer summary { cursor: pointer; }
 details.printer form { margin-top: .8rem; }
 details.printer.inactive { opacity: .7; }
 .card-form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: .8rem; max-width: 40rem; }
+.people-forms { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+details.new-person { margin: -.4rem 0 .9rem; }
+details.new-person summary { cursor: pointer; color: var(--accent); font-size: .9rem; }
+details.new-person fieldset { margin-top: .5rem; }

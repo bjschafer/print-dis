@@ -1,0 +1,43 @@
+{{define "content"}}
+<h1>People</h1>
+{{template "errors" .Errors}}
+<div class="table-wrap">
+<table class="requests">
+  <thead><tr><th>Name</th><th>Email</th><th>Requests</th><th></th></tr></thead>
+  <tbody>
+  {{range .People}}
+  <tr>
+    <td><a href="/requests?requester={{.ID}}">{{.Name}}</a></td>
+    <td>{{str .Email}}</td>
+    <td>{{.Requests}}</td>
+    <td>{{if .Placeholder}}<span class="badge">not signed in yet</span>{{end}}{{if .IsAdmin}}<span class="badge">admin</span>{{end}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+
+<div class="people-forms">
+<form method="post" action="/people" class="card-form">
+  <h2>Add someone who hasn't signed in</h2>
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <label>Name <input name="name" required value="{{.Name}}"></label>
+  <label>Email, if known <input name="email" type="email" value="{{.Email}}"></label>
+  <p class="muted">When they first sign in with this email (verified by Authentik), their requests will be waiting.</p>
+  <button class="primary">Add</button>
+</form>
+
+<form method="post" action="/people/merge" class="card-form">
+  <h2>Merge two people</h2>
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  <p class="muted">Moves every request, comment and file from the first person to the second, then removes the first. At least one of them must not have signed in yet.</p>
+  <label>Move everything from
+    <select name="from" required><option value=""></option>{{range .People}}<option value="{{.ID}}">{{.Name}}{{with .Email}} ({{.}}){{end}}{{if .Placeholder}} · not signed in{{end}}</option>{{end}}</select>
+  </label>
+  <label>into
+    <select name="into" required><option value=""></option>{{range .People}}<option value="{{.ID}}">{{.Name}}{{with .Email}} ({{.}}){{end}}{{if .Placeholder}} · not signed in{{end}}</option>{{end}}</select>
+  </label>
+  <button class="danger" data-confirm="Merge these two people? This can't be undone.">Merge</button>
+</form>
+</div>
+{{end}}

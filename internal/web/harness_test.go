@@ -68,13 +68,17 @@ func newHarness(t *testing.T, mutate ...func(*config.Config)) *harness {
 	return h
 }
 
-// as returns a new harness client, sharing the server, signed in as u.
+// as returns a new harness client, sharing the server, signed in as u
+// (or anonymous when u is nil).
 func (h *harness) as(u *core.User) *harness {
 	h.t.Helper()
 	jar, _ := cookiejar.New(nil)
 	other := *h
 	other.csrf = ""
 	other.c = &http.Client{Jar: jar, CheckRedirect: h.c.CheckRedirect}
+	if u == nil { // anonymous
+		return &other
+	}
 	res, err := other.c.Post(h.srv.URL+"/test/login/"+strconv.FormatInt(u.ID, 10), "", nil)
 	if err != nil {
 		h.t.Fatal(err)
