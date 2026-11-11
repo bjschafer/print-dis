@@ -21,6 +21,7 @@
     <a href="/printers" {{if eq $.Path "/printers"}}aria-current="page"{{end}}>Printers</a>
     <a href="/people" {{if eq $.Path "/people"}}aria-current="page"{{end}}>People</a>
     {{end}}
+    <a href="/help" {{if eq $.Path "/help"}}aria-current="page"{{end}}>Help</a>
     <a class="button primary" href="/requests/new">New request</a>
     <form method="post" action="/auth/logout" class="inline">
       <input type="hidden" name="csrf" value="{{$.CSRF}}">

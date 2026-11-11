@@ -37,6 +37,8 @@ type Deps struct {
 	Auth *auth.Auth
 	// Now is the clock; time.Now when nil.
 	Now func() time.Time
+	// Previewer fetches link previews; nil turns previews off.
+	Previewer Previewer
 }
 
 // Server is the application's http.Handler.
@@ -85,6 +87,7 @@ func (s *Server) routes() http.Handler {
 	signedIn := http.NewServeMux()
 	signedIn.HandleFunc("GET /{$}", s.board)
 	signedIn.HandleFunc("GET /requests", s.requestList)
+	signedIn.HandleFunc("GET /help", s.help)
 	signedIn.HandleFunc("GET /requests/new", s.newRequest)
 	signedIn.HandleFunc("POST /requests", s.createRequest)
 	signedIn.HandleFunc("GET /requests/{id}", s.requestDetail)

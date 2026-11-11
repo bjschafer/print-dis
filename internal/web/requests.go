@@ -1,6 +1,7 @@
 package web
 
 import (
+	"html/template"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -116,6 +117,11 @@ type requestFormView struct {
 	Errors   formErrors
 	People   []core.User    // admins: the "for" picker
 	Printers []core.Printer // admins: assignment
+
+	// Link preview state for the new-request form.
+	PreviewNote string       // shown when a link could not be read
+	Thumb       template.URL // data: URI of the fetched thumbnail
+	FetchImage  bool         // create should fetch the thumbnail for source_url
 }
 
 func (s *Server) formView(r *http.Request, title string, req *core.Request, errs formErrors) (*requestFormView, error) {
@@ -149,6 +155,9 @@ func (s *Server) newRequest(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	if req.SourceURL != nil {
+		s.prefillFromLink(r, req, v)
+	}
 	s.render(w, r, http.StatusOK, "new.html", v)
 }
 
@@ -172,8 +181,12 @@ func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
 			s.serverError(w, r, err)
 			return
 		}
+		v.FetchImage = r.PostFormValue("fetch_image") == "1"
 		s.render(w, r, http.StatusUnprocessableEntity, "new.html", v)
 		return
+	}
+	if req.SourceURL != nil && r.PostFormValue("fetch_image") == "1" {
+		s.attachThumbnail(r, req)
 	}
 	if err := s.Store.CreateRequest(r.Context(), req); err != nil {
 		s.serverError(w, r, err)

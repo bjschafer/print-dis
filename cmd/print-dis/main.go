@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bjschafer/print-dis/internal/config"
+	"github.com/bjschafer/print-dis/internal/preview"
 	"github.com/bjschafer/print-dis/internal/store"
 	"github.com/bjschafer/print-dis/internal/web"
 )
@@ -52,7 +53,9 @@ func serve() error {
 	}
 	defer st.Close()
 
-	h, err := web.New(ctx, web.Deps{Config: cfg, Store: st, Log: log})
+	h, err := web.New(ctx, web.Deps{Config: cfg, Store: st, Log: log,
+		Previewer: preview.New(preview.WithAllowHosts(cfg.PreviewAllowHosts...)),
+	})
 	if err != nil {
 		return err
 	}
