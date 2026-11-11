@@ -1,4 +1,4 @@
-{{/* cardctx takes (dict "R" core.Request "Today" time.Time) */}}
+{{/* cardctx takes (dict "R" core.Request "Today" time.Time "Live" map[int64]liveView) */}}
 {{define "cardctx"}}
 {{$r := .R}}
 <article class="card{{if urgent $r .Today}} urgent{{end}}" data-id="{{$r.ID}}"{{with swatch $r.FilamentColorHex}} style="--fil: {{.}}"{{end}}>
@@ -19,6 +19,7 @@
   {{with progress $r}}
   <div class="progress" title="{{.}} printed"><span class="bar"><span style="width: {{pct $r}}%"></span></span><span class="progress-text">{{.}}</span></div>
   {{end}}
+  {{if and (eq $r.Status "printing") $r.PrinterID}}{{with index .Live (id $r.PrinterID)}}{{if .Printer.ID}}{{template "card_live" (dict "L" . "OOB" false)}}{{end}}{{end}}{{end}}
   {{if or $r.NeededBy $r.PrinterName}}
   <div class="card-foot">
     {{with $r.NeededBy}}<span class="due{{if eq $r.Timing "firm"}} firm{{end}}" title="{{$r.Timing.Label}} deadline">{{if eq $r.Timing "firm"}}{{template "icon" "flag"}}{{else}}{{template "icon" "calendar"}}{{end}}{{shortDate .}}</span>{{end}}

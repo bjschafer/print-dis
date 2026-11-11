@@ -10,11 +10,11 @@ import (
 	"github.com/bjschafer/print-dis/internal/core"
 )
 
-const printerCols = `id, name, bed_x_mm, bed_y_mm, bed_z_mm, multi_material, enclosed, notes, active`
+const printerCols = `id, name, bed_x_mm, bed_y_mm, bed_z_mm, multi_material, enclosed, notes, active, moonraker_url, bambuddy_printer_id`
 
 func scanPrinter(row pgx.Row) (*core.Printer, error) {
 	var p core.Printer
-	err := row.Scan(&p.ID, &p.Name, &p.BedX, &p.BedY, &p.BedZ, &p.MultiMaterial, &p.Enclosed, &p.Notes, &p.Active)
+	err := row.Scan(&p.ID, &p.Name, &p.BedX, &p.BedY, &p.BedZ, &p.MultiMaterial, &p.Enclosed, &p.Notes, &p.Active, &p.MoonrakerURL, &p.BambuddyPrinterID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -56,15 +56,16 @@ func (s *Store) SavePrinter(ctx context.Context, p *core.Printer) error {
 	var err error
 	if p.ID == 0 {
 		err = s.Pool.QueryRow(ctx, `
-			insert into printers (name, bed_x_mm, bed_y_mm, bed_z_mm, multi_material, enclosed, notes, active)
-			values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`,
-			p.Name, p.BedX, p.BedY, p.BedZ, p.MultiMaterial, p.Enclosed, p.Notes, p.Active).Scan(&p.ID)
+			insert into printers (name, bed_x_mm, bed_y_mm, bed_z_mm, multi_material, enclosed, notes, active, moonraker_url, bambuddy_printer_id)
+			values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id`,
+			p.Name, p.BedX, p.BedY, p.BedZ, p.MultiMaterial, p.Enclosed, p.Notes, p.Active, p.MoonrakerURL, p.BambuddyPrinterID).Scan(&p.ID)
 	} else {
 		var tag pgconn.CommandTag
 		tag, err = s.Pool.Exec(ctx, `
-			update printers set name=$2, bed_x_mm=$3, bed_y_mm=$4, bed_z_mm=$5, multi_material=$6, enclosed=$7, notes=$8, active=$9
+			update printers set name=$2, bed_x_mm=$3, bed_y_mm=$4, bed_z_mm=$5, multi_material=$6, enclosed=$7, notes=$8, active=$9,
+			    moonraker_url=$10, bambuddy_printer_id=$11
 			where id=$1`,
-			p.ID, p.Name, p.BedX, p.BedY, p.BedZ, p.MultiMaterial, p.Enclosed, p.Notes, p.Active)
+			p.ID, p.Name, p.BedX, p.BedY, p.BedZ, p.MultiMaterial, p.Enclosed, p.Notes, p.Active, p.MoonrakerURL, p.BambuddyPrinterID)
 		if err == nil && tag.RowsAffected() == 0 {
 			return ErrNotFound
 		}

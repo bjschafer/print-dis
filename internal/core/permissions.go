@@ -53,6 +53,10 @@ func CanFileFor(u *User) bool { return isAdmin(u) }
 func CanManagePrinters(u *User) bool { return isAdmin(u) }
 func CanManagePeople(u *User) bool   { return isAdmin(u) }
 
+// CanSeePrinterStatus is admin only: a printer's job name may belong to
+// someone else's request.
+func CanSeePrinterStatus(u *User) bool { return isAdmin(u) }
+
 // CanSeeAll decides whether lists are filtered to the user's own requests.
 func CanSeeAll(u *User) bool { return isAdmin(u) }
 

@@ -78,11 +78,14 @@ func (s *Server) board(w http.ResponseWriter, r *http.Request) {
 	for _, rq := range reqs {
 		cols[idx[rq.Status]].Requests = append(cols[idx[rq.Status]].Requests, rq)
 	}
+	live, byID := s.liveStatus(u, fv.Printers)
 	s.render(w, r, http.StatusOK, "board.html", struct {
 		base
-		Filters *filterView
-		Columns []column
-	}{s.base(r, "Board"), fv, cols})
+		Filters  *filterView
+		Columns  []column
+		Live     []liveView
+		LiveByID map[int64]liveView
+	}{s.base(r, "Board"), fv, cols, live, byID})
 }
 
 func (s *Server) requestList(w http.ResponseWriter, r *http.Request) {
@@ -285,6 +288,7 @@ type detailView struct {
 	FilesEnabled   bool
 	CanUpload      bool
 	UploadMax      int64
+	LiveByID       map[int64]liveView
 }
 
 func (s *Server) detail(w http.ResponseWriter, r *http.Request, status int, req *core.Request, errs formErrors) {
@@ -303,6 +307,7 @@ func (s *Server) detail(w http.ResponseWriter, r *http.Request, status int, req 
 		}
 	}
 	v.Checks = core.Check(req, printers)
+	_, v.LiveByID = s.liveStatus(fv.User, printers)
 	if req.PrinterID != nil {
 		for _, c := range v.Checks {
 			if c.Printer.ID == *req.PrinterID && !c.Eligible {

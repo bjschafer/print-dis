@@ -103,7 +103,8 @@
       <li class="{{if .Eligible}}ok{{else}}no{{end}}">
         <span class="check-icon">{{if .Eligible}}{{template "icon" "check"}}{{else}}{{template "icon" "x"}}{{end}}</span>
         <div><strong>{{.Printer.Name}}</strong>
-        {{if .Eligible}}<span class="muted">eligible</span>{{else}}<span class="muted">{{range $i, $x := .Reasons}}{{if $i}}; {{end}}{{$x}}{{end}}</span>{{end}}</div>
+        {{if .Eligible}}<span class="muted">eligible</span>{{else}}<span class="muted">{{range $i, $x := .Reasons}}{{if $i}}; {{end}}{{$x}}{{end}}</span>{{end}}
+        {{with index $.LiveByID .Printer.ID}}{{if .Printer.ID}}<span class="check-live">{{template "live_state" .}}{{if and .Known .Status.Active}} <span class="muted">{{.Status.Percent}}%{{with .Status.Remaining}} · {{left .}}{{end}}</span>{{end}}</span>{{end}}{{end}}</div>
       </li>
       {{else}}
       <li class="muted">No printers set up yet.</li>

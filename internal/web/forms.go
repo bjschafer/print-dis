@@ -182,5 +182,24 @@ func applyPrinterForm(r *http.Request, p *core.Printer) formErrors {
 	p.Enclosed = checkbox(r, "enclosed")
 	p.Active = checkbox(r, "active")
 	p.Notes = trimmed(r, "notes")
+
+	p.MoonrakerURL = strings.TrimRight(trimmed(r, "moonraker_url"), "/")
+	if p.MoonrakerURL != "" {
+		if u, err := url.Parse(p.MoonrakerURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			errs.add("The Moonraker address must be a full http:// or https:// address, like http://trident.lan:7125.")
+		}
+	}
+	p.BambuddyPrinterID = nil
+	if raw := trimmed(r, "bambuddy_printer_id"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			errs.add("The Bambuddy printer id must be a whole number, as shown in Bambuddy.")
+		} else {
+			p.BambuddyPrinterID = &n
+		}
+	}
+	if p.MoonrakerURL != "" && p.BambuddyPrinterID != nil {
+		errs.add("Choose either Moonraker or Bambuddy for live status, not both.")
+	}
 	return errs
 }

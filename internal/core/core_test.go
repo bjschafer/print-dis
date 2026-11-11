@@ -154,7 +154,7 @@ func TestPermissions(t *testing.T) {
 	for _, fn := range []struct {
 		name string
 		f    func(*User) bool
-	}{{"move", CanMove}, {"admin fields", CanEditAdminFields}, {"file for", CanFileFor}, {"printers", CanManagePrinters}, {"people", CanManagePeople}, {"see all", CanSeeAll}} {
+	}{{"move", CanMove}, {"admin fields", CanEditAdminFields}, {"file for", CanFileFor}, {"printers", CanManagePrinters}, {"people", CanManagePeople}, {"see all", CanSeeAll}, {"printer status", CanSeePrinterStatus}} {
 		if !fn.f(admin) || fn.f(alice) || fn.f(nil) {
 			t.Errorf("%s: only admins", fn.name)
 		}

@@ -2,7 +2,7 @@
 
 Status: accepted, 2026-11-11. Open decision 1 is overruled: friends can upload files (section 6a).
 
-Progress: M0 to M7 are built and pass `make check`. Deployed 2026-11-11 at https://prints.cmdcentral.xyz (tf/authentik `fd6ad20`, k8s/generators `4d57a247`, bucket `print-dis` on versitygw).
+Progress: M0 to M8 are built and pass `make check`. Deployed 2026-11-11 at https://prints.cmdcentral.xyz (tf/authentik `fd6ad20`, k8s/generators `4d57a247`, bucket `print-dis` on versitygw).
 
 This is a ground-up rewrite in the existing repository. The current code (Go, static HTML, SQLite/Postgres, local password accounts) is replaced, not extended; only `internal/spoolman/types.go` is worth carrying over.
 
@@ -21,7 +21,7 @@ Those two things, plus one-click capture of a model link, are the reason to buil
 
 ### Non-goals
 
-- Controlling printers, slicing, or estimating print time.
+- Controlling printers, slicing, queueing jobs on printers, or estimating print time. Live status is read-only (section 5a).
 - Payments, quotes, or cost calculation.
 - Being a model library. Friends can attach files to a request (section 6a), but browsing, versioning and organising models stays in Manyfold.
 - Multi-tenancy. There is one queue and one owner.
@@ -166,7 +166,8 @@ The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (lig
 | `POST /requests/{id}/files` | Upload one or more files (section 6a). |
 | `GET /files/{id}` | Download a file, subject to the same visibility as its request. |
 | `POST /files/{id}/delete` | Remove a file. |
-| `GET /printers`, `POST /printers...` | Admin: printer list and editing, including bed dimensions. |
+| `GET /printers`, `POST /printers...` | Admin: printer list and editing, including bed dimensions and the live status source. |
+| `GET /printers/status` | Admin: the board's live status strip, polled by htmx (section 5a). |
 | `GET /people` | Admin: users and placeholders; create a placeholder; merge two rows. |
 | `GET /auth/login`, `/auth/callback`, `POST /auth/logout` | OIDC code flow with PKCE. |
 | `GET /healthz`, `GET /readyz` | Liveness, and readiness including a database ping. |
@@ -184,6 +185,18 @@ Read-only, against the in-cluster service `http://spoolman.spoolman.svc.cluster.
 - If Spoolman is unreachable, the form falls back to free-text material and colour and says so. The app must start and work without Spoolman.
 
 print-dis never writes to Spoolman.
+
+## 5a. Live printer status
+
+Read-only status from Moonraker (the Vorons) and Bambuddy (the H2D), so the board shows what each printer is doing now. print-dis never starts, stops or queues a print: requests carry unsliced models, and choosing how to print one stays in the slicer.
+
+- **Configuration:** each printer has at most one source, set on the printers page: a Moonraker address (`http://trident.lan:7125`) or a Bambuddy printer id. Bambuddy itself is `BAMBUDDY_URL`, with `BAMBUDDY_API_KEY` when its auth is on. The key needs only Bambuddy's "read status" permission; untick the others. Moonraker has no key here, so print-dis's pod addresses must be in Moonraker's `trusted_clients`.
+- **Polling:** a background monitor (`internal/printerstatus`) reads every active printer with a source every 15 seconds, concurrently, with a 5-second timeout each, and keeps the latest reading in memory. It re-reads the printer list each round, so edits apply without a restart. Moonraker: `GET /printer/objects/query?print_stats&virtual_sdcard&display_status`. Bambuddy: `GET /api/v1/printers/{id}/status`.
+- **States:** idle, printing (including preparing), paused, finished, failed, cancelled, offline, and unknown. A reading has the job name, progress, time left and layers when the source gives them. Moonraker's time left is extrapolated from progress and elapsed time; Bambuddy's comes from the printer.
+- **Where it shows:** a strip of printer tiles above the board, which refreshes itself and the cards every 15 seconds via htmx. Each card in Printing that has an assigned printer shows that printer's state and progress (the printer's, which may be another request's job if two share it). The request page shows each printer's state beside its eligibility, to help pick a free one. The printers page shows it on each printer.
+- **Admins only.** A job name can belong to someone else's request, so requesters see none of it.
+- **Failure:** an unreachable source or a printer Bambuddy is not connected to reads as offline; one failure is logged when a printer goes offline, not every poll. Nothing else depends on it, and the app starts without either service.
+- **Not done:** counting a finished job towards `printed_count` automatically. Matching a file name to a request is guesswork; the owner still updates the count.
 
 ## 6. Capturing a link
 
@@ -223,6 +236,8 @@ Friends often have a model file and nowhere to host it, so a request can carry a
 | `ADMIN_GROUP` | Authentik group whose members are admins. |
 | `SPOOLMAN_URL` | Optional. Integration is off when unset. |
 | `PREVIEW_ALLOW_HOSTS` | Optional, comma-separated internal hosts the preview fetch may reach. |
+| `BAMBUDDY_URL` | Optional Bambuddy origin, without `/api/v1`, e.g. `http://bambuddy.bambuddy.svc.cluster.local:8000`. Bambuddy status is off when unset. |
+| `BAMBUDDY_API_KEY` | Optional Bambuddy API key (read status only), sent as `X-API-Key`. |
 | `ACCENT_COLOR` | Optional hex colour for the UI accent, e.g. `#3b82f6`. Default `#00ae42`. Text on it is picked black or white for contrast. |
 | `FILES_BACKEND` | `s3`, `dir`, or empty to disable uploads. |
 | `FILES_DIR` | Directory for the `dir` backend. |
@@ -239,6 +254,7 @@ internal/web/         handlers, templates, embedded static files
 internal/auth/        OIDC and sessions
 internal/spoolman/    client and cache
 internal/preview/     link fetch and SSRF guard
+internal/printerstatus/  Moonraker and Bambuddy polling
 internal/files/       Blobs interface, s3 and dir backends
 ```
 
@@ -246,7 +262,7 @@ internal/files/       Blobs interface, s3 and dir backends
 
 - `internal/core` is pure and gets table-driven tests: eligibility, and every row of the permissions table in section 2.
 - Store and handler tests run against a real Postgres named by `TEST_DATABASE_URL` and are skipped when it is unset. CI provides one as a service container.
-- Spoolman and preview tests use `httptest` servers, including the failure paths.
+- Spoolman, preview and printer status tests use `httptest` servers, including the failure paths.
 - `make check` runs vet, `golangci-lint` and the tests. It must pass before any milestone is called done.
 
 ## 8. Deployment
@@ -288,10 +304,12 @@ Each milestone ends with `make check` passing and the listed behaviour demonstra
 **M7. File uploads.** Section 6a. The table and the permission rules already exist from M0 and M2; this adds the `files` package, the routes and the UI on the request page and the new-request form.
 *Done when:* a requester uploads an STL to their own request and downloads it again with the same SHA-256; another requester gets a 403 for it; the 200 MiB limit and the extension list are enforced; the `s3` backend passes the same tests as `dir` against a real S3 endpoint when `TEST_S3_ENDPOINT` is set.
 
+**M8. Live printer status.** Section 5a.
+*Done when:* a printer with a Moonraker address or Bambuddy id shows its state, job and progress on the board, and its Printing cards follow along without a reload; an unreachable source reads as offline without slowing pages; requesters see none of it.
+
 ### Later, not planned in detail
 
 - Notifications: email the requester on `ready` and `needs_info`; notify the owner of new requests.
-- Read-only printer status from Bambuddy and Moonraker, to show what is printing now.
 - A JSON API with tokens.
 - A Prometheus metrics endpoint.
 

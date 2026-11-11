@@ -1,0 +1,35 @@
+{{/* Live printer status (docs/design.md section 5a). Admin only; handlers
+     pass nothing for anyone else. */}}
+
+{{/* live_state takes a liveView: the coloured dot and label. */}}
+{{define "live_state"}}<span class="live-state st-{{if .Known}}{{.Status.State}}{{else}}unknown{{end}}"><span class="dot" aria-hidden="true"></span>{{if .Known}}{{.Status.State.Label}}{{else}}Checking…{{end}}</span>{{end}}
+
+{{/* live_progress takes a liveView; it renders only while a job is on the printer. */}}
+{{define "live_progress"}}{{if .Status.Active}}<div class="progress live-progress" title="{{.Status.Percent}}% printed"><span class="bar"><span style="width: {{.Status.Percent}}%"></span></span><span class="progress-text">{{.Status.Percent}}%{{with .Status.Remaining}} · {{left .}}{{end}}</span></div>{{end}}{{end}}
+
+{{/* printer_strip takes []liveView. It polls itself, and the cards, every 15s. */}}
+{{define "printer_strip"}}
+{{if .}}
+<section id="printer-strip" class="printer-strip" aria-label="Printers now" hx-get="/printers/status" hx-trigger="every 15s" hx-swap="outerHTML">
+  {{range .}}
+  <div class="live-chip st-{{if .Known}}{{.Status.State}}{{else}}unknown{{end}}">
+    <div class="live-head"><strong>{{.Printer.Name}}</strong>{{template "live_state" .}}</div>
+    {{if and .Known .Status.Job}}<div class="live-job" title="{{.Status.Job}}">{{.Status.Job}}</div>{{end}}
+    {{template "live_progress" .}}
+  </div>
+  {{end}}
+</section>
+{{else}}
+<section id="printer-strip" class="printer-strip" hidden></section>
+{{end}}
+{{end}}
+
+{{/* card_live takes (dict "L" liveView "OOB" bool): the line on a Printing
+     card showing what its printer is doing. With OOB it is an htmx
+     out-of-band update for every such card. */}}
+{{define "card_live"}}
+<div class="card-live live-p{{.L.Printer.ID}}"{{if .OOB}} hx-swap-oob="outerHTML:.s-printing .live-p{{.L.Printer.ID}}"{{end}}>
+  <div class="card-live-head">{{template "live_state" .L}}{{if and .L.Known .L.Status.Job}}<span class="live-job" title="{{.L.Status.Job}}">{{.L.Status.Job}}</span>{{end}}</div>
+  {{template "live_progress" .L}}
+</div>
+{{end}}

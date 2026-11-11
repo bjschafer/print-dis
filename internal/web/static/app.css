@@ -578,3 +578,41 @@ ol.steps li::before {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- live printer status ---------- */
+.st-printing { --c: var(--s-printing); }
+.st-paused { --c: var(--warn); }
+.st-finished { --c: var(--s-ready); }
+.st-failed { --c: var(--danger); }
+.st-cancelled, .st-idle { --c: var(--muted); }
+.st-offline, .st-unknown { --c: var(--border-strong); }
+.live-state { display: inline-flex; align-items: center; gap: .35rem; font-size: .78rem; font-weight: 600; color: var(--c); white-space: nowrap; }
+.live-state .dot { animation: none; }
+.live-state.st-printing .dot { animation: pulse 1.8s ease-in-out infinite; }
+.live-state.st-offline, .live-state.st-unknown { color: var(--muted); }
+.live-job { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+.printer-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr)); gap: .6rem; margin-bottom: 1rem; }
+.live-chip {
+  display: flex; flex-direction: column; gap: .3rem; min-width: 0;
+  padding: .6rem .75rem; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--c);
+}
+.live-chip .live-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.live-chip .live-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-chip .live-job { font-size: .82rem; color: var(--muted); }
+.live-chip.st-offline, .live-chip.st-unknown { opacity: .7; }
+
+.card-live { display: flex; flex-direction: column; gap: .3rem; padding: .4rem .5rem; border-radius: var(--radius-sm); background: var(--surface-2); font-size: .8rem; }
+.card-live-head { display: flex; align-items: center; gap: .5rem; min-width: 0; }
+.card-live-head .live-job { color: var(--muted); }
+
+.check-live, .printer-live { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; font-size: .82rem; min-width: 0; }
+.printer-live { grid-column: 2 / -1; }
+@media (max-width: 760px) {
+  .printer-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; }
+  .live-chip { padding: .45rem .55rem; gap: .2rem; }
+  .live-chip .live-head { flex-direction: column; align-items: flex-start; gap: .1rem; }
+  .live-chip .progress { gap: .4rem; }
+}

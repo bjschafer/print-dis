@@ -51,6 +51,8 @@ type Deps struct {
 	Now func() time.Time
 	// Previewer fetches link previews; nil turns previews off.
 	Previewer Previewer
+	// PrinterStatus gives live printer status; nil turns it off.
+	PrinterStatus StatusSource
 }
 
 // Server is the application's http.Handler.
@@ -110,6 +112,7 @@ func (s *Server) routes() http.Handler {
 	signedIn.HandleFunc("POST /requests/{id}/move", s.moveRequest)
 	signedIn.HandleFunc("POST /requests/{id}/comments", s.addComment)
 	signedIn.HandleFunc("GET /printers", s.printers)
+	signedIn.HandleFunc("GET /printers/status", s.printerStatusFragment)
 	signedIn.HandleFunc("POST /printers", s.savePrinter)
 	signedIn.HandleFunc("POST /printers/{id}", s.savePrinter)
 	s.peopleRoutes(signedIn)

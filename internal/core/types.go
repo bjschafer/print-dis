@@ -93,7 +93,14 @@ type Printer struct {
 	Enclosed      bool
 	Notes         string
 	Active        bool
+
+	// Where live status comes from: at most one of these is set.
+	MoonrakerURL      string // e.g. "http://trident.lan:7125"
+	BambuddyPrinterID *int   // the printer's id in Bambuddy
 }
+
+// HasStatusSource reports whether live status is configured for p.
+func (p *Printer) HasStatusSource() bool { return p.MoonrakerURL != "" || p.BambuddyPrinterID != nil }
 
 type Request struct {
 	ID          int64

@@ -13,6 +13,12 @@
   <label class="check"><input type="checkbox" name="active" {{if .P.Active}}checked{{end}}> Active</label>
 </fieldset>
 <label>Notes <input name="notes" value="{{.P.Notes}}"></label>
+<fieldset class="row">
+  <legend>Live status <span class="muted">(optional, one or the other)</span></legend>
+  <label>Moonraker address <input name="moonraker_url" type="url" inputmode="url" placeholder="http://trident.lan:7125" value="{{.P.MoonrakerURL}}"></label>
+  <label class="narrow">Bambuddy printer id <input name="bambuddy_printer_id" type="number" min="1" value="{{int .P.BambuddyPrinterID}}"></label>
+</fieldset>
+{{if not .BambuddyOn}}<p class="hint muted">Bambuddy ids are ignored until <code>BAMBUDDY_URL</code> is set.</p>{{end}}
 {{end}}
 
 {{define "content"}}
@@ -31,12 +37,14 @@
       <span class="chip mono">{{.BedX}}×{{.BedY}}×{{.BedZ}} mm</span>
       {{if .MultiMaterial}}<span class="chip">multi-material</span>{{end}}
       {{if .Enclosed}}<span class="chip">enclosed</span>{{end}}
+      {{if .MoonrakerURL}}<span class="chip">Moonraker</span>{{else if .BambuddyPrinterID}}<span class="chip">Bambuddy #{{int .BambuddyPrinterID}}</span>{{end}}
     </span>
+    {{with index $.LiveByID .ID}}{{if .Printer.ID}}<span class="printer-live">{{template "live_state" .}}{{if and .Known .Status.Job}} <span class="live-job muted" title="{{.Status.Job}}">{{.Status.Job}}</span>{{end}}{{if and .Known .Status.Active}} <span class="muted">{{.Status.Percent}}%</span>{{end}}</span>{{end}}{{end}}
     {{with .Notes}}<span class="printer-notes muted">{{.}}</span>{{end}}
     <span class="edit-hint">Edit</span>
   </summary>
   <form method="post" action="/printers/{{.ID}}" class="panel-body">
-    {{template "printer_fields" (dict "CSRF" $.CSRF "P" (or (and $.Draft (eq $.Draft.ID .ID) $.Draft) .))}}
+    {{template "printer_fields" (dict "CSRF" $.CSRF "BambuddyOn" $.BambuddyOn "P" (or (and $.Draft (eq $.Draft.ID .ID) $.Draft) .))}}
     <button class="primary">{{template "icon" "check"}}Save</button>
   </form>
 </details>
@@ -45,7 +53,7 @@
 <section class="panel add-printer">
   <header class="panel-head">{{template "icon" "plus"}}<h2>Add a printer</h2></header>
   <form method="post" action="/printers" class="panel-body">
-    {{template "printer_fields" (dict "CSRF" .CSRF "P" (or (and .Draft (eq .Draft.ID 0) .Draft) (newPrinter)))}}
+    {{template "printer_fields" (dict "CSRF" .CSRF "BambuddyOn" .BambuddyOn "P" (or (and .Draft (eq .Draft.ID 0) .Draft) (newPrinter)))}}
     <button class="primary">{{template "icon" "plus"}}Add printer</button>
   </form>
 </section>

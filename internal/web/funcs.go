@@ -124,6 +124,17 @@ var funcs = template.FuncMap{
 		}
 		return "?"
 	},
+	// left formats a remaining print time: "1h 20m left", "12m left".
+	"left": func(d time.Duration) string {
+		m := int(d.Round(time.Minute) / time.Minute)
+		switch {
+		case m < 1:
+			return "under a minute left"
+		case m < 60:
+			return fmt.Sprintf("%dm left", m)
+		}
+		return fmt.Sprintf("%dh %02dm left", m/60, m%60)
+	},
 	"bytes": func(n int64) string {
 		switch {
 		case n >= 1<<20:

@@ -22,6 +22,7 @@ internal/web/         handlers, html/template templates, embedded static files
 internal/auth/        OIDC and sessions
 internal/spoolman/    client and cache
 internal/preview/     link fetch and SSRF guard
+internal/printerstatus/  Moonraker and Bambuddy status polling
 internal/files/       Blobs interface, s3 and dir backends
 ```
 
@@ -32,5 +33,5 @@ internal/files/       Blobs interface, s3 and dir backends
 - New schema goes in a new numbered file under `internal/store/migrations`; never edit an applied migration.
 - Frontend: server-rendered HTML, htmx and SortableJS vendored under `internal/web/static` and embedded. No Node, no build step. Must work on a phone.
 - Every state-changing route is POST and checks the CSRF token.
-- Outbound HTTP (Spoolman, link preview) always has a timeout and a tested failure path; the app must start and work when either is down.
+- Outbound HTTP (Spoolman, link preview, printer status) always has a timeout and a tested failure path; the app must start and work when any of them is down.
 - Errors shown to users are plain sentences; details go to the log.

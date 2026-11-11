@@ -3,6 +3,7 @@
   <div class="page-title"><h1>Board</h1></div>
   {{template "filters" .Filters}}
 </div>
+{{if .Live}}{{template "printer_strip" .Live}}{{end}}
 <div class="board" {{if canMove .User}}data-can-move{{end}}>
   {{range .Columns}}
   <section class="column s-{{.Status}}">
@@ -12,9 +13,15 @@
       <span class="count">{{len .Requests}}</span>
     </header>
     <div class="column-list" data-status="{{.Status}}">
-      {{range .Requests}}{{template "cardctx" (dict "R" . "Today" $.Today)}}{{end}}
+      {{range .Requests}}{{template "cardctx" (dict "R" . "Today" $.Today "Live" $.LiveByID)}}{{end}}
     </div>
   </section>
   {{end}}
 </div>
+{{end}}
+
+{{/* status_fragment is the reply to the strip's poll. */}}
+{{define "status_fragment"}}
+{{template "printer_strip" .Live}}
+{{range .Cards}}{{template "card_live" (dict "L" . "OOB" true)}}{{end}}
 {{end}}

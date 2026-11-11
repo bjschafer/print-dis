@@ -15,6 +15,10 @@ type printersView struct {
 	Printers []core.Printer
 	Errors   formErrors
 	Draft    *core.Printer // the form that failed, if any
+	LiveByID map[int64]liveView
+	// BambuddyOn is whether BAMBUDDY_URL is set, so the form can say when a
+	// Bambuddy printer id will not be used.
+	BambuddyOn bool
 }
 
 func (s *Server) printers(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +35,11 @@ func (s *Server) renderPrinters(w http.ResponseWriter, r *http.Request, status i
 		s.serverError(w, r, err)
 		return
 	}
-	s.render(w, r, status, "printers.html", printersView{s.base(r, "Printers"), ps, errs, draft})
+	_, live := s.liveStatus(auth.UserFrom(r.Context()), ps)
+	s.render(w, r, status, "printers.html", printersView{
+		base: s.base(r, "Printers"), Printers: ps, Errors: errs, Draft: draft,
+		LiveByID: live, BambuddyOn: s.Config.BambuddyURL != "",
+	})
 }
 
 func (s *Server) savePrinter(w http.ResponseWriter, r *http.Request) {

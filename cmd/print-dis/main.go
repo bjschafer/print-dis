@@ -15,6 +15,7 @@ import (
 	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/files"
 	"github.com/bjschafer/print-dis/internal/preview"
+	"github.com/bjschafer/print-dis/internal/printerstatus"
 	"github.com/bjschafer/print-dis/internal/spoolman"
 	"github.com/bjschafer/print-dis/internal/store"
 	"github.com/bjschafer/print-dis/internal/web"
@@ -66,6 +67,14 @@ func serve() error {
 		deps.Filaments = spoolman.New(cfg.SpoolmanURL)
 	}
 	deps.Previewer = preview.New(preview.WithAllowHosts(cfg.PreviewAllowHosts...))
+	mon := printerstatus.New(printerstatus.Options{
+		Targets:        statusTargets(st),
+		BambuddyURL:    cfg.BambuddyURL,
+		BambuddyAPIKey: cfg.BambuddyAPIKey,
+		Log:            log,
+	})
+	go mon.Run(ctx)
+	deps.PrinterStatus = mon
 	h, err := web.New(ctx, deps)
 	if err != nil {
 		return err
@@ -90,4 +99,26 @@ func serve() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
+}
+
+// statusTargets lists the active printers that have a live status source.
+func statusTargets(st *store.Store) func(context.Context) ([]printerstatus.Target, error) {
+	return func(ctx context.Context) ([]printerstatus.Target, error) {
+		ps, err := st.ListPrinters(ctx)
+		if err != nil {
+			return nil, err
+		}
+		var out []printerstatus.Target
+		for _, p := range ps {
+			if !p.Active || !p.HasStatusSource() {
+				continue
+			}
+			t := printerstatus.Target{PrinterID: p.ID, MoonrakerURL: p.MoonrakerURL}
+			if p.BambuddyPrinterID != nil {
+				t.BambuddyID = *p.BambuddyPrinterID
+			}
+			out = append(out, t)
+		}
+		return out, nil
+	}
 }

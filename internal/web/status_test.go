@@ -1,0 +1,237 @@
+package web
+
+import (
+	"context"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/bjschafer/print-dis/internal/config"
+	"github.com/bjschafer/print-dis/internal/core"
+	"github.com/bjschafer/print-dis/internal/printerstatus"
+)
+
+// fakeStatus is a StatusSource whose readings tests set.
+type fakeStatus struct {
+	mu sync.Mutex
+	m  map[int64]printerstatus.Status
+}
+
+func (f *fakeStatus) Status(id int64) (printerstatus.Status, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	s, ok := f.m[id]
+	return s, ok
+}
+
+func (f *fakeStatus) set(id int64, s printerstatus.Status) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.m == nil {
+		f.m = map[int64]printerstatus.Status{}
+	}
+	f.m[id] = s
+}
+
+// statusFixture makes three printers (two with a source, one without), a
+// friend, and a printing request of theirs on the first printer.
+type statusFixture struct {
+	h                *harness
+	fake             *fakeStatus
+	trident, h2d     int64
+	plain            int64
+	friend           *core.User
+	printingRequest  int64
+	requestedRequest int64
+}
+
+func newStatusFixture(t *testing.T, withMonitor bool) *statusFixture {
+	t.Helper()
+	fake := &fakeStatus{}
+	h := newHarnessDeps(t, func(d *Deps) {
+		if withMonitor {
+			d.PrinterStatus = fake
+		}
+	}, func(c *config.Config) { c.BambuddyURL = "http://bambuddy.test" })
+	f := &statusFixture{h: h, fake: fake}
+	ctx := context.Background()
+	bb := 3
+	for _, p := range []*core.Printer{
+		{Name: "Trident", BedX: 350, BedY: 350, BedZ: 300, Active: true, MoonrakerURL: "http://trident.test:7125"},
+		{Name: "H2D", BedX: 325, BedY: 320, BedZ: 325, Active: true, BambuddyPrinterID: &bb},
+		{Name: "Plain", BedX: 200, BedY: 200, BedZ: 200, Active: true},
+	} {
+		if err := h.store.SavePrinter(ctx, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ps, _ := h.store.ListPrinters(ctx)
+	for _, p := range ps {
+		switch p.Name {
+		case "Trident":
+			f.trident = p.ID
+		case "H2D":
+			f.h2d = p.ID
+		case "Plain":
+			f.plain = p.ID
+		}
+	}
+	f.friend = h.friend("Alice")
+	for _, r := range []*core.Request{
+		{Title: "Spool holder", Status: core.StatusPrinting, PrinterID: &f.trident},
+		{Title: "Lamp shade", Status: core.StatusRequested, PrinterID: &f.trident},
+	} {
+		r.RequesterID, r.CreatedByID, r.Quantity, r.Timing = f.friend.ID, f.friend.ID, 1, core.TimingWhenever
+		if err := h.store.CreateRequest(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+		if r.Status == core.StatusPrinting {
+			f.printingRequest = r.ID
+		} else {
+			f.requestedRequest = r.ID
+		}
+	}
+	return f
+}
+
+func TestBoardShowsPrinterStatus(t *testing.T) {
+	f := newStatusFixture(t, true)
+	h := f.h
+	f.fake.set(f.trident, printerstatus.Status{State: printerstatus.Printing, Job: "Spool_holder_PETG", Progress: 0.42, Remaining: 80 * time.Minute})
+	// H2D has a source but has not been read yet.
+
+	code, body := h.get("/")
+	if code != http.StatusOK {
+		t.Fatalf("board: %d", code)
+	}
+	strip := between(t, body, `id="printer-strip"`, "</section>")
+	h.mustContain(strip, `hx-get="/printers/status"`, "Trident", "Printing", "Spool_holder_PETG", "42%", "1h 20m left", "H2D", "Checking…")
+	if strings.Contains(strip, "Plain") {
+		t.Error("a printer with no source is in the strip")
+	}
+	// The printing card on Trident shows it; the requested one does not.
+	h.mustContain(body, `class="card-live live-p`+strconv.FormatInt(f.trident, 10)+`"`)
+	if n := strings.Count(body, `class="card-live `); n != 1 {
+		t.Errorf("%d live lines on cards, want 1", n)
+	}
+
+	// The poll returns the strip and an out-of-band update for the cards.
+	f.fake.set(f.trident, printerstatus.Status{State: printerstatus.Finished, Job: "Spool_holder_PETG", Progress: 1})
+	code, body = h.get("/printers/status")
+	if code != http.StatusOK {
+		t.Fatalf("status fragment: %d", code)
+	}
+	h.mustContain(body, `id="printer-strip"`, "Finished",
+		`hx-swap-oob="outerHTML:.s-printing .live-p`+strconv.FormatInt(f.trident, 10)+`"`)
+	h.mustNotContain(body, "<html", "42%",
+		// H2D has no printing card, so no update for one.
+		`live-p`+strconv.FormatInt(f.h2d, 10))
+}
+
+func TestPrinterStatusIsAdminOnly(t *testing.T) {
+	f := newStatusFixture(t, true)
+	f.fake.set(f.trident, printerstatus.Status{State: printerstatus.Printing, Job: "Someone_elses_job", Progress: 0.5})
+	alice := f.h.as(f.friend)
+	_, body := alice.get("/")
+	alice.mustContain(body, "Spool holder")
+	alice.mustNotContain(body, "printer-strip", "card-live", "Someone_elses_job")
+	_, body = alice.get("/requests/" + strconv.FormatInt(f.printingRequest, 10))
+	alice.mustNotContain(body, "Someone_elses_job", "live-state")
+	if code, _ := alice.get("/printers/status"); code != http.StatusForbidden {
+		t.Errorf("requester status fragment: %d", code)
+	}
+}
+
+func TestNoMonitorNoStrip(t *testing.T) {
+	f := newStatusFixture(t, false)
+	_, body := f.h.get("/")
+	f.h.mustNotContain(body, "printer-strip", "card-live")
+	code, body := f.h.get("/printers/status")
+	if code != http.StatusOK || !strings.Contains(body, "hidden") || strings.Contains(body, "hx-get") {
+		t.Errorf("fragment without a monitor should be an empty strip that stops polling: %d %s", code, body)
+	}
+}
+
+func TestDetailAndPrintersPageShowStatus(t *testing.T) {
+	f := newStatusFixture(t, true)
+	h := f.h
+	f.fake.set(f.trident, printerstatus.Status{State: printerstatus.Paused, Job: "Spool_holder_PETG", Progress: 0.7, Remaining: 5 * time.Minute})
+	f.fake.set(f.h2d, printerstatus.Status{State: printerstatus.Offline})
+	_, body := h.get("/requests/" + strconv.FormatInt(f.requestedRequest, 10))
+	h.mustContain(body, "Paused", "70%", "5m left", "Offline")
+	_, body = h.get("/printers")
+	h.mustContain(body, "Moonraker", "Bambuddy #3", "Paused", "Spool_holder_PETG", `value="http://trident.test:7125"`)
+}
+
+func TestPrinterFormStatusSource(t *testing.T) {
+	f := newStatusFixture(t, true)
+	h := f.h
+	base := url.Values{"name": {"Pandora"}, "bed_x": {"120"}, "bed_y": {"120"}, "bed_z": {"120"}, "active": {"on"}}
+	with := func(kv ...string) url.Values {
+		v := url.Values{}
+		for k, vs := range base {
+			v[k] = vs
+		}
+		for i := 0; i+1 < len(kv); i += 2 {
+			v.Set(kv[i], kv[i+1])
+		}
+		return v
+	}
+	for _, tt := range []struct {
+		name string
+		form url.Values
+		want string
+	}{
+		{"both", with("moonraker_url", "http://pb.test:7125", "bambuddy_printer_id", "2"), "not both"},
+		{"bad url", with("moonraker_url", "pb.test:7125"), "Moonraker address"},
+		{"bad id", with("bambuddy_printer_id", "two"), "Bambuddy printer id"},
+	} {
+		code, _, body := h.post("/printers", tt.form)
+		if code != http.StatusUnprocessableEntity || !strings.Contains(body, tt.want) {
+			t.Errorf("%s: %d, want 422 with %q", tt.name, code, tt.want)
+		}
+	}
+	if code, _, body := h.post("/printers", with("moonraker_url", "http://pb.test:7125/")); code != http.StatusSeeOther {
+		t.Fatalf("save: %d %s", code, body)
+	}
+	// Switching a printer to Bambuddy, then clearing it.
+	id := strconv.FormatInt(f.trident, 10)
+	trident := url.Values{"name": {"Trident"}, "bed_x": {"350"}, "bed_y": {"350"}, "bed_z": {"300"}, "active": {"on"}, "bambuddy_printer_id": {"5"}}
+	if code, _, body := h.post("/printers/"+id, trident); code != http.StatusSeeOther {
+		t.Fatalf("switch: %d %s", code, body)
+	}
+	trident.Del("bambuddy_printer_id")
+	if code, _, body := h.post("/printers/"+id, trident); code != http.StatusSeeOther {
+		t.Fatalf("clear: %d %s", code, body)
+	}
+	ps, _ := h.store.ListPrinters(context.Background())
+	for _, p := range ps {
+		switch p.Name {
+		case "Pandora":
+			if p.MoonrakerURL != "http://pb.test:7125" || p.BambuddyPrinterID != nil {
+				t.Errorf("Pandora: %q %v", p.MoonrakerURL, p.BambuddyPrinterID)
+			}
+		case "Trident":
+			if p.HasStatusSource() {
+				t.Errorf("Trident still has a source: %q %v", p.MoonrakerURL, p.BambuddyPrinterID)
+			}
+		}
+	}
+}
+
+func between(t *testing.T, s, from, to string) string {
+	t.Helper()
+	i := strings.Index(s, from)
+	if i < 0 {
+		t.Fatalf("missing %q", from)
+	}
+	j := strings.Index(s[i:], to)
+	if j < 0 {
+		t.Fatalf("missing %q after %q", to, from)
+	}
+	return s[i : i+j]
+}

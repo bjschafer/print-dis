@@ -28,6 +28,10 @@ type Config struct {
 	SpoolmanURL       string
 	PreviewAllowHosts []string
 
+	// BambuddyURL is Bambuddy's origin (no /api/v1); "" turns it off.
+	BambuddyURL    string
+	BambuddyAPIKey string
+
 	FilesBackend      string // "", "s3" or "dir"
 	FilesDir          string
 	S3Endpoint        string
@@ -56,6 +60,8 @@ func FromEnv(getenv func(string) string) (*Config, error) {
 		DevUser:           strings.ToLower(strings.TrimSpace(getenv("DEV_USER"))),
 		SpoolmanURL:       strings.TrimRight(getenv("SPOOLMAN_URL"), "/"),
 		PreviewAllowHosts: splitList(getenv("PREVIEW_ALLOW_HOSTS")),
+		BambuddyURL:       strings.TrimRight(strings.TrimSpace(getenv("BAMBUDDY_URL")), "/"),
+		BambuddyAPIKey:    strings.TrimSpace(getenv("BAMBUDDY_API_KEY")),
 		FilesBackend:      getenv("FILES_BACKEND"),
 		FilesDir:          getenv("FILES_DIR"),
 		S3Endpoint:        getenv("S3_ENDPOINT"),
@@ -99,6 +105,11 @@ func FromEnv(getenv func(string) string) (*Config, error) {
 			c.AccentColor = h
 		} else {
 			errs = append(errs, fmt.Errorf("ACCENT_COLOR %q is not a hex colour like #00ae42", raw))
+		}
+	}
+	if c.BambuddyURL != "" {
+		if u, err := url.Parse(c.BambuddyURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			errs = append(errs, fmt.Errorf("BAMBUDDY_URL %q is not an http(s) URL", c.BambuddyURL))
 		}
 	}
 	switch c.FilesBackend {
