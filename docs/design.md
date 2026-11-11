@@ -2,6 +2,8 @@
 
 Status: accepted, 2026-11-11. Open decision 1 is overruled: friends can upload files (section 6a).
 
+Progress (branch `v2`): M0, M1, M2, M4, M5 and M7 are built and pass `make check`. M6 is built; its done-when (a dry run of the real export) is pending. M3 (deploy) has not started.
+
 This is a ground-up rewrite in the existing repository. The current code (Go, static HTML, SQLite/Postgres, local password accounts) is replaced, not extended; only `internal/spoolman/types.go` is worth carrying over.
 
 ## 1. What this is for
