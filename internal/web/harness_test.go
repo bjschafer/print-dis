@@ -8,10 +8,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/bjschafer/print-dis/internal/config"
+	"github.com/bjschafer/print-dis/internal/core"
 	"github.com/bjschafer/print-dis/internal/store"
 	"github.com/bjschafer/print-dis/internal/store/storetest"
 )
@@ -38,7 +40,23 @@ func newHarness(t *testing.T, mutate ...func(*config.Config)) *harness {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(s)
+	// /test/login/{id} signs the client in as any user, standing in for OIDC.
+	mux := http.NewServeMux()
+	mux.Handle("/", s)
+	mux.Handle("POST /test/login/{id}", s.Auth.Sessions.LoadAndSave(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		u, err := st.GetUser(r.Context(), id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		if err := s.Auth.SignIn(r.Context(), u); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})))
+	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	jar, _ := cookiejar.New(nil)
 	h := &harness{t: t, srv: srv, s: s, store: st, c: &http.Client{
@@ -48,6 +66,37 @@ func newHarness(t *testing.T, mutate ...func(*config.Config)) *harness {
 		},
 	}}
 	return h
+}
+
+// as returns a new harness client, sharing the server, signed in as u.
+func (h *harness) as(u *core.User) *harness {
+	h.t.Helper()
+	jar, _ := cookiejar.New(nil)
+	other := *h
+	other.csrf = ""
+	other.c = &http.Client{Jar: jar, CheckRedirect: h.c.CheckRedirect}
+	res, err := other.c.Post(h.srv.URL+"/test/login/"+strconv.FormatInt(u.ID, 10), "", nil)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusNoContent {
+		h.t.Fatalf("test login as %d: %d", u.ID, res.StatusCode)
+	}
+	return &other
+}
+
+// friend creates a non-admin user who has signed in before.
+func (h *harness) friend(name string) *core.User {
+	h.t.Helper()
+	var u core.User
+	err := h.store.Pool.QueryRow(context.Background(),
+		`insert into users (oidc_sub, email, name) values ($1, $2, $3) returning id, name`,
+		"sub-"+name, strings.ToLower(name)+"@example.com", name).Scan(&u.ID, &u.Name)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return &u
 }
 
 var csrfRe = regexp.MustCompile(`data-csrf="([^"]+)"`)

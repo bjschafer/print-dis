@@ -151,3 +151,57 @@ func TestNewPrefillsURL(t *testing.T) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+func TestRequesterSeesOnlyOwn(t *testing.T) {
+	h := newHarness(t)
+	alice, bob := h.friend("Alice"), h.friend("Bob")
+	ha := h.as(alice)
+	code, loc, _ := ha.post("/requests", url.Values{"title": {"Alice's thing"}, "requester_id": {itoa(bob.ID)}, "printer_id": {"1"}})
+	if code != http.StatusSeeOther {
+		t.Fatalf("create: %d", code)
+	}
+	r, _ := h.store.GetRequest(context.Background(), mustID(t, loc))
+	if r.RequesterID != alice.ID || r.PrinterID != nil {
+		t.Fatalf("requester could set admin fields: %+v", r)
+	}
+	hb := h.as(bob)
+	if code, _ := hb.get(loc); code != http.StatusForbidden {
+		t.Fatalf("bob viewing alice's: %d", code)
+	}
+	if code, _, _ := hb.post(loc+"/comments", url.Values{"body": {"hi"}}); code != http.StatusForbidden {
+		t.Fatalf("bob commenting: %d", code)
+	}
+	_, body := hb.get("/")
+	hb.mustNotContain(body, "Alice&#39;s thing", "data-can-move")
+	_, body = ha.get("/")
+	ha.mustContain(body, "Alice&#39;s thing")
+	ha.mustNotContain(body, "data-can-move")
+	if code, _ := ha.get("/printers"); code != http.StatusForbidden {
+		t.Fatalf("printers as requester: %d", code)
+	}
+	if code, _, _ := ha.post(loc+"/move", url.Values{"status": {"printing"}}); code != http.StatusForbidden {
+		t.Fatalf("move as requester: %d", code)
+	}
+	if code, _, _ := ha.post(loc+"/status", url.Values{"status": {"printing"}}); code != http.StatusForbidden {
+		t.Fatalf("status as requester: %d", code)
+	}
+	// Owner may cancel before printing, then may no longer edit.
+	if code, _, _ := ha.post(loc+"/status", url.Values{"status": {"cancelled"}}); code != http.StatusSeeOther {
+		t.Fatalf("cancel: %d", code)
+	}
+	if code, _, _ := ha.post(loc, url.Values{"title": {"changed"}}); code != http.StatusForbidden {
+		t.Fatalf("edit after cancel: %d", code)
+	}
+	if code, _, _ := ha.post(loc+"/comments", url.Values{"body": {"still can comment"}}); code != http.StatusSeeOther {
+		t.Fatalf("comment after cancel: %d", code)
+	}
+}
+
+func mustID(t *testing.T, loc string) int64 {
+	t.Helper()
+	id, err := strconv.ParseInt(strings.TrimPrefix(loc, "/requests/"), 10, 64)
+	if err != nil {
+		t.Fatalf("location %q", loc)
+	}
+	return id
+}
