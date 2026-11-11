@@ -1,79 +1,36 @@
-## Project Overview
+# print-dis
 
-Print-dis is a Go web application for managing 3D printing requests with user authentication, role-based access control, and optional Spoolman integration. It serves static HTML/JS/CSS frontend files and provides a REST API backend.
+A print-request queue for one owner and their friends. `docs/design.md` is the spec; read it before changing behaviour, and update it when a decision changes.
 
-## Development Commands
+## Commands
 
-### Building and Running
-- `make build` - Build the application binary to `bin/print-dis`
-- `make clean` - Remove build artifacts
-- `./bin/print-dis` - Run the application with default configuration
-- `./bin/print-dis --config /path/to/config.yaml` - Run with custom config file
+- `make db`: start a throwaway Postgres 17 on port 55432 (podman).
+- `make run`: build and serve on :8080 with `DEV_USER` sign-in and files in `./.files`.
+- `make check`: vet, golangci-lint, tests. Must pass before any milestone is called done.
+- Tests that need Postgres read `TEST_DATABASE_URL` and skip without it. Locally:
+  `TEST_DATABASE_URL='postgres://postgres:pg@localhost:55432/printdis?sslmode=disable' make check`
 
-### Testing and Quality
-- `make test` - Run all tests with race detection and coverage
-- `make lint` - Run golangci-lint on all packages
-- `make check` - Run both tests and linting
-- `go test ./internal/services/...` - Run tests for a specific package
-- `go test -run TestSpecificFunction` - Run a specific test function
+## Layout
 
-### Code Generation
-- `make generate` - Run go generate to update generated code (including enums)
+```
+cmd/print-dis/        main: serve, import-sheet
+internal/config/      environment variables -> Config
+internal/core/        types, eligibility, permission rules (pure, no IO)
+internal/store/       SQL (pgx, hand-written) and goose migrations
+internal/store/storetest/  New(t): a fresh migrated database per test
+internal/web/         handlers, html/template templates, embedded static files
+internal/auth/        OIDC and sessions
+internal/spoolman/    client and cache
+internal/preview/     link fetch and SSRF guard
+internal/files/       Blobs interface, s3 and dir backends
+```
 
-## Architecture
+## Conventions
 
-### Backend Structure
-- **main.go** - Application entry point with HTTP server setup and routing
-- **internal/config/** - Configuration management using Viper (supports config files, env vars, CLI flags)
-- **internal/database/** - Database abstraction layer supporting SQLite and PostgreSQL
-- **internal/models/** - Data models and database schema definitions
-- **internal/services/** - Business logic layer
-- **internal/handlers/** - HTTP request handlers
-- **internal/middleware/** - Authentication, session management, and permission middleware
-- **internal/api/** - External API integrations (Spoolman)
-- **internal/spoolman/** - Spoolman 3D printing management system integration
-
-### Frontend Structure
-- **static/** - All frontend assets (HTML, CSS, JavaScript)
-- Single-page applications with vanilla JavaScript
-- Session-based authentication with role-based UI elements
-
-### Database Support
-- SQLite (default) and PostgreSQL support
-- Database migrations and schema handled in database package
-- Uses sqlx for database operations
-
-### Configuration
-Configuration sources in order of precedence:
-1. Command-line flags
-2. Environment variables (prefixed with `PRINT_DIS_`)
-3. Configuration file (`config.yaml`)
-4. Default values
-
-### Authentication & Authorization
-- Session-based authentication using gorilla/sessions
-- Three roles: User, Moderator, Admin
-- Role-based middleware for API endpoints
-- Password hashing with bcrypt
-
-### Key Features
-- Print request lifecycle management (Pending → Enqueued → In Progress → Done)
-- User dashboard with filtering and search
-- Admin interface for user and request management
-- Optional Spoolman integration for filament/material data
-- Responsive web interface
-
-### External Integrations
-- **Spoolman** (optional) - 3D printing management system for filament tracking
-- Integration controlled by `spoolman.enabled` config option
-
-## Testing
-- Test files follow `*_test.go` naming convention
-- Uses testify for assertions and test utilities
-- Current test coverage includes database, services, and spoolman client
-- Run with race detection enabled by default
-
-## Enum Generation
-- Uses `github.com/dmarkham/enumer` for generating enum methods
-- Generated files have `_gen.go` suffix
-- Run `make generate` after modifying enum types
+- Standard library first. `net/http` ServeMux patterns (`GET /requests/{id}`), `log/slog`, `html/template`. No web framework, no ORM, no testify.
+- Permission decisions live in `internal/core` as pure functions and are tested there table-driven. Handlers call them; they do not re-derive rules.
+- New schema goes in a new numbered file under `internal/store/migrations`; never edit an applied migration.
+- Frontend: server-rendered HTML, htmx and SortableJS vendored under `internal/web/static` and embedded. No Node, no build step. Must work on a phone.
+- Every state-changing route is POST and checks the CSRF token.
+- Outbound HTTP (Spoolman, link preview) always has a timeout and a tested failure path; the app must start and work when either is down.
+- Errors shown to users are plain sentences; details go to the log.

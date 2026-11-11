@@ -1,19 +1,28 @@
 .DEFAULT_GOAL := build
 
-VERSION 	?= $(shell git describe --tags --always --dirty)
-BUILD_FLAGS ?= -v
-LDFLAGS     ?= -extldflags=-Wl,-ld_classic
-ARCH        ?= $(shell go env GOARCH)
-GOARCH      ?= $(ARCH)
-OS          ?= $(shell go env GOOS)
-GOOS        ?= $(OS)
-PACKAGE_DIR ?= packages
+TEST_DATABASE_URL ?=
+export TEST_DATABASE_URL
 
-# Track all Go source files
-GO_SOURCES := $(shell find . -name "*.go")
+.PHONY: build
+build:
+	CGO_ENABLED=0 go build -trimpath -o bin/print-dis ./cmd/print-dis
 
-.PHONY: check
-check: test lint
+# Local development: DEV_USER sign-in, files on disk. Needs `make db`.
+.PHONY: run
+run: build
+	DATABASE_URL=$${DATABASE_URL:-postgres://postgres:pg@localhost:55432/printdis?sslmode=disable} \
+	BASE_URL=http://localhost:8080 DEV_USER=$${DEV_USER:-dev@localhost} \
+	FILES_BACKEND=$${FILES_BACKEND:-dir} FILES_DIR=$${FILES_DIR:-./.files} \
+	./bin/print-dis serve
+
+# Throwaway Postgres for tests and `make run`, on port 55432.
+.PHONY: db
+db:
+	podman run -d --rm --name printdis-pg -e POSTGRES_PASSWORD=pg -e POSTGRES_DB=printdis -p 55432:5432 docker.io/library/postgres:17-alpine
+
+.PHONY: vet
+vet:
+	go vet ./...
 
 .PHONY: lint
 lint:
@@ -21,41 +30,11 @@ lint:
 
 .PHONY: test
 test:
-	go test -race -cover -ldflags=$(LDFLAGS) ./...
+	go test -race -cover ./...
 
-.PHONY: generate
-generate:
-	GOARCH=$(ARCH) GOOS=$(OS) go generate -v ./...
-
-.PHONY: build
-build: bin/print-dis bin/migrate
+.PHONY: check
+check: vet lint test
 
 .PHONY: clean
 clean:
-	rm -rf ./bin
-	rm -rf $(PACKAGE_DIR)
-
-bin/print-dis: $(GO_SOURCES) generate
-	GOARCH=$(GOARCH) GOOS=$(GOOS) go build -o bin/print-dis $(BUILD_FLAGS) ./main.go
-
-bin/migrate: $(GO_SOURCES) generate
-	GOARCH=$(GOARCH) GOOS=$(GOOS) go build -o bin/migrate $(BUILD_FLAGS) ./cmd/migrate/main.go
-
-.PHONY: package
-package:
-	$(MAKE) build GOOS=linux
-	mkdir -p $(PACKAGE_DIR)
-	VERSION=$(VERSION) nfpm package \
-		--config nfpm.yaml \
-		--target $(PACKAGE_DIR)/print-dis_$(VERSION)_$(ARCH).deb
-
-.PHONY: package-all
-package-all: package-amd64 package-arm64
-
-.PHONY: package-amd64
-package-amd64:
-	$(MAKE) package ARCH=amd64 GOARCH=amd64
-
-.PHONY: package-arm64
-package-arm64:
-	$(MAKE) package ARCH=arm64 GOARCH=arm64
+	rm -rf bin .files

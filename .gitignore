@@ -77,3 +77,6 @@ bin/
 packages/
 *.db
 openapi.json
+
+# print-dis v2
+.files/
