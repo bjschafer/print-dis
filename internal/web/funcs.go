@@ -39,6 +39,12 @@ var funcs = template.FuncMap{
 		}
 		return strconv.Itoa(*p)
 	},
+	"deref": func(p *int) int {
+		if p == nil {
+			return 0
+		}
+		return *p
+	},
 	"id": func(p *int64) int64 {
 		if p == nil {
 			return 0

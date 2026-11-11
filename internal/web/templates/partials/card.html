@@ -1,30 +1,26 @@
 {{/* cardctx takes (dict "R" core.Request "Today" time.Time "Live" map[int64]liveView) */}}
 {{define "cardctx"}}
 {{$r := .R}}
-<article class="card{{if urgent $r .Today}} urgent{{end}}" data-id="{{$r.ID}}"{{with swatch $r.FilamentColorHex}} style="--fil: {{.}}"{{end}}>
+<article class="card{{if urgent $r .Today}} urgent{{end}}{{if swatch $r.FilamentColorHex}} has-fil{{end}}" data-id="{{$r.ID}}"{{with swatch $r.FilamentColorHex}} style="--fil: {{.}}"{{end}}>
   <div class="card-top">
     <a class="card-title" href="/requests/{{$r.ID}}" draggable="false">{{$r.Title}}</a>
     {{if and (not (progress $r)) (gt $r.Quantity 1)}}<span class="qty">×{{$r.Quantity}}</span>{{end}}
   </div>
-  <div class="card-meta">
-    <span class="who-sm"><span class="avatar sm">{{initial $r.RequesterName}}</span>{{$r.RequesterName}}</span>
-  </div>
   {{if or $r.FilamentLabel $r.Material $r.ColorNote}}
-  <div class="card-meta filament">
+  <div class="card-filament">
     {{with swatch $r.FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}
-    {{if $r.FilamentLabel}}<span>{{$r.FilamentLabel}}</span>{{else if $r.Material}}<span class="chip">{{$r.Material}}</span>{{end}}
-    {{with $r.ColorNote}}<span class="muted">{{.}}</span>{{end}}
+    {{if $r.FilamentLabel}}<span class="fil-label">{{$r.FilamentLabel}}</span>{{else if $r.Material}}<span class="chip material">{{$r.Material}}</span>{{end}}
+    {{with $r.ColorNote}}<span class="fil-note">{{.}}</span>{{end}}
   </div>
   {{end}}
   {{with progress $r}}
-  <div class="progress" title="{{.}} printed"><span class="bar"><span style="width: {{pct $r}}%"></span></span><span class="progress-text">{{.}}</span></div>
+  <div class="progress copies" title="{{.}} printed"><span class="bar"><span style="width: {{pct $r}}%"></span></span><span class="progress-text">{{.}}</span></div>
   {{end}}
   {{if and (eq $r.Status "printing") $r.PrinterID}}{{with index .Live (id $r.PrinterID)}}{{if .Printer.ID}}{{template "card_live" (dict "L" . "OOB" false)}}{{end}}{{end}}{{end}}
-  {{if or $r.NeededBy $r.PrinterName}}
   <div class="card-foot">
+    <span class="who-sm" title="Requested by {{$r.RequesterName}}"><span class="avatar sm">{{initial $r.RequesterName}}</span>{{$r.RequesterName}}</span>
     {{with $r.NeededBy}}<span class="due{{if eq $r.Timing "firm"}} firm{{end}}" title="{{$r.Timing.Label}} deadline">{{if eq $r.Timing "firm"}}{{template "icon" "flag"}}{{else}}{{template "icon" "calendar"}}{{end}}{{shortDate .}}</span>{{end}}
     {{with $r.PrinterName}}<span class="printer">{{template "icon" "printer"}}{{.}}</span>{{end}}
   </div>
-  {{end}}
 </article>
 {{end}}

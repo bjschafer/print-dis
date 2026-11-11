@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/bjschafer/print-dis/internal/core"
 )
 
 const (
@@ -94,16 +96,18 @@ type Options struct {
 	// that printer and settings edits take effect without a restart.
 	Targets func(ctx context.Context) ([]Target, error)
 	Log     *slog.Logger
-	// Client, Now and Interval are for tests.
-	Client   *http.Client
-	Now      func() time.Time
-	Interval time.Duration
+	// Client, StreamClient, Now and Interval are for tests.
+	Client       *http.Client
+	StreamClient *http.Client
+	Now          func() time.Time
+	Interval     time.Duration
 }
 
 // Monitor polls every target in the background and keeps the latest reading
 // of each. It is safe for concurrent use.
 type Monitor struct {
 	opts Options
+	streamState
 
 	mu       sync.RWMutex
 	statuses map[int64]Status
@@ -309,10 +313,7 @@ type bambuddyReply struct {
 }
 
 func (m *Monitor) bambuddy(ctx context.Context, t Target) (Status, error) {
-	h := http.Header{}
-	if t.BambuddyAPIKey != "" {
-		h.Set("X-API-Key", t.BambuddyAPIKey)
-	}
+	h := bambuddyHeader(t.BambuddyAPIKey)
 	var r bambuddyReply
 	base := strings.TrimRight(t.BambuddyURL, "/")
 	if err := m.getJSON(ctx, fmt.Sprintf("%s/api/v1/printers/%d/status", base, t.BambuddyID), h, &r); err != nil {
@@ -375,4 +376,16 @@ func jobName(file string) string {
 		}
 	}
 	return name
+}
+
+// TargetFor is where p's status comes from under the given settings, and
+// false when p has no source.
+func TargetFor(p *core.Printer, set core.Settings) (Target, bool) {
+	switch {
+	case p.MoonrakerURL != "":
+		return Target{PrinterID: p.ID, MoonrakerURL: p.MoonrakerURL}, true
+	case p.BambuddyPrinterID != nil:
+		return Target{PrinterID: p.ID, BambuddyID: *p.BambuddyPrinterID, BambuddyURL: set.BambuddyURL, BambuddyAPIKey: set.BambuddyAPIKey}, true
+	}
+	return Target{}, false
 }

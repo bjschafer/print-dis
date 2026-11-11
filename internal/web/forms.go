@@ -183,23 +183,38 @@ func applyPrinterForm(r *http.Request, p *core.Printer) formErrors {
 	p.Active = checkbox(r, "active")
 	p.Notes = trimmed(r, "notes")
 
-	p.MoonrakerURL = strings.TrimRight(trimmed(r, "moonraker_url"), "/")
-	if p.MoonrakerURL != "" {
-		if u, err := url.Parse(p.MoonrakerURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			errs.add("The Moonraker address must be a full http:// or https:// address, like http://trident.lan:7125.")
+	// The source is a choice of one; only the chosen one's field is kept.
+	// A form without the choice (an old page, a script) infers it.
+	src := trimmed(r, "status_source")
+	moon := strings.TrimRight(trimmed(r, "moonraker_url"), "/")
+	bambu := trimmed(r, "bambuddy_printer_id")
+	if !r.PostForm.Has("status_source") {
+		switch {
+		case moon != "" && bambu != "":
+			errs.add("Choose either Moonraker or Bambuddy for live status, not both.")
+		case moon != "":
+			src = "moonraker"
+		case bambu != "":
+			src = "bambuddy"
 		}
 	}
-	p.BambuddyPrinterID = nil
-	if raw := trimmed(r, "bambuddy_printer_id"); raw != "" {
-		n, err := strconv.Atoi(raw)
+	p.MoonrakerURL, p.BambuddyPrinterID, p.FormSource = "", nil, src
+	switch src {
+	case "":
+	case "moonraker":
+		p.MoonrakerURL = moon
+		if u, err := url.Parse(moon); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			errs.add("The Moonraker address must be a full http:// or https:// address, like http://trident.lan:7125.")
+		}
+	case "bambuddy":
+		n, err := strconv.Atoi(bambu)
 		if err != nil || n <= 0 {
-			errs.add("The Bambuddy printer id must be a whole number, as shown in Bambuddy.")
+			errs.add("Choose which Bambuddy printer this is.")
 		} else {
 			p.BambuddyPrinterID = &n
 		}
-	}
-	if p.MoonrakerURL != "" && p.BambuddyPrinterID != nil {
-		errs.add("Choose either Moonraker or Bambuddy for live status, not both.")
+	default:
+		errs.add("Choose a live status source: none, Moonraker or Bambuddy.")
 	}
 	return errs
 }

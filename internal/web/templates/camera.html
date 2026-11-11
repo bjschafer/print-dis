@@ -1,0 +1,23 @@
+{{/* camera_view is a printer's live camera; the board's camera dialog
+     loads it on its own, and the page below wraps it. */}}
+{{define "camera_view"}}
+<div class="camera-view">
+  <header class="camera-head">
+    <span class="printer-icon sm">{{template "icon" "camera"}}</span>
+    <div><h2>{{.Printer.Name}}</h2>{{with .Info.Name}}<span class="muted">{{.}}</span>{{end}}</div>
+  </header>
+  <div class="camera-frame">
+    {{if .Unavailable}}
+    <p class="camera-msg">The camera is not available right now.</p>
+    {{else}}
+    <img class="camera-img" src="/printers/{{.Printer.ID}}/camera/stream" alt="Live camera of {{.Printer.Name}}"{{with .Transform}} style="transform: {{.}}"{{end}}>
+    <p class="camera-msg" hidden>The camera is not available right now.</p>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{define "content"}}
+<div class="page-title"><h1>Camera</h1></div>
+<section class="panel camera-page">{{template "camera_view" .}}</section>
+{{end}}

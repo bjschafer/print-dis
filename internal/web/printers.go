@@ -7,6 +7,7 @@ import (
 
 	"github.com/bjschafer/print-dis/internal/auth"
 	"github.com/bjschafer/print-dis/internal/core"
+	"github.com/bjschafer/print-dis/internal/printerstatus"
 	"github.com/bjschafer/print-dis/internal/store"
 )
 
@@ -21,6 +22,12 @@ type printersView struct {
 	// BambuddyKeySet says whether a key is saved; the key itself is never
 	// sent to the browser.
 	BambuddyKeySet bool
+	// BambuddyPrinters is Bambuddy's printer list for the picker;
+	// BambuddyListErr is set when Bambuddy is set up but did not answer.
+	BambuddyPrinters []printerstatus.BambuddyPrinter
+	BambuddyListErr  bool
+	// BambuddyNames names Bambuddy printer ids for the printer chips.
+	BambuddyNames map[int]string
 }
 
 func (s *Server) printers(w http.ResponseWriter, r *http.Request) {
@@ -53,9 +60,15 @@ func (s *Server) renderPrintersWith(w http.ResponseWriter, r *http.Request, stat
 		url = set.BambuddyURL
 	}
 	_, live := s.liveStatus(auth.UserFrom(r.Context()), ps)
+	list, listErr := s.bambuddyChoices(r.Context(), saved)
+	names := map[int]string{}
+	for _, b := range list {
+		names[b.ID] = b.Name
+	}
 	s.render(w, r, status, "printers.html", printersView{
 		base: s.base(r, "Printers"), Printers: ps, Errors: errs, Draft: draft,
 		LiveByID: live, BambuddyURL: url, BambuddyKeySet: saved.BambuddyAPIKey != "",
+		BambuddyPrinters: list, BambuddyListErr: listErr, BambuddyNames: names,
 	})
 }
 

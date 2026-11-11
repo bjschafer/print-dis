@@ -89,4 +89,37 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initBoard);
   else initBoard();
+
+  // Camera buttons open the printer's camera in a dialog. Without
+  // JavaScript (or <dialog>) they are plain links to the camera page.
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("a[data-camera]");
+    const dlg = document.getElementById("camera-dialog");
+    if (!a || !dlg || typeof dlg.showModal !== "function" || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    e.stopPropagation(); // inside a <summary>, do not toggle it
+    const body = dlg.querySelector(".camera-dialog-body");
+    body.innerHTML = '<p class="camera-msg">Connecting to the camera…</p>';
+    dlg.showModal();
+    fetch(a.href, { headers: { "HX-Request": "true" }, credentials: "same-origin" })
+      .then((r) => { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then((html) => { if (dlg.open) body.innerHTML = html; })
+      .catch(() => { body.innerHTML = '<p class="camera-msg">The camera is not available right now.</p>'; });
+  });
+  // Closing drops the image, which ends the stream.
+  document.addEventListener("close", (e) => {
+    if (e.target.id === "camera-dialog") e.target.querySelector(".camera-dialog-body").innerHTML = "";
+  }, true);
+  // Clicking the backdrop closes it.
+  document.addEventListener("click", (e) => {
+    if (e.target.id === "camera-dialog") e.target.close();
+  });
+  // A camera that fails shows a sentence instead of a broken image.
+  document.addEventListener("error", (e) => {
+    const img = e.target;
+    if (!(img instanceof HTMLImageElement) || !img.classList.contains("camera-img")) return;
+    img.hidden = true;
+    const msg = img.parentElement.querySelector(".camera-msg");
+    if (msg) msg.hidden = false;
+  }, true);
 })();

@@ -12,10 +12,29 @@
 {{if .}}
 <section id="printer-strip" class="printer-strip" aria-label="Printers now" hx-get="/printers/status" hx-trigger="every 15s" hx-swap="outerHTML">
   {{range .}}
-  <div class="live-chip st-{{if .Known}}{{.Status.State}}{{else}}unknown{{end}}">
-    <div class="live-head"><strong>{{.Printer.Name}}</strong>{{template "live_state" .}}</div>
-    {{if and .Known .Status.Job}}<div class="live-job" title="{{.Status.Job}}">{{.Status.Job}}</div>{{end}}
-    {{template "live_progress" .}}
+  {{$st := "unknown"}}{{if .Known}}{{$st = .Status.State}}{{end}}
+  <div class="ptile st-{{$st}}">
+    <div class="ptile-head">
+      <span class="ptile-name">{{template "icon" "printer"}}{{.Printer.Name}}</span>
+      {{template "camera_button" .Printer}}
+    </div>
+    <div class="ptile-state">
+      <span class="state-pill">{{if .Known}}{{.Status.State.Label}}{{else}}Checking…{{end}}</span>
+      {{if .Status.Active}}<span class="ptile-pct">{{.Status.Percent}}<small>%</small></span>{{end}}
+    </div>
+    <div class="ptile-job{{if not .Status.Job}} muted{{end}}"{{with .Status.Job}} title="{{.}}"{{end}}>
+      {{- if .Status.Job}}{{.Status.Job}}
+      {{- else if eq $st "idle"}}Ready for a job
+      {{- else if eq $st "offline"}}Not reachable
+      {{- else}}&nbsp;{{end -}}
+    </div>
+    {{if .Status.Active}}
+    <div class="ptile-bar" title="{{.Status.Percent}}% printed"><span style="width: {{.Status.Percent}}%"></span></div>
+    <div class="ptile-meta">
+      <span>{{with .Status.Remaining}}{{left .}}{{else}}&nbsp;{{end}}</span>
+      {{if .Status.Layers}}<span>Layer {{.Status.Layer}}/{{.Status.Layers}}</span>{{end}}
+    </div>
+    {{end}}
   </div>
   {{end}}
 </section>
@@ -32,4 +51,15 @@
   <div class="card-live-head">{{template "live_state" .L}}{{if and .L.Known .L.Status.Job}}<span class="live-job" title="{{.L.Status.Job}}">{{.L.Status.Job}}</span>{{end}}</div>
   {{template "live_progress" .L}}
 </div>
+{{end}}
+
+{{/* camera_button takes a core.Printer. Without JavaScript it opens the camera page. */}}
+{{define "camera_button"}}<a class="icon-btn cam-btn" href="/printers/{{.ID}}/camera" data-camera title="Camera" aria-label="Camera for {{.Name}}">{{template "icon" "camera"}}</a>{{end}}
+
+{{/* camera_dialog is the empty dialog the camera buttons open. */}}
+{{define "camera_dialog"}}
+<dialog id="camera-dialog" class="camera-dialog" aria-label="Printer camera">
+  <form method="dialog" class="camera-close"><button class="icon-btn" aria-label="Close">{{template "icon" "x"}}</button></form>
+  <div class="camera-dialog-body"></div>
+</dialog>
 {{end}}

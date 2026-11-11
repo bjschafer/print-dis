@@ -215,3 +215,20 @@ func TestCanDeleteFile(t *testing.T) {
 		}
 	}
 }
+
+func TestPrinterSource(t *testing.T) {
+	id := 3
+	for _, tt := range []struct {
+		p    Printer
+		want string
+	}{
+		{Printer{}, ""},
+		{Printer{MoonrakerURL: "http://x"}, "moonraker"},
+		{Printer{BambuddyPrinterID: &id}, "bambuddy"},
+		{Printer{MoonrakerURL: "http://x", FormSource: "bambuddy"}, "bambuddy"},
+	} {
+		if got := tt.p.Source(); got != tt.want {
+			t.Errorf("%+v: %q, want %q", tt.p, got, tt.want)
+		}
+	}
+}

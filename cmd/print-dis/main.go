@@ -113,15 +113,12 @@ func statusTargets(st *store.Store) func(context.Context) ([]printerstatus.Targe
 		}
 		var out []printerstatus.Target
 		for _, p := range ps {
-			if !p.Active || !p.HasStatusSource() {
+			if !p.Active {
 				continue
 			}
-			t := printerstatus.Target{PrinterID: p.ID, MoonrakerURL: p.MoonrakerURL}
-			if p.BambuddyPrinterID != nil {
-				t.BambuddyID = *p.BambuddyPrinterID
-				t.BambuddyURL, t.BambuddyAPIKey = set.BambuddyURL, set.BambuddyAPIKey
+			if t, ok := printerstatus.TargetFor(&p, set); ok {
+				out = append(out, t)
 			}
-			out = append(out, t)
 		}
 		return out, nil
 	}

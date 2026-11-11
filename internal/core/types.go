@@ -97,6 +97,23 @@ type Printer struct {
 	// Where live status comes from: at most one of these is set.
 	MoonrakerURL      string // e.g. "http://trident.lan:7125"
 	BambuddyPrinterID *int   // the printer's id in Bambuddy
+
+	// FormSource is the source chosen on a form that failed to save, so it
+	// can be shown again; it is not stored.
+	FormSource string
+}
+
+// Source names where live status comes from: "moonraker", "bambuddy" or "".
+func (p Printer) Source() string {
+	switch {
+	case p.FormSource != "":
+		return p.FormSource
+	case p.MoonrakerURL != "":
+		return "moonraker"
+	case p.BambuddyPrinterID != nil:
+		return "bambuddy"
+	}
+	return ""
 }
 
 // Settings are the app-wide options an admin edits in the app.
