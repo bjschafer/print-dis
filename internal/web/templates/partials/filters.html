@@ -1,0 +1,28 @@
+{{define "filters"}}
+<form class="filters" method="get" data-autosubmit>
+  {{with .Requesters}}
+  <label>Requester
+    <select name="requester">
+      <option value="">Anyone</option>
+      {{range .}}<option value="{{.ID}}" {{if eq .ID $.Requester}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+  </label>
+  {{end}}
+  <label>Printer
+    <select name="printer">
+      <option value="">Any</option>
+      {{range .Printers}}<option value="{{.ID}}" {{if eq .ID $.Printer}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+  </label>
+  <label>Material
+    <select name="material">
+      <option value="">Any</option>
+      {{range .Materials}}<option {{if eq . $.Material}}selected{{end}}>{{.}}</option>{{end}}
+    </select>
+  </label>
+  {{with .Query.Get "sort"}}<input type="hidden" name="sort" value="{{.}}">{{end}}
+  {{with .Query.Get "desc"}}<input type="hidden" name="desc" value="{{.}}">{{end}}
+  {{block "extraFilters" .}}{{end}}
+  <noscript><button>Filter</button></noscript>
+</form>
+{{end}}

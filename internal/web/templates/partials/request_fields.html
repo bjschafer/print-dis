@@ -1,0 +1,81 @@
+{{define "errors"}}{{with .}}<div class="errors" role="alert"><p>Please fix:</p><ul>{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}{{end}}
+
+{{define "request_fields"}}
+{{$r := .Request}}
+{{if .People}}
+<label>For
+  <select name="requester_id">
+    {{range .People}}<option value="{{.ID}}" {{if eq .ID $r.RequesterID}}selected{{end}}>{{.Name}}{{if .Placeholder}} (not signed in yet){{end}}</option>{{end}}
+  </select>
+  <small><a href="/people">Add someone who hasn't signed in</a></small>
+</label>
+{{end}}
+
+<label>What is it?
+  <input name="title" required maxlength="200" value="{{$r.Title}}" placeholder="Headphone stand">
+</label>
+
+<fieldset class="row">
+  <label>Link to the model
+    <input name="source_url" type="url" value="{{str $r.SourceURL}}" placeholder="https://www.printables.com/model/…">
+  </label>
+  {{with $r.SourceTitle}}<input type="hidden" name="source_title" value="{{.}}">{{end}}
+</fieldset>
+
+<fieldset class="row">
+  <label class="narrow">How many?
+    <input name="quantity" type="number" min="1" max="10000" value="{{if $r.Quantity}}{{$r.Quantity}}{{else}}1{{end}}">
+  </label>
+  <label class="narrow">Needed by
+    <input name="needed_by" type="date" value="{{date $r.NeededBy}}">
+  </label>
+  <label class="narrow">How firm?
+    <select name="timing">
+      {{range timings}}<option value="{{.}}" {{if eq . $r.Timing}}selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
+  </label>
+</fieldset>
+
+<fieldset class="row" data-filament>
+  {{block "filament_picker" .}}
+  <label class="narrow">Material
+    <input name="material" value="{{.Request.Material}}" placeholder="any" list="materials" data-material autocapitalize="characters">
+    <datalist id="materials"><option>PLA</option><option>PETG</option><option>ABS</option><option>ASA</option><option>TPU</option><option>PC</option><option>PA</option></datalist>
+  </label>
+  <label>Colour
+    <input name="color_note" value="{{.Request.ColorNote}}" placeholder="any, or &quot;matte orange&quot;">
+  </label>
+  {{end}}
+</fieldset>
+
+<fieldset class="row checks">
+  <label class="check"><input type="checkbox" name="needs_multi_material" {{if $r.NeedsMultiMaterial}}checked{{end}}> Multiple colours or materials</label>
+  <label class="check"><input type="checkbox" name="needs_enclosure" data-enclosure {{if $r.NeedsEnclosure}}checked{{end}}> Needs an enclosed printer</label>
+</fieldset>
+
+<fieldset class="row">
+  <legend>Size in mm, if you know it</legend>
+  <label class="narrow">Width <input name="size_x" type="number" min="1" inputmode="numeric" value="{{int $r.SizeX}}"></label>
+  <label class="narrow">Depth <input name="size_y" type="number" min="1" inputmode="numeric" value="{{int $r.SizeY}}"></label>
+  <label class="narrow">Height <input name="size_z" type="number" min="1" inputmode="numeric" value="{{int $r.SizeZ}}"></label>
+</fieldset>
+
+<label>Anything else?
+  <textarea name="notes" rows="4">{{$r.Notes}}</textarea>
+</label>
+
+{{if .Printers}}
+<fieldset class="row admin">
+  <legend>Owner</legend>
+  <label>Printer
+    <select name="printer_id">
+      <option value="">Unassigned</option>
+      {{range .Printers}}<option value="{{.ID}}" {{if eq .ID (id $r.PrinterID)}}selected{{end}}>{{.Name}}{{if not .Active}} (inactive){{end}}</option>{{end}}
+    </select>
+  </label>
+  <label class="narrow">Printed
+    <input name="printed_count" type="number" min="0" value="{{$r.Printed}}">
+  </label>
+</fieldset>
+{{end}}
+{{end}}

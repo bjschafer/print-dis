@@ -1,0 +1,20 @@
+{{/* cardctx takes (dict "R" core.Request "Today" time.Time) */}}
+{{define "cardctx"}}
+{{$r := .R}}
+<article class="card{{if urgent $r .Today}} urgent{{end}}" data-id="{{$r.ID}}">
+  <a class="card-title" href="/requests/{{$r.ID}}">{{$r.Title}}</a>
+  <div class="card-meta">
+    <span>{{$r.RequesterName}}</span>
+    {{with progress $r}}<span class="pill">{{.}}</span>{{else}}{{if gt $r.Quantity 1}}<span class="pill">×{{$r.Quantity}}</span>{{end}}{{end}}
+  </div>
+  <div class="card-meta">
+    {{with swatch $r.FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}
+    {{if $r.FilamentLabel}}<span>{{$r.FilamentLabel}}</span>{{else if $r.Material}}<span>{{$r.Material}}</span>{{end}}
+    {{with $r.ColorNote}}<span class="muted">{{.}}</span>{{end}}
+  </div>
+  <div class="card-meta">
+    {{with $r.NeededBy}}<span class="due" title="{{$r.Timing.Label}} deadline">{{if eq $r.Timing "firm"}}⚑ {{end}}{{shortDate .}}</span>{{end}}
+    {{with $r.PrinterName}}<span class="printer">{{.}}</span>{{end}}
+  </div>
+</article>
+{{end}}

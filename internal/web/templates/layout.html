@@ -1,0 +1,37 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
+<title>{{.Title}} · print-dis</title>
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/htmx.min.js" defer></script>
+<script src="/static/Sortable.min.js" defer></script>
+<script src="/static/app.js" defer></script>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{.CSRF}}"}' data-csrf="{{.CSRF}}">
+<header class="top">
+  <a class="brand" href="/">print-dis</a>
+  {{with .User}}
+  <nav>
+    <a href="/" {{if eq $.Path "/"}}aria-current="page"{{end}}>Board</a>
+    <a href="/requests" {{if eq $.Path "/requests"}}aria-current="page"{{end}}>All</a>
+    {{if .IsAdmin}}
+    <a href="/printers" {{if eq $.Path "/printers"}}aria-current="page"{{end}}>Printers</a>
+    <a href="/people" {{if eq $.Path "/people"}}aria-current="page"{{end}}>People</a>
+    {{end}}
+    <a class="button primary" href="/requests/new">New request</a>
+    <form method="post" action="/auth/logout" class="inline">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <button class="link" title="Signed in as {{.Name}}">Sign out</button>
+    </form>
+  </nav>
+  {{end}}
+</header>
+<main>
+{{with .Flash}}<p class="flash" role="status">{{.}}</p>{{end}}
+{{template "content" .}}
+</main>
+</body>
+</html>{{end}}

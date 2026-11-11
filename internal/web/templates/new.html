@@ -1,0 +1,10 @@
+{{define "content"}}
+<h1>New request</h1>
+{{template "errors" .Errors}}
+{{block "preview_note" .}}{{end}}
+<form method="post" action="/requests" class="request-form">
+  <input type="hidden" name="csrf" value="{{.CSRF}}">
+  {{template "request_fields" .}}
+  <div class="actions"><button class="primary">File request</button> <a href="/">Cancel</a></div>
+</form>
+{{end}}

@@ -1,0 +1,16 @@
+{{define "content"}}
+<div class="toolbar">
+  <h1>Board</h1>
+  {{template "filters" .Filters}}
+</div>
+<div class="board" {{if canMove .User}}data-can-move{{end}}>
+  {{range .Columns}}
+  <section class="column">
+    <h2>{{.Status.Label}} <span class="count">{{len .Requests}}</span></h2>
+    <div class="column-list" data-status="{{.Status}}">
+      {{range .Requests}}{{template "cardctx" (dict "R" . "Today" $.Today)}}{{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+{{end}}

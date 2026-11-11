@@ -1,0 +1,77 @@
+{{define "content"}}
+{{$r := .Request}}
+<div class="detail-head">
+  <div>
+    <h1>{{$r.Title}}</h1>
+    <p class="muted">For {{$r.RequesterName}} · filed {{when $r.CreatedAt}}</p>
+  </div>
+  <span class="badge {{$r.Status}}">{{$r.Status.Label}}</span>
+</div>
+
+<div class="status-actions">
+  {{range statuses}}{{if canSetStatus $.User $r .}}
+  <form method="post" action="/requests/{{$r.ID}}/status" class="inline">
+    <input type="hidden" name="csrf" value="{{$.CSRF}}">
+    <input type="hidden" name="status" value="{{.}}">
+    <button class="{{if eq . "cancelled"}}danger{{end}}" {{if eq . "cancelled"}}data-confirm="Cancel this request?"{{end}}>{{if eq . "cancelled"}}Cancel request{{else}}→ {{.Label}}{{end}}</button>
+  </form>
+  {{end}}{{end}}
+</div>
+
+<div class="detail-grid">
+<div class="detail-main">
+  {{if $r.SourceImageType}}<img class="thumb" src="/requests/{{$r.ID}}/image" alt="">{{end}}
+  {{with $r.SourceURL}}<p class="source"><a href="{{.}}" rel="noopener noreferrer" target="_blank">{{with $r.SourceTitle}}{{.}}{{else}}{{.}}{{end}}</a></p>{{end}}
+
+  {{template "errors" .Errors}}
+  {{if canEdit .User $r}}
+  <form method="post" action="/requests/{{$r.ID}}" class="request-form">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    {{template "request_fields" .}}
+    <div class="actions"><button class="primary">Save changes</button></div>
+  </form>
+  {{else}}
+  <dl class="fields">
+    <dt>Quantity</dt><dd>{{$r.Quantity}}{{if $r.Printed}} ({{$r.Printed}} printed){{end}}</dd>
+    {{with $r.NeededBy}}<dt>Needed by</dt><dd>{{date .}} ({{$r.Timing.Label}})</dd>{{end}}
+    <dt>Filament</dt><dd>{{with swatch $r.FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}{{if $r.FilamentLabel}}{{$r.FilamentLabel}}{{else if $r.Material}}{{$r.Material}}{{else}}any{{end}}{{with $r.ColorNote}} · {{.}}{{end}}</dd>
+    {{if or $r.NeedsMultiMaterial $r.NeedsEnclosure}}<dt>Needs</dt><dd>{{if $r.NeedsMultiMaterial}}multi-material {{end}}{{if $r.NeedsEnclosure}}enclosure{{end}}</dd>{{end}}
+    {{if $r.HasSize}}<dt>Size</dt><dd>{{int $r.SizeX}} × {{int $r.SizeY}} × {{int $r.SizeZ}} mm</dd>{{end}}
+    {{with $r.PrinterName}}<dt>Printer</dt><dd>{{.}}</dd>{{end}}
+    {{with $r.Notes}}<dt>Notes</dt><dd class="body">{{.}}</dd>{{end}}
+  </dl>
+  {{end}}
+
+  {{block "files" .}}{{end}}
+</div>
+
+<aside class="detail-side">
+  <section>
+    <h2>Printers</h2>
+    {{with .AssignedReason}}<p class="warning" role="alert">The assigned printer is not eligible: {{range $i, $x := .}}{{if $i}}; {{end}}{{$x}}{{end}}.</p>{{end}}
+    <ul class="checks">
+      {{range .Checks}}
+      <li class="{{if .Eligible}}ok{{else}}no{{end}}">
+        <strong>{{.Printer.Name}}</strong>
+        {{if .Eligible}}<span class="muted">eligible</span>{{else}}<span class="muted">{{range $i, $x := .Reasons}}{{if $i}}; {{end}}{{$x}}{{end}}</span>{{end}}
+      </li>
+      {{else}}
+      <li class="muted">No printers set up yet.</li>
+      {{end}}
+    </ul>
+  </section>
+
+  <section id="thread">
+    <h2>Conversation</h2>
+    {{template "thread" .}}
+    {{if canComment .User $r}}
+    <form method="post" action="/requests/{{$r.ID}}/comments" hx-post="/requests/{{$r.ID}}/comments" hx-target="#thread-events" hx-swap="outerHTML" data-reset-on-success>
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label>Add a comment<textarea name="body" rows="3" required maxlength="5000"></textarea></label>
+      <button>Send</button>
+    </form>
+    {{end}}
+  </section>
+</aside>
+</div>
+{{end}}

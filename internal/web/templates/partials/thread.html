@@ -1,0 +1,13 @@
+{{define "thread"}}
+<ol class="thread" id="thread-events">
+  {{range .Events}}
+  <li class="event {{.Kind}}">
+    <div class="event-head"><strong>{{.UserName}}</strong> <time>{{when .CreatedAt}}</time></div>
+    {{if eq .Kind "comment"}}<p class="body">{{.Body}}</p>
+    {{else}}<p class="muted">{{if eq .Kind "status"}}moved {{else if eq .Kind "file"}}{{end}}{{.Body}}</p>{{end}}
+  </li>
+  {{else}}
+  <li class="muted">Nothing yet.</li>
+  {{end}}
+</ol>
+{{end}}

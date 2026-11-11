@@ -1,0 +1,37 @@
+{{define "printer_fields"}}
+<input type="hidden" name="csrf" value="{{.CSRF}}">
+<label>Name <input name="name" required value="{{.P.Name}}"></label>
+<fieldset class="row">
+  <legend>Bed, mm</legend>
+  <label class="narrow">Width <input name="bed_x" type="number" min="1" required value="{{if .P.BedX}}{{.P.BedX}}{{end}}"></label>
+  <label class="narrow">Depth <input name="bed_y" type="number" min="1" required value="{{if .P.BedY}}{{.P.BedY}}{{end}}"></label>
+  <label class="narrow">Height <input name="bed_z" type="number" min="1" required value="{{if .P.BedZ}}{{.P.BedZ}}{{end}}"></label>
+</fieldset>
+<fieldset class="row checks">
+  <label class="check"><input type="checkbox" name="multi_material" {{if .P.MultiMaterial}}checked{{end}}> Multi-material</label>
+  <label class="check"><input type="checkbox" name="enclosed" {{if .P.Enclosed}}checked{{end}}> Enclosed</label>
+  <label class="check"><input type="checkbox" name="active" {{if .P.Active}}checked{{end}}> Active</label>
+</fieldset>
+<label>Notes <input name="notes" value="{{.P.Notes}}"></label>
+{{end}}
+
+{{define "content"}}
+<h1>Printers</h1>
+{{template "errors" .Errors}}
+<div class="printer-list">
+{{range .Printers}}
+<details class="printer {{if not .Active}}inactive{{end}}" {{if and $.Draft (eq $.Draft.ID .ID)}}open{{end}}>
+  <summary><strong>{{.Name}}</strong> <span class="muted">{{.BedX}}×{{.BedY}}×{{.BedZ}} mm{{if .MultiMaterial}} · multi-material{{end}}{{if .Enclosed}} · enclosed{{end}}{{if not .Active}} · inactive{{end}}</span></summary>
+  <form method="post" action="/printers/{{.ID}}">
+    {{template "printer_fields" (dict "CSRF" $.CSRF "P" (or (and $.Draft (eq $.Draft.ID .ID) $.Draft) .))}}
+    <button class="primary">Save</button>
+  </form>
+</details>
+{{end}}
+</div>
+<h2>Add a printer</h2>
+<form method="post" action="/printers" class="card-form">
+  {{template "printer_fields" (dict "CSRF" .CSRF "P" (or (and .Draft (eq .Draft.ID 0) .Draft) (newPrinter)))}}
+  <button class="primary">Add printer</button>
+</form>
+{{end}}
