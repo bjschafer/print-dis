@@ -108,7 +108,7 @@ func TestBambuddy(t *testing.T) {
 				path, key = r.URL.Path, r.Header.Get("X-API-Key")
 				json200(tt.body)(w, r)
 			})
-			m := monitor([]Target{{PrinterID: 1, BambuddyID: 3}}, Options{BambuddyURL: srv.URL + "/", BambuddyAPIKey: "bb_test"})
+			m := monitor([]Target{{PrinterID: 1, BambuddyID: 3, BambuddyURL: srv.URL + "/", BambuddyAPIKey: "bb_test"}}, Options{})
 			m.Poll(context.Background())
 			got, _ := m.Status(1)
 			if got != tt.want {
@@ -133,8 +133,8 @@ func TestFailuresReadOffline(t *testing.T) {
 		{PrinterID: 2, MoonrakerURL: broken.URL},
 		{PrinterID: 3, MoonrakerURL: garbage.URL},
 		{PrinterID: 4, MoonrakerURL: "http://127.0.0.1:1"}, // refused
-		{PrinterID: 5, BambuddyID: 9},
-	}, Options{BambuddyURL: unauthorised.URL, Client: &http.Client{Timeout: 200 * time.Millisecond}})
+		{PrinterID: 5, BambuddyID: 9, BambuddyURL: unauthorised.URL},
+	}, Options{Client: &http.Client{Timeout: 200 * time.Millisecond}})
 
 	start := time.Now()
 	m.Poll(context.Background())

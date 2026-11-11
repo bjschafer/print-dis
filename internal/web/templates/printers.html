@@ -18,7 +18,7 @@
   <label>Moonraker address <input name="moonraker_url" type="url" inputmode="url" placeholder="http://trident.lan:7125" value="{{.P.MoonrakerURL}}"></label>
   <label class="narrow">Bambuddy printer id <input name="bambuddy_printer_id" type="number" min="1" value="{{int .P.BambuddyPrinterID}}"></label>
 </fieldset>
-{{if not .BambuddyOn}}<p class="hint muted">Bambuddy ids are ignored until <code>BAMBUDDY_URL</code> is set.</p>{{end}}
+{{if not .BambuddyOn}}<p class="hint muted">Bambuddy ids are ignored until the Bambuddy connection below has an address.</p>{{end}}
 {{end}}
 
 {{define "content"}}
@@ -44,7 +44,7 @@
     <span class="edit-hint">Edit</span>
   </summary>
   <form method="post" action="/printers/{{.ID}}" class="panel-body">
-    {{template "printer_fields" (dict "CSRF" $.CSRF "BambuddyOn" $.BambuddyOn "P" (or (and $.Draft (eq $.Draft.ID .ID) $.Draft) .))}}
+    {{template "printer_fields" (dict "CSRF" $.CSRF "BambuddyOn" $.BambuddyURL "P" (or (and $.Draft (eq $.Draft.ID .ID) $.Draft) .))}}
     <button class="primary">{{template "icon" "check"}}Save</button>
   </form>
 </details>
@@ -53,8 +53,22 @@
 <section class="panel add-printer">
   <header class="panel-head">{{template "icon" "plus"}}<h2>Add a printer</h2></header>
   <form method="post" action="/printers" class="panel-body">
-    {{template "printer_fields" (dict "CSRF" .CSRF "BambuddyOn" .BambuddyOn "P" (or (and .Draft (eq .Draft.ID 0) .Draft) (newPrinter)))}}
+    {{template "printer_fields" (dict "CSRF" .CSRF "BambuddyOn" .BambuddyURL "P" (or (and .Draft (eq .Draft.ID 0) .Draft) (newPrinter)))}}
     <button class="primary">{{template "icon" "plus"}}Add printer</button>
+  </form>
+</section>
+<section class="panel add-printer" id="bambuddy">
+  <header class="panel-head">{{template "icon" "link"}}<h2>Bambuddy connection</h2></header>
+  <form method="post" action="/printers/bambuddy" class="panel-body">
+    <input type="hidden" name="csrf" value="{{.CSRF}}">
+    <p class="hint muted">Live status for printers with a Bambuddy printer id. Leave the address blank to turn it off.</p>
+    <label>Address <input name="bambuddy_url" type="url" inputmode="url" placeholder="http://bambuddy.lan:8000" value="{{.BambuddyURL}}"></label>
+    <label>API key
+      <input name="bambuddy_api_key" type="password" autocomplete="off" placeholder="{{if .BambuddyKeySet}}Saved. Leave blank to keep it.{{else}}Only if Bambuddy's sign-in is on{{end}}">
+    </label>
+    <p class="hint muted">Create the key in Bambuddy with only “read status” ticked.</p>
+    {{if .BambuddyKeySet}}<label class="check"><input type="checkbox" name="clear_api_key"> Remove the saved key</label>{{end}}
+    <button class="primary">{{template "icon" "check"}}Save connection</button>
   </form>
 </section>
 {{end}}

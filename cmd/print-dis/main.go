@@ -68,10 +68,8 @@ func serve() error {
 	}
 	deps.Previewer = preview.New(preview.WithAllowHosts(cfg.PreviewAllowHosts...))
 	mon := printerstatus.New(printerstatus.Options{
-		Targets:        statusTargets(st),
-		BambuddyURL:    cfg.BambuddyURL,
-		BambuddyAPIKey: cfg.BambuddyAPIKey,
-		Log:            log,
+		Targets: statusTargets(st),
+		Log:     log,
 	})
 	go mon.Run(ctx)
 	deps.PrinterStatus = mon
@@ -101,10 +99,15 @@ func serve() error {
 	return srv.Shutdown(shutdownCtx)
 }
 
-// statusTargets lists the active printers that have a live status source.
+// statusTargets lists the active printers that have a live status source,
+// with the Bambuddy settings as they are now.
 func statusTargets(st *store.Store) func(context.Context) ([]printerstatus.Target, error) {
 	return func(ctx context.Context) ([]printerstatus.Target, error) {
 		ps, err := st.ListPrinters(ctx)
+		if err != nil {
+			return nil, err
+		}
+		set, err := st.GetSettings(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -116,6 +119,7 @@ func statusTargets(st *store.Store) func(context.Context) ([]printerstatus.Targe
 			t := printerstatus.Target{PrinterID: p.ID, MoonrakerURL: p.MoonrakerURL}
 			if p.BambuddyPrinterID != nil {
 				t.BambuddyID = *p.BambuddyPrinterID
+				t.BambuddyURL, t.BambuddyAPIKey = set.BambuddyURL, set.BambuddyAPIKey
 			}
 			out = append(out, t)
 		}

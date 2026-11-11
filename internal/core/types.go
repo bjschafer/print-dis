@@ -99,6 +99,12 @@ type Printer struct {
 	BambuddyPrinterID *int   // the printer's id in Bambuddy
 }
 
+// Settings are the app-wide options an admin edits in the app.
+type Settings struct {
+	BambuddyURL    string // Bambuddy's origin, without /api/v1; "" turns Bambuddy off
+	BambuddyAPIKey string // sent as X-API-Key; "" when Bambuddy's auth is off
+}
+
 // HasStatusSource reports whether live status is configured for p.
 func (p *Printer) HasStatusSource() bool { return p.MoonrakerURL != "" || p.BambuddyPrinterID != nil }
 

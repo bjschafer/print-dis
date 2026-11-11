@@ -168,6 +168,7 @@ The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (lig
 | `POST /files/{id}/delete` | Remove a file. |
 | `GET /printers`, `POST /printers...` | Admin: printer list and editing, including bed dimensions and the live status source. |
 | `GET /printers/status` | Admin: the board's live status strip, polled by htmx (section 5a). |
+| `POST /printers/bambuddy` | Admin: save the Bambuddy connection (section 5a). |
 | `GET /people` | Admin: users and placeholders; create a placeholder; merge two rows. |
 | `GET /auth/login`, `/auth/callback`, `POST /auth/logout` | OIDC code flow with PKCE. |
 | `GET /healthz`, `GET /readyz` | Liveness, and readiness including a database ping. |
@@ -190,8 +191,8 @@ print-dis never writes to Spoolman.
 
 Read-only status from Moonraker (the Vorons) and Bambuddy (the H2D), so the board shows what each printer is doing now. print-dis never starts, stops or queues a print: requests carry unsliced models, and choosing how to print one stays in the slicer.
 
-- **Configuration:** each printer has at most one source, set on the printers page: a Moonraker address (`http://trident.lan:7125`) or a Bambuddy printer id. Bambuddy itself is `BAMBUDDY_URL`, with `BAMBUDDY_API_KEY` when its auth is on. The key needs only Bambuddy's "read status" permission; untick the others. Moonraker has no key here, so print-dis's pod addresses must be in Moonraker's `trusted_clients`.
-- **Polling:** a background monitor (`internal/printerstatus`) reads every active printer with a source every 15 seconds, concurrently, with a 5-second timeout each, and keeps the latest reading in memory. It re-reads the printer list each round, so edits apply without a restart. Moonraker: `GET /printer/objects/query?print_stats&virtual_sdcard&display_status`. Bambuddy: `GET /api/v1/printers/{id}/status`.
+- **Configuration, all in the app:** each printer has at most one source, set on the printers page: a Moonraker address (`http://trident.lan:7125`) or a Bambuddy printer id. The Bambuddy connection (its address, and an API key when its sign-in is on) is a panel on the same page, stored in a one-row `settings` table. The key needs only Bambuddy's "read status" permission; untick the others. It is never sent back to the browser: a blank key field keeps the saved one, and a checkbox removes it. It sits in Postgres, and so in its backups, which is acceptable for a read-only key. Moonraker has no key here, so print-dis's pod addresses must be in Moonraker's `trusted_clients`.
+- **Polling:** a background monitor (`internal/printerstatus`) reads every active printer with a source every 15 seconds, concurrently, with a 5-second timeout each, and keeps the latest reading in memory. It re-reads the printers and settings each round, so edits apply without a restart. Moonraker: `GET /printer/objects/query?print_stats&virtual_sdcard&display_status`. Bambuddy: `GET /api/v1/printers/{id}/status`.
 - **States:** idle, printing (including preparing), paused, finished, failed, cancelled, offline, and unknown. A reading has the job name, progress, time left and layers when the source gives them. Moonraker's time left is extrapolated from progress and elapsed time; Bambuddy's comes from the printer.
 - **Where it shows:** a strip of printer tiles above the board, which refreshes itself and the cards every 15 seconds via htmx. Each card in Printing that has an assigned printer shows that printer's state and progress (the printer's, which may be another request's job if two share it). The request page shows each printer's state beside its eligibility, to help pick a free one. The printers page shows it on each printer.
 - **Admins only.** A job name can belong to someone else's request, so requesters see none of it.
@@ -236,8 +237,6 @@ Friends often have a model file and nowhere to host it, so a request can carry a
 | `ADMIN_GROUP` | Authentik group whose members are admins. |
 | `SPOOLMAN_URL` | Optional. Integration is off when unset. |
 | `PREVIEW_ALLOW_HOSTS` | Optional, comma-separated internal hosts the preview fetch may reach. |
-| `BAMBUDDY_URL` | Optional Bambuddy origin, without `/api/v1`, e.g. `http://bambuddy.bambuddy.svc.cluster.local:8000`. Bambuddy status is off when unset. |
-| `BAMBUDDY_API_KEY` | Optional Bambuddy API key (read status only), sent as `X-API-Key`. |
 | `ACCENT_COLOR` | Optional hex colour for the UI accent, e.g. `#3b82f6`. Default `#00ae42`. Text on it is picked black or white for contrast. |
 | `FILES_BACKEND` | `s3`, `dir`, or empty to disable uploads. |
 | `FILES_DIR` | Directory for the `dir` backend. |

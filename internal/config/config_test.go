@@ -45,8 +45,6 @@ func TestFromEnv(t *testing.T) {
 		{"bad max", with("UPLOAD_MAX_BYTES", "-1"), "UPLOAD_MAX_BYTES"},
 		{"bad accent", with("ACCENT_COLOR", "green"), "ACCENT_COLOR"},
 		{"accent too long", with("ACCENT_COLOR", "#12345678"), "ACCENT_COLOR"},
-		{"bambuddy url", with("BAMBUDDY_URL", "http://bambuddy.bambuddy.svc:8000/"), ""},
-		{"bad bambuddy url", with("BAMBUDDY_URL", "bambuddy:8000"), "BAMBUDDY_URL"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

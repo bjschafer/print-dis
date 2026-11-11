@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bjschafer/print-dis/internal/config"
 	"github.com/bjschafer/print-dis/internal/core"
 	"github.com/bjschafer/print-dis/internal/printerstatus"
 )
@@ -56,9 +55,12 @@ func newStatusFixture(t *testing.T, withMonitor bool) *statusFixture {
 		if withMonitor {
 			d.PrinterStatus = fake
 		}
-	}, func(c *config.Config) { c.BambuddyURL = "http://bambuddy.test" })
+	})
 	f := &statusFixture{h: h, fake: fake}
 	ctx := context.Background()
+	if err := h.store.SaveSettings(ctx, core.Settings{BambuddyURL: "http://bambuddy.test"}); err != nil {
+		t.Fatal(err)
+	}
 	bb := 3
 	for _, p := range []*core.Printer{
 		{Name: "Trident", BedX: 350, BedY: 350, BedZ: 300, Active: true, MoonrakerURL: "http://trident.test:7125"},
@@ -234,4 +236,57 @@ func between(t *testing.T, s, from, to string) string {
 		t.Fatalf("missing %q after %q", to, from)
 	}
 	return s[i : i+j]
+}
+
+func TestBambuddySettings(t *testing.T) {
+	f := newStatusFixture(t, true)
+	h := f.h
+	ctx := context.Background()
+	settings := func() core.Settings {
+		t.Helper()
+		st, err := h.store.GetSettings(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return st
+	}
+
+	// The API address is trimmed to the origin; the key is saved.
+	code, loc, body := h.post("/printers/bambuddy", url.Values{"bambuddy_url": {"http://bambuddy.lan:8000/api/v1/"}, "bambuddy_api_key": {"bb_secret"}})
+	if code != http.StatusSeeOther || loc != "/printers" {
+		t.Fatalf("save: %d %s %s", code, loc, body)
+	}
+	if st := settings(); st.BambuddyURL != "http://bambuddy.lan:8000" || st.BambuddyAPIKey != "bb_secret" {
+		t.Fatalf("saved %+v", st)
+	}
+	_, body = h.get("/printers")
+	h.mustContain(body, `value="http://bambuddy.lan:8000"`, "Saved. Leave blank to keep it.", "Remove the saved key")
+	h.mustNotContain(body, "bb_secret", "ignored until")
+
+	// A blank key keeps the saved one; a bad address is refused and keeps both.
+	h.post("/printers/bambuddy", url.Values{"bambuddy_url": {"http://bambuddy.lan:8001"}})
+	if st := settings(); st.BambuddyURL != "http://bambuddy.lan:8001" || st.BambuddyAPIKey != "bb_secret" {
+		t.Fatalf("blank key: %+v", st)
+	}
+	code, _, body = h.post("/printers/bambuddy", url.Values{"bambuddy_url": {"bambuddy.lan:8000"}, "bambuddy_api_key": {"bb_other"}})
+	if code != http.StatusUnprocessableEntity || !strings.Contains(body, "Bambuddy address") || !strings.Contains(body, `value="bambuddy.lan:8000"`) {
+		t.Errorf("bad address: %d", code)
+	}
+	h.mustNotContain(body, "bb_secret", "bb_other")
+	if st := settings(); st.BambuddyURL != "http://bambuddy.lan:8001" || st.BambuddyAPIKey != "bb_secret" {
+		t.Errorf("failed save changed settings: %+v", st)
+	}
+
+	// Clearing the key, then the address.
+	h.post("/printers/bambuddy", url.Values{"bambuddy_url": {""}, "clear_api_key": {"on"}})
+	if st := settings(); st != (core.Settings{}) {
+		t.Errorf("cleared: %+v", st)
+	}
+	_, body = h.get("/printers")
+	h.mustContain(body, "ignored until")
+
+	// Requesters cannot change it.
+	if code, _, _ := h.as(f.friend).post("/printers/bambuddy", url.Values{"bambuddy_url": {"http://evil.test"}}); code != http.StatusForbidden {
+		t.Errorf("requester: %d", code)
+	}
 }

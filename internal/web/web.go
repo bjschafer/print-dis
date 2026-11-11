@@ -113,6 +113,7 @@ func (s *Server) routes() http.Handler {
 	signedIn.HandleFunc("POST /requests/{id}/comments", s.addComment)
 	signedIn.HandleFunc("GET /printers", s.printers)
 	signedIn.HandleFunc("GET /printers/status", s.printerStatusFragment)
+	signedIn.HandleFunc("POST /printers/bambuddy", s.saveBambuddy)
 	signedIn.HandleFunc("POST /printers", s.savePrinter)
 	signedIn.HandleFunc("POST /printers/{id}", s.savePrinter)
 	s.peopleRoutes(signedIn)

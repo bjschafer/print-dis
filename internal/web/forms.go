@@ -203,3 +203,24 @@ func applyPrinterForm(r *http.Request, p *core.Printer) formErrors {
 	}
 	return errs
 }
+
+// applyBambuddyForm reads the Bambuddy settings form into set.
+func applyBambuddyForm(r *http.Request, set *core.Settings) formErrors {
+	var errs formErrors
+	raw := strings.TrimRight(trimmed(r, "bambuddy_url"), "/")
+	// People paste the API address; the origin is what is wanted.
+	raw = strings.TrimRight(strings.TrimSuffix(raw, "/api/v1"), "/")
+	set.BambuddyURL = raw
+	if raw != "" {
+		if u, err := url.Parse(raw); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			errs.add("The Bambuddy address must be a full http:// or https:// address, like http://bambuddy.lan:8000.")
+		}
+	}
+	switch key := trimmed(r, "bambuddy_api_key"); {
+	case checkbox(r, "clear_api_key"):
+		set.BambuddyAPIKey = ""
+	case key != "":
+		set.BambuddyAPIKey = key
+	}
+	return errs
+}

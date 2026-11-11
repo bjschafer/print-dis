@@ -77,23 +77,23 @@ func (s Status) Percent() int {
 	return max(0, min(100, p))
 }
 
-// Target is one printer and where its status comes from. Exactly one of
-// MoonrakerURL and BambuddyID is set.
+// Target is one printer and where its status comes from: either
+// MoonrakerURL, or BambuddyID with the Bambuddy it belongs to.
 type Target struct {
 	PrinterID    int64
 	MoonrakerURL string
-	BambuddyID   int
+
+	BambuddyID     int
+	BambuddyURL    string // Bambuddy's origin; "" makes the target read as unknown
+	BambuddyAPIKey string // "" when Bambuddy's auth is off
 }
 
 // Options configure a Monitor.
 type Options struct {
 	// Targets lists what to poll; it is called at the start of every round so
-	// that printer edits take effect without a restart.
+	// that printer and settings edits take effect without a restart.
 	Targets func(ctx context.Context) ([]Target, error)
-	// BambuddyURL is Bambuddy's origin; "" means Bambuddy targets read as unknown.
-	BambuddyURL    string
-	BambuddyAPIKey string
-	Log            *slog.Logger
+	Log     *slog.Logger
 	// Client, Now and Interval are for tests.
 	Client   *http.Client
 	Now      func() time.Time
@@ -123,7 +123,6 @@ func New(o Options) *Monitor {
 	if o.Log == nil {
 		o.Log = slog.Default()
 	}
-	o.BambuddyURL = strings.TrimRight(o.BambuddyURL, "/")
 	return &Monitor{opts: o, statuses: map[int64]Status{}}
 }
 
@@ -188,8 +187,8 @@ func (m *Monitor) read(ctx context.Context, t Target) Status {
 	switch {
 	case t.MoonrakerURL != "":
 		s, err = m.moonraker(ctx, strings.TrimRight(t.MoonrakerURL, "/"))
-	case t.BambuddyID > 0 && m.opts.BambuddyURL != "":
-		s, err = m.bambuddy(ctx, t.BambuddyID)
+	case t.BambuddyID > 0 && t.BambuddyURL != "":
+		s, err = m.bambuddy(ctx, t)
 	default:
 		s = Status{State: Unknown}
 	}
@@ -309,13 +308,14 @@ type bambuddyReply struct {
 	TotalLayers   *int     `json:"total_layers"`
 }
 
-func (m *Monitor) bambuddy(ctx context.Context, id int) (Status, error) {
+func (m *Monitor) bambuddy(ctx context.Context, t Target) (Status, error) {
 	h := http.Header{}
-	if m.opts.BambuddyAPIKey != "" {
-		h.Set("X-API-Key", m.opts.BambuddyAPIKey)
+	if t.BambuddyAPIKey != "" {
+		h.Set("X-API-Key", t.BambuddyAPIKey)
 	}
 	var r bambuddyReply
-	if err := m.getJSON(ctx, fmt.Sprintf("%s/api/v1/printers/%d/status", m.opts.BambuddyURL, id), h, &r); err != nil {
+	base := strings.TrimRight(t.BambuddyURL, "/")
+	if err := m.getJSON(ctx, fmt.Sprintf("%s/api/v1/printers/%d/status", base, t.BambuddyID), h, &r); err != nil {
 		return Status{}, err
 	}
 	if !r.Connected {
