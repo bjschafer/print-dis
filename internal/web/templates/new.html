@@ -1,9 +1,11 @@
 {{define "content"}}
 <h1>New request</h1>
 {{template "errors" .Errors}}
-{{block "preview_note" .}}{{end}}
+{{with .PreviewNote}}<p class="flash" role="status">{{.}}</p>{{end}}
+{{with .Thumb}}<p class="preview"><img class="thumb" src="{{.}}" alt="Preview of the linked model"></p>{{end}}
 <form method="post" action="/requests" class="request-form">
   <input type="hidden" name="csrf" value="{{.CSRF}}">
+  {{if .FetchImage}}<input type="hidden" name="fetch_image" value="1">{{end}}
   {{template "request_fields" .}}
   <div class="actions"><button class="primary">File request</button> <a href="/">Cancel</a></div>
 </form>

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bjschafer/print-dis/internal/config"
+	"github.com/bjschafer/print-dis/internal/preview"
 	"github.com/bjschafer/print-dis/internal/spoolman"
 	"github.com/bjschafer/print-dis/internal/store"
 	"github.com/bjschafer/print-dis/internal/web"
@@ -59,6 +60,7 @@ func serve() error {
 	if cfg.SpoolmanURL != "" {
 		deps.Filaments = spoolman.New(cfg.SpoolmanURL)
 	}
+	deps.Previewer = preview.New(preview.WithAllowHosts(cfg.PreviewAllowHosts...))
 	h, err := web.New(ctx, deps)
 	if err != nil {
 		return err

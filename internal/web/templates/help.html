@@ -1,0 +1,17 @@
+{{define "content"}}
+<h1>How to file a request</h1>
+<ol>
+  <li>Find the model you want printed (Printables, MakerWorld, Thingiverse, anywhere with a link).</li>
+  <li>Choose <a href="/requests/new">New request</a> and paste the link. The title and a picture are filled in when the site allows it; if not, type a title yourself.</li>
+  <li>Say how many you need, what it should be made of, and whether there is a deadline, then file it.</li>
+  <li>Check back on the request page: questions and progress show up there.</li>
+</ol>
+
+<h2>Bookmarklet</h2>
+<p>Drag this button to your bookmarks bar. On any model page, click it to open a new request with the link already filled in. You stay signed in, so there is nothing else to set up.</p>
+<p><a class="button primary" href="{{.Bookmarklet}}">File a print request</a></p>
+<p><small>Drag it rather than clicking it here. It opens <code>{{.BaseURL}}/requests/new?url=…</code> in a new tab.</small></p>
+
+<h2>On a phone</h2>
+<p>Bookmarklets are awkward on phones. Instead, copy the link from the model page (share, then copy link), open <a href="/requests/new">New request</a> and paste it into the link field.</p>
+{{end}}
