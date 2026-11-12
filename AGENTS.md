@@ -14,9 +14,11 @@ A print-request queue for one owner and their friends. `docs/design.md` is the s
 
 Work in this repo is done when `make check` passes, it is committed to `main`, and it is pushed. Pushing is part of finishing, not a separate request: do it without asking. A push to `main` builds and publishes the image through CI, so watch the run (`gh run watch`) and report if it fails.
 
+Once CI completes, you should generally ensure the new image is running. In ~/development/k8s/generators, run `mise run image-update print-dis`.
+
 ## Layout
 
-```
+```text
 cmd/print-dis/        main: serve, import-sheet
 internal/config/      environment variables -> Config
 internal/core/        types, eligibility, permission rules (pure, no IO)
