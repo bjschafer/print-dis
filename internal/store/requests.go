@@ -155,21 +155,30 @@ func (s *Store) GetRequestImage(ctx context.Context, id int64) ([]byte, string, 
 	return img, t, nil
 }
 
-// CreateRequest inserts r at the end of its column and fills in ID and timestamps.
-func (s *Store) CreateRequest(ctx context.Context, r *core.Request) error {
-	return s.Pool.QueryRow(ctx, `
-		insert into requests (requester_id, created_by_id, title, quantity, printed_count, status, needed_by, timing, notes,
-			source_url, source_title, source_image, source_image_type, material, colors,
-			needs_multi_material, needs_enclosure, size_x_mm, size_y_mm, size_z_mm,
-			printer_id, position)
-		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
-			coalesce((select max(position) from requests where status = $6), 0) + 1)
-		returning id, position, created_at, updated_at`,
-		r.RequesterID, r.CreatedByID, r.Title, r.Quantity, r.Printed, r.Status, r.NeededBy, r.Timing, r.Notes,
-		r.SourceURL, r.SourceTitle, r.SourceImage, r.SourceImageType, r.Material, colorsParam(r.Colors),
-		r.NeedsMultiMaterial, r.NeedsEnclosure, r.SizeX, r.SizeY, r.SizeZ,
-		r.PrinterID,
-	).Scan(&r.ID, &r.Position, &r.CreatedAt, &r.UpdatedAt)
+// CreateRequest inserts each request at the end of its column, in one
+// transaction, and fills in their IDs and timestamps.
+func (s *Store) CreateRequest(ctx context.Context, rs ...*core.Request) error {
+	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+		for _, r := range rs {
+			err := tx.QueryRow(ctx, `
+				insert into requests (requester_id, created_by_id, title, quantity, printed_count, status, needed_by, timing, notes,
+					source_url, source_title, source_image, source_image_type, material, colors,
+					needs_multi_material, needs_enclosure, size_x_mm, size_y_mm, size_z_mm,
+					printer_id, position)
+				values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
+					coalesce((select max(position) from requests where status = $6), 0) + 1)
+				returning id, position, created_at, updated_at`,
+				r.RequesterID, r.CreatedByID, r.Title, r.Quantity, r.Printed, r.Status, r.NeededBy, r.Timing, r.Notes,
+				r.SourceURL, r.SourceTitle, r.SourceImage, r.SourceImageType, r.Material, colorsParam(r.Colors),
+				r.NeedsMultiMaterial, r.NeedsEnclosure, r.SizeX, r.SizeY, r.SizeZ,
+				r.PrinterID,
+			).Scan(&r.ID, &r.Position, &r.CreatedAt, &r.UpdatedAt)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // UpdateRequest writes every editable column (not status or position) and

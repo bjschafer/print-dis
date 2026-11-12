@@ -51,7 +51,8 @@
     });
   }
   // Pre-tick "needs enclosure" for materials that want one, and "several
-  // colors in one print" once two colors are picked; the user can untick.
+  // colors in one print" once two colors are picked, unless each color is
+  // filed on its own; the user can untick.
   function pretick(form) {
     const encl = form.querySelector("[data-enclosure]");
     if (encl && !encl.dataset.touched) {
@@ -62,12 +63,14 @@
     }
     const multi = form.querySelector("[data-multi]");
     if (multi && !multi.dataset.touched) {
+      const split = form.querySelector("[data-split]");
       let n = 0;
       form.querySelectorAll("[data-slot]").forEach((s) => {
         const c = s.querySelector("input[type=radio]:checked");
         if (c && c.value) n++;
       });
-      if (n > 1) multi.checked = true;
+      if (split && split.checked) multi.checked = false;
+      else if (n > 1) multi.checked = true;
     }
   }
   function layoutSlots(form) {

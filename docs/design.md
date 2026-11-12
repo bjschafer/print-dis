@@ -158,8 +158,8 @@ The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (lig
 |---|---|
 | `GET /` | Board. Columns: Requested, Needs info, Printing, Ready. Admin sees all requests and can drag between columns; requesters see their own, read-only. Cards show title, requester, quantity and progress, material and color swatches, needed-by date, and assigned printer. Firm dates that are overdue or within three days are highlighted. Filters: requester, printer, material. Any column can be collapsed to a thin lane (it still takes drops); which ones is remembered per browser in the `board_collapsed` cookie, so the server renders it collapsed. |
 | `GET /requests` | Table of everything, including delivered and cancelled. Sortable; the same filters. |
-| `GET /requests/new` | New request form. Accepts `?url=` to prefill from a link (section 6). Admins get a "for" field to pick or create a person. |
-| `GET /requests/{id}` | Detail: all fields, eligible printers, comment thread, history. Edit in place, subject to section 2. |
+| `GET /requests/new` | New request form. Accepts `?url=` to prefill from a link (section 6), or `?from={id}` to clone a request (below). Admins get a "for" field to pick or create a person. |
+| `GET /requests/{id}` | Detail: all fields, eligible printers, comment thread, history. Edit in place, subject to section 2. A Clone button opens the new-request form copied from it. |
 | `POST /requests/{id}/status` | Status change (admin; requesters may only cancel). Records an event. |
 | `POST /requests/{id}/move` | Reorder within or across columns from a drag. |
 | `POST /requests/{id}/comments` | Add a comment. |
@@ -176,6 +176,11 @@ The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (lig
 | `GET /healthz`, `GET /readyz` | Liveness, and readiness including a database ping. |
 
 Every state-changing route requires a CSRF token.
+
+**Cloning and batches.** Friends often want the same thing in several colors, each with its own count, and the owner tracks each color separately. Two shortcuts file those as separate requests:
+
+- **Clone** (`?from={id}`, open to anyone who can see that request): the form is prefilled with its title, link, material, colors, size, needs, needed-by, timing and notes; an admin's clone keeps the requester. Progress, status and printer start afresh. Its files are listed with checkboxes, all ticked, and the ticked ones are copied (a new object each, keeping their measured size). The thumbnail is copied while the link is unchanged. The new request records "cloned this from #N".
+- **One request per color**: on the new-request form only, with two or more colors, a "File each color as its own request" checkbox shows a count per color. Filing creates one request per color, in one transaction, each with that color alone and its count (a blank count uses "How many?"); multi-material is off, and when no material was chosen each takes its own filament's. Uploads go to the first and are copied to the rest. The form then returns to the board.
 
 ## 5. Spoolman integration
 

@@ -245,16 +245,29 @@ func (s *Server) receiveFiles(ctx context.Context, mr *multipart.Reader, first *
 	if done > 0 {
 		parts = append(parts, fmt.Sprintf("Uploaded %d %s.", done, plural(done, "file", "files")))
 	}
-	if d := core.Fits(measured...); d != nil && !req.HasSize() && core.CanEdit(u, req) {
-		summary := fmt.Sprintf("set size %s from %s", dimsText(*d), strings.Join(measuredNames, ", "))
-		set, err := s.Store.SetRequestSize(context.WithoutCancel(ctx), req.ID, *d, true, u.ID, summary)
-		if err != nil {
-			s.Log.Error("setting size from upload", "request", req.ID, "err", err)
-		} else if set {
-			parts = append(parts, fmt.Sprintf("Size set to %s from the %s.", dimsText(*d), plural(len(measured), "model", "models")))
-		}
+	if msg := s.sizeFromModels(ctx, req, u, measured, measuredNames); msg != "" {
+		parts = append(parts, msg)
 	}
 	return strings.Join(append(parts, problems...), " "), nil
+}
+
+// sizeFromModels sets req's size to the box all the measured models fit in
+// when it has none, and returns a message when it did.
+func (s *Server) sizeFromModels(ctx context.Context, req *core.Request, u *core.User, measured []core.Dims, names []string) string {
+	d := core.Fits(measured...)
+	if d == nil || req.HasSize() || !core.CanEdit(u, req) {
+		return ""
+	}
+	summary := fmt.Sprintf("set size %s from %s", dimsText(*d), strings.Join(names, ", "))
+	set, err := s.Store.SetRequestSize(context.WithoutCancel(ctx), req.ID, *d, true, u.ID, summary)
+	if err != nil {
+		s.Log.Error("setting size from models", "request", req.ID, "err", err)
+		return ""
+	}
+	if !set {
+		return ""
+	}
+	return fmt.Sprintf("Size set to %s from the %s.", dimsText(*d), plural(len(measured), "model", "models"))
 }
 
 func dimsText(d core.Dims) string { return fmt.Sprintf("%d × %d × %d mm", d.X, d.Y, d.Z) }
@@ -275,11 +288,7 @@ func (s *Server) storeFile(ctx context.Context, src io.Reader, requestID, userID
 		return nil, "", err
 	}
 	lh := &limitedHasher{r: src, h: sha256.New(), max: limit}
-	cleanup := func() {
-		if err := s.Files.Delete(context.WithoutCancel(ctx), key); err != nil {
-			s.Log.Warn("deleting partial upload", "key", key, "err", err)
-		}
-	}
+	cleanup := func() { s.discardObject(ctx, key) }
 	if err := s.Files.Put(ctx, key, lh, -1, ctype); err != nil {
 		cleanup()
 		if lh.exceeded {
@@ -301,6 +310,65 @@ func (s *Server) storeFile(ctx context.Context, src io.Reader, requestID, userID
 		return nil, "", err
 	}
 	return f, "", nil
+}
+
+// discardObject deletes an object a failed upload or copy left behind.
+func (s *Server) discardObject(ctx context.Context, key string) {
+	if err := s.Files.Delete(context.WithoutCancel(ctx), key); err != nil {
+		s.Log.Warn("deleting partial upload", "key", key, "err", err)
+	}
+}
+
+// copyFiles copies stored files onto req as added by u, keeping their
+// measured sizes, and sets req's size from them when it has none. It returns
+// how many were copied, the message about the size, and a sentence for each
+// failure. The 20-file limit holds without checking: req is new, and fs all
+// come from one request.
+func (s *Server) copyFiles(ctx context.Context, fs []core.File, req *core.Request, u *core.User) (int, string, []string) {
+	var done int
+	var problems, names []string
+	var measured []core.Dims
+	for i := range fs {
+		f := &fs[i]
+		if err := s.copyFile(ctx, f, req.ID, u.ID); err != nil {
+			s.Log.Error("copying file", "file", f.ID, "request", req.ID, "err", err)
+			problems = append(problems, fmt.Sprintf("%s could not be copied to #%d.", f.Filename, req.ID))
+			continue
+		}
+		done++
+		if f.Dims != nil {
+			measured = append(measured, *f.Dims)
+			names = append(names, f.Filename)
+		}
+	}
+	return done, s.sizeFromModels(ctx, req, u, measured, names), problems
+}
+
+// copyFile streams one stored object to a new key on requestID and records
+// it. Nothing is left behind on failure.
+func (s *Server) copyFile(ctx context.Context, f *core.File, requestID, userID int64) error {
+	key, err := randomKey(requestID)
+	if err != nil {
+		return err
+	}
+	rc, size, err := s.Files.Get(ctx, f.ObjectKey)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rc.Close() }()
+	if err := s.Files.Put(ctx, key, rc, size, f.ContentType); err != nil {
+		s.discardObject(ctx, key)
+		return err
+	}
+	c := &core.File{
+		RequestID: requestID, UploadedByID: userID, ObjectKey: key, Filename: f.Filename,
+		ContentType: f.ContentType, SizeBytes: f.SizeBytes, SHA256: f.SHA256, Dims: f.Dims,
+	}
+	if err := s.Store.InsertFile(context.WithoutCancel(ctx), c); err != nil {
+		s.discardObject(ctx, key)
+		return err
+	}
+	return nil
 }
 
 // measureFile reads a stored model back and returns its size, or nil when it

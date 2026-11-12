@@ -818,6 +818,14 @@ label.tile:hover { border-color: var(--border-strong); }
 .slot-note { margin-bottom: .8rem; }
 .add-color { margin: 0 0 1rem; }
 .add-color .icon { width: .9rem; height: .9rem; }
+.split-colors { margin: 0 0 1rem; }
+.split-colors small { display: block; margin-top: .25rem; }
+.slot-qty { max-width: 14rem; margin-bottom: .8rem; }
+/* Splitting needs two colors, and per-color counts matter only when splitting. */
+.color-slots:not(:has([data-slot] + [data-slot])) ~ .split-colors { display: none; }
+.request-form:not(:has([data-split]:checked)) .slot-qty { display: none; }
+.clone-files { margin: .4rem 0 0; }
+.clone-files label.check { margin-bottom: .35rem; }
 
 .color-item { display: inline-flex; align-items: center; gap: .3rem; margin-right: .5rem; }
 .color-item .fil-note { color: var(--muted); }

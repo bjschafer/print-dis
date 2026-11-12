@@ -7,6 +7,7 @@
     <p class="muted"><span class="who-sm"><span class="avatar sm" style="{{avatarHue $r.RequesterName}}">{{initial $r.RequesterName}}</span>For {{$r.RequesterName}}</span> · filed {{when $r.CreatedAt}}</p>
   </div>
   <div class="status-actions">
+    <a class="button" href="/requests/new?from={{$r.ID}}" title="File a new request copied from this one">{{template "icon" "copy"}}Clone</a>
     {{range statuses}}{{if canSetStatus $.User $r .}}
     <form method="post" action="/requests/{{$r.ID}}/status" class="inline">
       <input type="hidden" name="csrf" value="{{$.CSRF}}">

@@ -101,6 +101,12 @@
 <div class="add-color">
   <button type="submit" name="add_color" value="1" formnovalidate class="small" data-add-color {{if ge (len .Slots) maxColors}}hidden{{end}}>{{template "icon" "plus"}}Add another color</button>
 </div>
+{{if not .Request.ID}}
+<div class="split-colors">
+  <label class="check"><input type="checkbox" name="split_colors" data-split {{if .Split}}checked{{end}}> File each color as its own request</label>
+  <small class="muted">For the same thing in several colors: one request per color, each with its own count. A blank count uses "How many?". The link, notes and files go on every one.</small>
+</div>
+{{end}}
 <template data-slot-template>{{template "color_slot" (dict "S" .BlankSlot "V" .)}}</template>
 {{end}}
 
@@ -137,5 +143,10 @@
   <label class="slot-note">Anything else about this color?
     <input name="color_note_{{$s.Key}}" value="{{$s.Choice.Note}}" maxlength="200" placeholder="optional, e.g. matte, silk, glow in the dark">
   </label>
+  {{if not $v.Request.ID}}
+  <label class="slot-qty">How many in this color?
+    <input name="color_qty_{{$s.Key}}" type="number" min="1" max="10000" inputmode="numeric" value="{{$s.Qty}}">
+  </label>
+  {{end}}
 </fieldset>
 {{end}}

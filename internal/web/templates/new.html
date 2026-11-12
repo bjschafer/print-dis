@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="page-title"><h1>New request</h1><p class="muted">Paste a link and say what you need.</p></div>
+<div class="page-title"><h1>New request</h1><p class="muted">{{with .Clone}}A copy of <a href="/requests/{{.ID}}">#{{.ID}} {{.Title}}</a>. Change what's different and file it.{{else}}Paste a link and say what you need.{{end}}</p></div>
 {{template "errors" .Errors}}
 {{with .PreviewNote}}<p class="flash" role="status">{{template "icon" "link"}}<span>{{.}}</span></p>{{end}}
 <div class="form-layout">
@@ -8,8 +8,15 @@
     <form method="post" {{if .FilesEnabled}}action="/requests?csrf={{.CSRF}}" enctype="multipart/form-data" data-upload{{else}}action="/requests"{{end}} class="panel-body request-form">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
       {{if .FetchImage}}<input type="hidden" name="fetch_image" value="1">{{end}}
+      {{with .Clone}}<input type="hidden" name="clone_from" value="{{.ID}}">{{end}}
       {{template "request_fields" .}}
       {{if .FilesEnabled}}
+      {{with .Clone}}{{with .Files}}
+      <fieldset class="clone-files">
+        <legend>Files to copy from #{{$.Clone.ID}}</legend>
+        {{range .}}<label class="check"><input type="checkbox" name="clone_file" value="{{.ID}}" {{if .Keep}}checked{{end}}> {{.Filename}} <span class="muted">{{bytes .SizeBytes}}</span></label>{{end}}
+      </fieldset>
+      {{end}}{{end}}
       {{/* Last in the form: the server reads every other field before the files. */}}
       <fieldset class="new-files">
         <legend>Files <span class="muted">(optional)</span></legend>

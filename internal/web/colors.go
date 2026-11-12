@@ -18,6 +18,7 @@ import (
 //	              "f:12"     Spoolman filament 12
 //	color_hex_K   "#rrggbb"  from <input type=color>; always posted
 //	color_note_K  free text
+//	color_qty_K   how many in this color, on the new-request form only
 //
 // plus colors_form=1 so a form without the picker leaves colors alone.
 // Slot keys need not be contiguous: script adds and removes slots.
@@ -38,6 +39,7 @@ type colorSlot struct {
 	Kept      bool   // a filament pick the list does not have; shown as its own tile
 	KeptGone  bool   // ...because Spoolman no longer has it (not because it is down)
 	ShowLabel bool   // more than one slot, so number the legends
+	Qty       string // the per-color count on the new-request form, as typed
 }
 
 // shelfMatch is what the owner has on the shelf near one requested color.
@@ -99,9 +101,11 @@ func formMaterials(opts []spoolman.FilamentOption) []string {
 // its label or color is never read. A pick the source no longer has is
 // kept only when the request already had it. When the request names no
 // material, the picked filaments' material is used.
-func (s *Server) applyColors(r *http.Request, req *core.Request, errs *formErrors) {
+//
+// It returns each color's count as posted, in the order of req.Colors.
+func (s *Server) applyColors(r *http.Request, req *core.Request, errs *formErrors) (qty []string) {
 	if r.PostFormValue("colors_form") == "" {
-		return
+		return nil
 	}
 	var opts []spoolman.FilamentOption
 	loaded := false
@@ -162,6 +166,7 @@ func (s *Server) applyColors(r *http.Request, req *core.Request, errs *formError
 			continue
 		}
 		out = append(out, c)
+		qty = append(qty, trimmed(r, "color_qty_"+k))
 	}
 	if len(out) > core.MaxColors {
 		errs.add("A request can list at most %d colors.", core.MaxColors)
@@ -170,6 +175,7 @@ func (s *Server) applyColors(r *http.Request, req *core.Request, errs *formError
 	if req.Material == "" {
 		req.Material = core.ColorsMaterial(out)
 	}
+	return qty
 }
 
 // snapshotFilament fills c from filament id: from the list when it is

@@ -1,7 +1,9 @@
 package web
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"mime/multipart"
@@ -168,6 +170,23 @@ type requestFormView struct {
 	// File uploads, offered on the new-request form and the detail page.
 	FilesEnabled bool
 	UploadMax    int64
+	// Cloning and splitting, on the new-request form.
+	Clone    *cloneView // the request the form was copied from
+	Split    bool       // file each color as its own request
+	colorQty []string   // per-color counts as posted, in the order of Request.Colors
+}
+
+// cloneView is the request a new-request form was copied from.
+type cloneView struct {
+	ID    int64
+	Title string
+	Files []cloneFile
+}
+
+// cloneFile is one of its files, with whether it is ticked to be copied.
+type cloneFile struct {
+	core.File
+	Keep bool
 }
 
 func (s *Server) formView(r *http.Request, title string, req *core.Request, errs formErrors) (*requestFormView, error) {
@@ -215,6 +234,9 @@ func (s *Server) fillFilaments(r *http.Request, v *requestFormView) {
 // layoutSlots (re)builds the form's color slots from the request.
 func (v *requestFormView) layoutSlots() {
 	v.Slots = buildSlots(v.Request.Colors, v.extraSlots, v.opts, v.FilamentsDown)
+	for i := range min(len(v.Slots), len(v.colorQty)) {
+		v.Slots[i].Qty = v.colorQty[i]
+	}
 	v.BlankSlot = colorSlot{Key: "__N__", ExactHex: defaultExactHex, ShowLabel: true}
 }
 
@@ -225,8 +247,14 @@ func addColorRequested(r *http.Request) bool { return r.PostFormValue("add_color
 
 func (s *Server) newRequest(w http.ResponseWriter, r *http.Request) {
 	u := auth.UserFrom(r.Context())
+	src, ok := s.loadCloneSource(w, r, r.URL.Query().Get("from"))
+	if !ok {
+		return
+	}
 	req := &core.Request{RequesterID: u.ID, Quantity: 1, Timing: core.TimingWhenever}
-	if raw := strings.TrimSpace(r.URL.Query().Get("url")); raw != "" {
+	if src != nil {
+		req = cloneRequest(src, u)
+	} else if raw := strings.TrimSpace(r.URL.Query().Get("url")); raw != "" {
 		if pu, err := url.Parse(raw); err == nil && (pu.Scheme == "http" || pu.Scheme == "https") {
 			req.SourceURL = &raw
 		}
@@ -239,10 +267,118 @@ func (s *Server) newRequest(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	if req.SourceURL != nil {
+	if src != nil {
+		if v.Clone, err = s.cloneView(r.Context(), src, func(int64) bool { return true }); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		if src.SourceImageType != nil {
+			v.Thumb = template.URL(requestPath(src.ID) + "/image") // #nosec G203 -- a local path built from an id
+		}
+	} else if req.SourceURL != nil {
 		s.prefillFromLink(r, req, v)
 	}
 	s.render(w, r, http.StatusOK, "new.html", v)
+}
+
+// loadCloneSource returns the request a new-request form is copied from,
+// named by raw, or nil when raw is empty. When the user may not see that
+// request it writes the response and reports false.
+func (s *Server) loadCloneSource(w http.ResponseWriter, r *http.Request, raw string) (*core.Request, bool) {
+	if raw == "" {
+		return nil, true
+	}
+	id, ok := optID(raw)
+	if !ok {
+		notFound(w)
+		return nil, false
+	}
+	src, err := s.Store.GetRequest(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		notFound(w)
+		return nil, false
+	}
+	if err != nil {
+		s.serverError(w, r, err)
+		return nil, false
+	}
+	if !core.CanView(auth.UserFrom(r.Context()), src) {
+		forbidden(w)
+		return nil, false
+	}
+	return src, true
+}
+
+// cloneRequest is a new request asking for what src asks for. Progress,
+// status and the printer start afresh; only an admin keeps its requester.
+func cloneRequest(src *core.Request, u *core.User) *core.Request {
+	c := &core.Request{
+		RequesterID: u.ID,
+		Title:       src.Title,
+		Quantity:    src.Quantity,
+		NeededBy:    src.NeededBy,
+		Timing:      src.Timing,
+		Notes:       src.Notes,
+		SourceURL:   src.SourceURL,
+		SourceTitle: src.SourceTitle,
+		Material:    src.Material,
+		Colors:      slices.Clone(src.Colors),
+
+		NeedsMultiMaterial: src.NeedsMultiMaterial,
+		NeedsEnclosure:     src.NeedsEnclosure,
+		SizeX:              src.SizeX,
+		SizeY:              src.SizeY,
+		SizeZ:              src.SizeZ,
+	}
+	if core.CanFileFor(u) {
+		c.RequesterID = src.RequesterID
+	}
+	return c
+}
+
+// cloneView lists src's files for the form, ticked when keep says so.
+func (s *Server) cloneView(ctx context.Context, src *core.Request, keep func(id int64) bool) (*cloneView, error) {
+	v := &cloneView{ID: src.ID, Title: src.Title}
+	if s.Files == nil {
+		return v, nil
+	}
+	fs, err := s.Store.ListFiles(ctx, src.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range fs {
+		v.Files = append(v.Files, cloneFile{File: f, Keep: keep(f.ID)})
+	}
+	return v, nil
+}
+
+// splitByColor makes one request per color of req, for the new-request
+// form's "file each color as its own request". A color with no count of its
+// own takes req's quantity. When the form named no material, each takes its
+// own filament's.
+func splitByColor(req *core.Request, material string, qty []string, errs *formErrors) []*core.Request {
+	out := make([]*core.Request, len(req.Colors))
+	bad := false
+	for i, c := range req.Colors {
+		x := *req
+		x.Colors = []core.ColorChoice{c}
+		x.NeedsMultiMaterial = false // one color each
+		if material == "" {
+			x.Material = core.ColorsMaterial(x.Colors)
+		}
+		if i < len(qty) && qty[i] != "" {
+			if n, err := strconv.Atoi(qty[i]); err != nil || n <= 0 || n > 10000 {
+				bad = true
+			} else {
+				x.Quantity = n
+			}
+		}
+		out[i] = &x
+	}
+	if bad {
+		errs.add("Each color's count must be a whole number from 1 to 10000.")
+	}
+	return out
 }
 
 func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
@@ -266,56 +402,147 @@ func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad form.", http.StatusBadRequest)
 		return
 	}
+	src, ok := s.loadCloneSource(w, r, r.PostFormValue("clone_from"))
+	if !ok {
+		return
+	}
+	keep := map[int64]bool{}
+	for _, raw := range r.PostForm["clone_file"] {
+		if id, ok := optID(raw); ok {
+			keep[id] = true
+		}
+	}
 	req := &core.Request{RequesterID: u.ID, CreatedByID: u.ID, Status: core.StatusRequested}
+	if src != nil {
+		// So a filament Spoolman no longer lists can be kept, as on an edit.
+		req.Colors = src.Colors
+	}
 	admin := core.CanFileFor(u)
 	errs := applyRequestForm(r, req, admin)
-	s.applyColors(r, req, &errs)
-	if addColorRequested(r) {
-		v, err := s.formView(r, "New request", req, nil)
+	material := req.Material // before applyColors fills it in from the filaments
+	colorQty := s.applyColors(r, req, &errs)
+	reqs := []*core.Request{req}
+	if checkbox(r, "split_colors") && len(req.Colors) > 1 {
+		reqs = splitByColor(req, material, colorQty, &errs)
+	}
+	render := func(status int, errs formErrors, extraSlots int) {
+		v, err := s.formView(r, "New request", req, errs)
+		if err == nil && src != nil {
+			v.Clone, err = s.cloneView(r.Context(), src, func(id int64) bool { return keep[id] })
+		}
 		if err != nil {
 			s.serverError(w, r, err)
 			return
 		}
-		v.extraSlots = 1
+		v.extraSlots, v.colorQty, v.Split = extraSlots, colorQty, checkbox(r, "split_colors")
 		v.layoutSlots()
 		v.FetchImage = r.PostFormValue("fetch_image") == "1"
-		s.render(w, r, http.StatusOK, "new.html", v)
+		if src != nil && src.SourceImageType != nil {
+			v.Thumb = template.URL(requestPath(src.ID) + "/image") // #nosec G203 -- a local path built from an id
+		}
+		s.render(w, r, status, "new.html", v)
+	}
+	if addColorRequested(r) {
+		render(http.StatusOK, nil, 1)
 		return
 	}
 	if admin && len(errs) == 0 {
 		if err := s.resolveRequester(r, req); err != nil {
 			errs.add("%s", err.Error())
 		}
+		for _, x := range reqs {
+			x.RequesterID = req.RequesterID
+		}
 	}
 	if len(errs) > 0 && firstFile != nil {
 		errs.add("%s", "Your files were not kept; choose them again.")
 	}
 	if len(errs) > 0 {
-		v, err := s.formView(r, "New request", req, errs)
-		if err != nil {
-			s.serverError(w, r, err)
-			return
-		}
-		v.FetchImage = r.PostFormValue("fetch_image") == "1"
-		s.render(w, r, http.StatusUnprocessableEntity, "new.html", v)
+		render(http.StatusUnprocessableEntity, errs, 0)
 		return
 	}
 	if req.SourceURL != nil && r.PostFormValue("fetch_image") == "1" {
 		s.attachThumbnail(r, req)
+	} else if src != nil && src.SourceImageType != nil && req.SourceURL != nil && src.SourceURL != nil && *req.SourceURL == *src.SourceURL {
+		if img, typ, err := s.Store.GetRequestImage(r.Context(), src.ID); err == nil {
+			req.SourceImage, req.SourceImageType = img, &typ
+		}
 	}
-	if err := s.Store.CreateRequest(r.Context(), req); err != nil {
+	for _, x := range reqs {
+		x.SourceImage, x.SourceImageType = req.SourceImage, req.SourceImageType
+	}
+	if err := s.Store.CreateRequest(r.Context(), reqs...); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	if firstFile != nil && core.CanUploadFile(u, req) {
-		msg, err := s.receiveFiles(r.Context(), mr, firstFile, req, u)
-		if err != nil {
-			s.Log.Error("uploading files with a new request", "request", req.ID, "err", err)
-			msg = "The request was filed, but its files could not be saved. Add them again below."
-		}
+	if msg := s.fillNewRequests(r, mr, firstFile, src, keep, reqs, u); msg != "" {
 		s.flash(r, msg)
 	}
+	if len(reqs) > 1 {
+		redirect(w, r, "/")
+		return
+	}
 	redirect(w, r, requestPath(req.ID))
+}
+
+// fillNewRequests finishes requests just filed from one form: it notes a
+// clone's source, copies the ticked files from it, stores the uploads, and,
+// when the form was split by color, copies the first request's files to the
+// others. It returns what to tell the user, which may be empty.
+func (s *Server) fillNewRequests(r *http.Request, mr *multipart.Reader, firstFile *multipart.Part,
+	src *core.Request, keep map[int64]bool, reqs []*core.Request, u *core.User) string {
+	ctx := r.Context()
+	first := reqs[0]
+	var msgs []string
+	if len(reqs) > 1 {
+		msgs = append(msgs, fmt.Sprintf("Filed %d requests, one per color.", len(reqs)))
+	}
+	if src != nil {
+		for _, x := range reqs {
+			if err := s.Store.AddEvent(ctx, x.ID, u.ID, core.EventEdit, fmt.Sprintf("cloned this from #%d", src.ID)); err != nil {
+				s.Log.Error("recording clone", "request", x.ID, "err", err)
+			}
+		}
+	}
+	if s.Files == nil || !core.CanUploadFile(u, first) {
+		return strings.Join(msgs, " ")
+	}
+	if src != nil && len(keep) > 0 {
+		fs, err := s.Store.ListFiles(ctx, src.ID)
+		if err != nil {
+			s.Log.Error("listing files to copy", "request", src.ID, "err", err)
+			msgs = append(msgs, "Files from the original could not be copied. Add them again below.")
+		}
+		fs = slices.DeleteFunc(fs, func(f core.File) bool { return !keep[f.ID] })
+		n, sized, problems := s.copyFiles(ctx, fs, first, u)
+		if n > 0 {
+			msgs = append(msgs, fmt.Sprintf("Copied %d %s from #%d.", n, plural(n, "file", "files"), src.ID))
+		}
+		msgs = append(append(msgs, sized), problems...)
+	}
+	if firstFile != nil {
+		msg, err := s.receiveFiles(ctx, mr, firstFile, first, u)
+		if err != nil {
+			s.Log.Error("uploading files with a new request", "request", first.ID, "err", err)
+			msg = "The request was filed, but its files could not be saved. Add them again below."
+		}
+		msgs = append(msgs, msg)
+	}
+	if len(reqs) > 1 {
+		fs, err := s.Store.ListFiles(ctx, first.ID)
+		if err != nil {
+			s.Log.Error("listing files to copy", "request", first.ID, "err", err)
+			msgs = append(msgs, fmt.Sprintf("Files are only on #%d; they could not be copied to the others.", first.ID))
+			fs = nil
+		}
+		if len(fs) > 0 {
+			for _, x := range reqs[1:] {
+				_, _, problems := s.copyFiles(ctx, fs, x, u)
+				msgs = append(msgs, problems...)
+			}
+		}
+	}
+	return strings.Join(slices.DeleteFunc(msgs, func(m string) bool { return m == "" }), " ")
 }
 
 // Bounds on the plain fields of a multipart request form.
