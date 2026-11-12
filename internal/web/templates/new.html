@@ -5,10 +5,20 @@
 <div class="form-layout">
   <section class="panel">
     <header class="panel-head">{{template "icon" "cube"}}<h2>Request</h2></header>
-    <form method="post" action="/requests" class="panel-body request-form">
+    <form method="post" {{if .FilesEnabled}}action="/requests?csrf={{.CSRF}}" enctype="multipart/form-data"{{else}}action="/requests"{{end}} class="panel-body request-form">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
       {{if .FetchImage}}<input type="hidden" name="fetch_image" value="1">{{end}}
       {{template "request_fields" .}}
+      {{if .FilesEnabled}}
+      {{/* Last in the form: the server reads every other field before the files. */}}
+      <fieldset class="new-files">
+        <legend>Files <span class="muted">(optional)</span></legend>
+        <label class="dropzone">{{template "icon" "upload"}}<span>Attach model files or pictures</span>
+          <input type="file" name="file" multiple accept="{{fileAccept}}">
+        </label>
+        <p class="muted hint">STL, 3MF, STEP, OBJ, ZIP and PNG, JPG or WebP images, up to {{bytes .UploadMax}} each. The size of an STL, 3MF or OBJ is measured for you.</p>
+      </fieldset>
+      {{end}}
       <div class="actions"><button class="primary">{{template "icon" "check"}}File request</button> <a class="button ghost" href="/">Cancel</a></div>
     </form>
   </section>

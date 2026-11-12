@@ -17,7 +17,7 @@
   {{end}}
   {{if and (eq $r.Status "printing") $r.PrinterID}}{{with index .Live (id $r.PrinterID)}}{{if .Printer.ID}}{{template "card_live" (dict "L" . "OOB" false)}}{{end}}{{end}}{{end}}
   <div class="card-foot">
-    <span class="who-sm" title="Requested by {{$r.RequesterName}}"><span class="avatar sm">{{initial $r.RequesterName}}</span>{{$r.RequesterName}}</span>
+    <span class="who-sm" title="Requested by {{$r.RequesterName}}"><span class="avatar sm" style="{{avatarHue $r.RequesterName}}">{{initial $r.RequesterName}}</span>{{$r.RequesterName}}</span>
     {{with $r.NeededBy}}<span class="due{{if eq $r.Timing "firm"}} firm{{end}}" title="{{$r.Timing.Label}} deadline">{{if eq $r.Timing "firm"}}{{template "icon" "flag"}}{{else}}{{template "icon" "calendar"}}{{end}}{{shortDate .}}</span>{{end}}
     {{with $r.PrinterName}}<span class="printer">{{template "icon" "printer"}}{{.}}</span>{{end}}
   </div>

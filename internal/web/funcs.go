@@ -2,11 +2,13 @@ package web
 
 import (
 	"fmt"
+	"hash/fnv"
 	"html/template"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/bjschafer/print-dis/internal/core"
 )
@@ -137,13 +139,8 @@ var funcs = template.FuncMap{
 		}
 		return min(100, max(0, r.Printed*100/r.Quantity))
 	},
-	// initial is the first letter of a name, upper-cased, for avatars.
-	"initial": func(name string) string {
-		for _, c := range name {
-			return strings.ToUpper(string(c))
-		}
-		return "?"
-	},
+	"initial":   initials,
+	"avatarHue": avatarHue,
 	// left formats a remaining print time: "1h 20m left", "12m left".
 	"left": func(d time.Duration) string {
 		m := int(d.Round(time.Minute) / time.Minute)
@@ -210,4 +207,36 @@ func bandsCSS(dir string, hexes []string) template.CSS {
 	}
 	b.WriteString(")")
 	return template.CSS(b.String()) // #nosec G203 -- validated hexes and fixed syntax
+}
+
+// initials are up to two letters for an avatar: the first letters of the
+// first and last words of a name ("Ada Lovelace" is "AL"), or of the part of
+// an email before the @.
+func initials(name string) string {
+	name, _, _ = strings.Cut(name, "@")
+	words := strings.FieldsFunc(name, func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	first := func(w string) string {
+		for _, c := range w {
+			return strings.ToUpper(string(c))
+		}
+		return ""
+	}
+	switch len(words) {
+	case 0:
+		return "?"
+	case 1:
+		return first(words[0])
+	}
+	return first(words[0]) + first(words[len(words)-1])
+}
+
+// avatarHue gives each person a stable hue for their avatar, so people are
+// told apart at a glance. It is one of 24 steps of 15 degrees, chosen by a
+// hash of the name, and goes in a CSS custom property.
+func avatarHue(name string) template.CSS {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(strings.ToLower(strings.TrimSpace(name))))
+	return template.CSS(fmt.Sprintf("--av-h: %d", (h.Sum32()%24)*15)) //nolint:gosec // G203: only a number is formatted in
 }

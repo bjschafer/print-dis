@@ -137,10 +137,12 @@ code { font-family: var(--mono); font-size: .85em; background: var(--surface-2);
 .avatar {
   display: inline-grid; place-items: center; flex: none;
   width: 2rem; height: 2rem; border-radius: 50%;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 55%, var(--s-printing)), var(--s-requested));
-  color: #fff; font-weight: 700; font-size: .85rem;
+  /* --av-h is a per-person hue set by the avatarHue template func. */
+  background: linear-gradient(135deg, oklch(.64 .15 var(--av-h, 250)), oklch(.5 .15 calc(var(--av-h, 250) + 35)));
+  color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: -.02em;
+  text-shadow: 0 1px 1px rgb(0 0 0 / .25);
 }
-.avatar.sm { width: 1.35rem; height: 1.35rem; font-size: .66rem; }
+.avatar.sm { width: 1.35rem; height: 1.35rem; font-size: .58rem; }
 .who-sm { display: inline-flex; align-items: center; gap: .4rem; }
 form.inline { display: inline; margin: 0; }
 
@@ -532,6 +534,11 @@ ul.checks li .muted { font-size: .83rem; }
 ul.checks li.ok .check-icon { color: var(--accent); background: var(--accent-soft); }
 ul.checks li.no .check-icon { color: var(--muted); background: var(--surface-3); }
 ul.checks li.no strong { color: var(--muted); }
+.assigned-label { margin: 0; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; }
+ul.checks.assigned li strong { font-size: 1.05rem; }
+.other-printers { margin-top: .6rem; border-top: 1px solid var(--border); padding-top: .5rem; }
+.other-printers > summary { cursor: pointer; font-size: .88rem; padding: .25rem 0; }
+.new-files { margin-top: .4rem; }
 
 /* conversation */
 ol.thread { list-style: none; padding: 0; margin: 0 0 1rem; display: flex; flex-direction: column; gap: .7rem; }

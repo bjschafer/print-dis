@@ -3,7 +3,7 @@
   {{range .Events}}
   {{if eq .Kind "comment"}}
   <li class="event comment">
-    <span class="avatar">{{initial .UserName}}</span>
+    <span class="avatar" style="{{avatarHue .UserName}}">{{initial .UserName}}</span>
     <div class="bubble">
       <div class="event-head"><strong>{{.UserName}}</strong> <time>{{when .CreatedAt}}</time></div>
       <p class="body">{{.Body}}</p>

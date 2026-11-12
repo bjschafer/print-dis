@@ -4,7 +4,7 @@
   <div class="page-title">
     <span class="badge {{$r.Status}}">{{$r.Status.Label}}</span>
     <h1>{{$r.Title}}</h1>
-    <p class="muted"><span class="who-sm"><span class="avatar sm">{{initial $r.RequesterName}}</span>For {{$r.RequesterName}}</span> · filed {{when $r.CreatedAt}}</p>
+    <p class="muted"><span class="who-sm"><span class="avatar sm" style="{{avatarHue $r.RequesterName}}">{{initial $r.RequesterName}}</span>For {{$r.RequesterName}}</span> · filed {{when $r.CreatedAt}}</p>
   </div>
   <div class="status-actions">
     {{range statuses}}{{if canSetStatus $.User $r .}}
@@ -65,8 +65,14 @@
         {{if isImage .}}<a href="/files/{{.ID}}"><img class="file-thumb" src="/files/{{.ID}}?inline=1" alt="" loading="lazy"></a>{{else}}<span class="file-icon">{{template "icon" "cube"}}</span>{{end}}
         <div class="file-info">
           <a href="/files/{{.ID}}" class="file-name">{{.Filename}}</a>
-          <span class="muted">{{bytes .SizeBytes}} · {{.UploaderName}} · {{when .CreatedAt}}</span>
+          <span class="muted">{{bytes .SizeBytes}}{{with .Dims}} · {{.X}} × {{.Y}} × {{.Z}} mm{{end}} · {{.UploaderName}} · {{when .CreatedAt}}</span>
         </div>
+        {{if and .Dims (canEdit $.User $.Request) (not (sameSize $.Request .Dims))}}
+        <form method="post" action="/files/{{.ID}}/size" class="inline">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button class="small ghost" title="Set the request's size to this model's">Use size</button>
+        </form>
+        {{end}}
         {{if canDeleteFile $.User $.Request .}}
         <form method="post" action="/files/{{.ID}}/delete" class="inline">
           <input type="hidden" name="csrf" value="{{$.CSRF}}">
@@ -98,19 +104,24 @@
   <section class="panel">
     <header class="panel-head">{{template "icon" "printer"}}<h2>Printers</h2></header>
     <div class="panel-body">
-    {{with .AssignedReason}}<p class="warning" role="alert">The assigned printer is not eligible: {{range $i, $x := .}}{{if $i}}; {{end}}{{$x}}{{end}}.</p>{{end}}
+    {{with .Assigned}}
+    <p class="assigned-label muted">Assigned to</p>
+    <ul class="checks assigned">{{template "printer_check" (dict "C" . "Live" $.LiveByID)}}</ul>
+    {{if not .Eligible}}<p class="warning" role="alert">{{.Printer.Name}} is not eligible: {{range $i, $x := .Reasons}}{{if $i}}; {{end}}{{$x}}{{end}}.</p>{{end}}
+    {{if $.Checks}}
+    <details class="other-printers">
+      <summary>Other printers <span class="muted">· {{$.OtherEligible}} of {{len $.Checks}} eligible</span></summary>
+      <ul class="checks">{{range $.Checks}}{{template "printer_check" (dict "C" . "Live" $.LiveByID)}}{{end}}</ul>
+    </details>
+    {{end}}
+    {{else}}
     <ul class="checks">
-      {{range .Checks}}
-      <li class="{{if .Eligible}}ok{{else}}no{{end}}">
-        <span class="check-icon">{{if .Eligible}}{{template "icon" "check"}}{{else}}{{template "icon" "x"}}{{end}}</span>
-        <div><strong>{{.Printer.Name}}</strong>
-        {{if .Eligible}}<span class="muted">eligible</span>{{else}}<span class="muted">{{range $i, $x := .Reasons}}{{if $i}}; {{end}}{{$x}}{{end}}</span>{{end}}
-        {{with index $.LiveByID .Printer.ID}}{{if .Printer.ID}}<span class="check-live">{{template "live_state" .}}{{if and .Known .Status.Active}} <span class="muted">{{.Status.Percent}}%{{with .Status.Remaining}} · {{left .}}{{end}}</span>{{end}}</span>{{end}}{{end}}</div>
-      </li>
+      {{range .Checks}}{{template "printer_check" (dict "C" . "Live" $.LiveByID)}}
       {{else}}
       <li class="muted">No printers set up yet.</li>
       {{end}}
     </ul>
+    {{end}}
     </div>
   </section>
 
@@ -147,4 +158,13 @@
   </section>
 </aside>
 </div>
+{{end}}
+
+{{define "printer_check"}}{{$c := .C}}
+<li class="{{if $c.Eligible}}ok{{else}}no{{end}}">
+  <span class="check-icon">{{if $c.Eligible}}{{template "icon" "check"}}{{else}}{{template "icon" "x"}}{{end}}</span>
+  <div><strong>{{$c.Printer.Name}}</strong>
+  {{if $c.Eligible}}<span class="muted">eligible</span>{{else}}<span class="muted">{{range $i, $x := $c.Reasons}}{{if $i}}; {{end}}{{$x}}{{end}}</span>{{end}}
+  {{with index .Live $c.Printer.ID}}{{if .Printer.ID}}<span class="check-live">{{template "live_state" .}}{{if and .Known .Status.Active}} <span class="muted">{{.Status.Percent}}%{{with .Status.Remaining}} · {{left .}}{{end}}</span>{{end}}</span>{{end}}{{end}}</div>
+</li>
 {{end}}

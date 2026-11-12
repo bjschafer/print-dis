@@ -10,6 +10,7 @@ import (
 	"hash"
 	"io"
 	"mime"
+	"mime/multipart"
 	"net/http"
 	"path"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	"github.com/bjschafer/print-dis/internal/auth"
 	"github.com/bjschafer/print-dis/internal/core"
 	"github.com/bjschafer/print-dis/internal/files"
+	"github.com/bjschafer/print-dis/internal/meshsize"
 	"github.com/bjschafer/print-dis/internal/store"
 )
 
@@ -54,18 +56,22 @@ func init() {
 	funcs["canDeleteFile"] = core.CanDeleteFile
 	funcs["fileAccept"] = func() string { return fileAccept }
 	funcs["maxFiles"] = func() int { return maxFilesPerRequest }
+	// sameSize reports whether the request's size is d, either way round in X and Y.
+	funcs["sameSize"] = func(r *core.Request, d *core.Dims) bool {
+		have := r.SizeDims()
+		return have != nil && d != nil && *core.Fits(*have) == *core.Fits(*d)
+	}
 }
 
 func (s *Server) fileRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /requests/{id}/files", s.uploadFiles)
 	mux.HandleFunc("GET /files/{id}", s.downloadFile)
 	mux.HandleFunc("POST /files/{id}/delete", s.deleteFile)
+	mux.HandleFunc("POST /files/{id}/size", s.useFileSize)
 }
 
 // loadFiles fills the file section of the detail page.
 func (s *Server) loadFiles(r *http.Request, v *detailView) error {
-	v.FilesEnabled = s.Files != nil
-	v.UploadMax = s.Config.UploadMaxBytes
 	if !v.FilesEnabled {
 		return nil
 	}
@@ -152,46 +158,69 @@ func (s *Server) uploadFiles(w http.ResponseWriter, r *http.Request) {
 		forbidden(w)
 		return
 	}
-	ctx := r.Context()
-	existing, err := s.Store.CountFiles(ctx, req.ID)
-	if err != nil {
-		s.serverError(w, r, err)
-		return
-	}
-	room := maxFilesPerRequest - existing
-	limit := s.Config.UploadMaxBytes
-	// The whole body is bounded by what could legitimately be accepted plus
-	// multipart overhead.
-	r.Body = http.MaxBytesReader(w, r.Body, int64(max(room, 1))*limit+(1<<20))
+	r.Body = http.MaxBytesReader(w, r.Body, s.uploadBodyLimit())
 	mr, err := r.MultipartReader()
 	if err != nil {
 		http.Error(w, "That was not a file upload.", http.StatusBadRequest)
 		return
 	}
+	msg, err := s.receiveFiles(r.Context(), mr, nil, req, u)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.flash(r, msg)
+	redirect(w, r, requestPath(req.ID)+"#files")
+}
+
+// uploadBodyLimit bounds a whole upload body: every file a request could
+// take at the size limit, plus room for form fields and multipart overhead.
+func (s *Server) uploadBodyLimit() int64 {
+	return maxFilesPerRequest*s.Config.UploadMaxBytes + (1 << 20)
+}
+
+// receiveFiles stores the "file" parts of mr on req, starting with first when
+// it is not nil, and returns a message saying what happened. When the files
+// are models whose size can be measured and req has no size yet, it is set
+// from them.
+func (s *Server) receiveFiles(ctx context.Context, mr *multipart.Reader, first *multipart.Part, req *core.Request, u *core.User) (string, error) {
+	existing, err := s.Store.CountFiles(ctx, req.ID)
+	if err != nil {
+		return "", err
+	}
+	room := maxFilesPerRequest - existing
+	limit := s.Config.UploadMaxBytes
 
 	var done int
 	var problems []string
+	var measured []core.Dims
+	var measuredNames []string
+	part := first
 	for {
-		part, err := mr.NextPart()
-		if err != nil {
-			if !errors.Is(err, io.EOF) {
-				problems = append(problems, "The upload was interrupted or too large.")
+		if part == nil {
+			part, err = mr.NextPart()
+			if err != nil {
+				if !errors.Is(err, io.EOF) {
+					problems = append(problems, "The upload was interrupted or too large.")
+				}
+				break
 			}
-			break
 		}
 		if part.FormName() != "file" || part.FileName() == "" {
 			_ = part.Close()
+			part = nil
 			continue
 		}
 		name := sanitizeFilename(part.FileName())
-		ctype, ok := fileTypes[strings.ToLower(path.Ext(name))]
+		ext := strings.ToLower(path.Ext(name))
+		ctype, ok := fileTypes[ext]
 		switch {
 		case !ok:
 			problems = append(problems, fmt.Sprintf("%s: that file type is not allowed.", name))
 		case room <= 0:
 			problems = append(problems, fmt.Sprintf("%s: a request can have at most %d files.", name, maxFilesPerRequest))
 		default:
-			msg, err := s.storeFile(ctx, part, req.ID, u.ID, name, ctype, limit)
+			f, msg, err := s.storeFile(ctx, part, req.ID, u.ID, name, ctype, limit)
 			if err != nil {
 				s.Log.Error("upload failed", "request", req.ID, "err", err)
 				msg = name + ": the upload failed. Try again in a moment."
@@ -201,18 +230,33 @@ func (s *Server) uploadFiles(w http.ResponseWriter, r *http.Request) {
 			} else {
 				done++
 				room--
+				if f.Dims != nil {
+					measured = append(measured, *f.Dims)
+					measuredNames = append(measuredNames, f.Filename)
+				}
 			}
 		}
 		_ = part.Close()
+		part = nil
 	}
 
 	var parts []string
 	if done > 0 {
 		parts = append(parts, fmt.Sprintf("Uploaded %d %s.", done, plural(done, "file", "files")))
 	}
-	s.flash(r, strings.Join(append(parts, problems...), " "))
-	redirect(w, r, requestPath(req.ID)+"#files")
+	if d := core.Fits(measured...); d != nil && !req.HasSize() && core.CanEdit(u, req) {
+		summary := fmt.Sprintf("set size %s from %s", dimsText(*d), strings.Join(measuredNames, ", "))
+		set, err := s.Store.SetRequestSize(context.WithoutCancel(ctx), req.ID, *d, true, u.ID, summary)
+		if err != nil {
+			s.Log.Error("setting size from upload", "request", req.ID, "err", err)
+		} else if set {
+			parts = append(parts, fmt.Sprintf("Size set to %s from the %s.", dimsText(*d), plural(len(measured), "model", "models")))
+		}
+	}
+	return strings.Join(append(parts, problems...), " "), nil
 }
+
+func dimsText(d core.Dims) string { return fmt.Sprintf("%d × %d × %d mm", d.X, d.Y, d.Z) }
 
 func plural(n int, one, many string) string {
 	if n == 1 {
@@ -224,10 +268,10 @@ func plural(n int, one, many string) string {
 // storeFile streams one part to the blob store and records it. It returns a
 // user-facing message when the file is refused, or an error for real failures.
 // Nothing is left behind in either case.
-func (s *Server) storeFile(ctx context.Context, src io.Reader, requestID, userID int64, name, ctype string, limit int64) (string, error) {
+func (s *Server) storeFile(ctx context.Context, src io.Reader, requestID, userID int64, name, ctype string, limit int64) (*core.File, string, error) {
 	key, err := randomKey(requestID)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	lh := &limitedHasher{r: src, h: sha256.New(), max: limit}
 	cleanup := func() {
@@ -238,23 +282,74 @@ func (s *Server) storeFile(ctx context.Context, src io.Reader, requestID, userID
 	if err := s.Files.Put(ctx, key, lh, -1, ctype); err != nil {
 		cleanup()
 		if lh.exceeded {
-			return fmt.Sprintf("%s: too large (the limit is %s per file).", name, humanBytes(limit)), nil
+			return nil, fmt.Sprintf("%s: too large (the limit is %s per file).", name, humanBytes(limit)), nil
 		}
-		return "", err
+		return nil, "", err
 	}
 	if lh.n == 0 {
 		cleanup()
-		return name + ": the file is empty.", nil
+		return nil, name + ": the file is empty.", nil
 	}
 	f := &core.File{
 		RequestID: requestID, UploadedByID: userID, ObjectKey: key, Filename: name,
 		ContentType: ctype, SizeBytes: lh.n, SHA256: hex.EncodeToString(lh.h.Sum(nil)),
+		Dims: s.measure(ctx, key, name, lh.n),
 	}
 	if err := s.Store.InsertFile(context.WithoutCancel(ctx), f); err != nil {
 		cleanup()
-		return "", err
+		return nil, "", err
 	}
-	return "", nil
+	return f, "", nil
+}
+
+// maxMeasure3MF bounds the 3MF archives measured, as they are read into
+// memory whole.
+const maxMeasure3MF = 256 << 20
+
+// measure reads a stored model back and returns its size, or nil when it is
+// not a model, cannot be read, or holds nothing measurable. It never fails
+// the upload.
+func (s *Server) measure(ctx context.Context, key, name string, size int64) *core.Dims {
+	ext := strings.ToLower(path.Ext(name))
+	if !meshsize.Supported(ext) || (ext == ".3mf" && size > maxMeasure3MF) {
+		return nil
+	}
+	body, _, err := s.Files.Get(ctx, key)
+	if err != nil {
+		s.Log.Warn("reading upload to measure", "key", key, "err", err)
+		return nil
+	}
+	defer func() { _ = body.Close() }()
+	b, err := meshsize.Measure(ext, body, size)
+	if err != nil {
+		s.Log.Info("could not measure model", "file", name, "err", err)
+		return nil
+	}
+	x, y, z := b.Size()
+	return &core.Dims{X: x, Y: y, Z: z}
+}
+
+// useFileSize sets a request's size from one of its measured files.
+func (s *Server) useFileSize(w http.ResponseWriter, r *http.Request) {
+	u, req, f := s.loadFile(w, r)
+	if f == nil {
+		return
+	}
+	if !core.CanEdit(u, req) {
+		forbidden(w)
+		return
+	}
+	if f.Dims == nil {
+		http.Error(w, "That file has no measured size.", http.StatusBadRequest)
+		return
+	}
+	summary := fmt.Sprintf("set size %s from %s", dimsText(*f.Dims), f.Filename)
+	if _, err := s.Store.SetRequestSize(r.Context(), req.ID, *f.Dims, false, u.ID, summary); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.flash(r, "Size set to "+dimsText(*f.Dims)+".")
+	redirect(w, r, requestPath(req.ID))
 }
 
 func humanBytes(n int64) string {

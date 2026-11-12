@@ -1,7 +1,10 @@
 package web
 
 import (
+	"errors"
 	"html/template"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"slices"
@@ -162,11 +165,15 @@ type requestFormView struct {
 	PreviewNote string       // shown when a link could not be read
 	Thumb       template.URL // data: URI of the fetched thumbnail
 	FetchImage  bool         // create should fetch the thumbnail for source_url
+	// File uploads, offered on the new-request form and the detail page.
+	FilesEnabled bool
+	UploadMax    int64
 }
 
 func (s *Server) formView(r *http.Request, title string, req *core.Request, errs formErrors) (*requestFormView, error) {
 	u := auth.UserFrom(r.Context())
-	v := &requestFormView{base: s.base(r, title), Request: req, Errors: errs}
+	v := &requestFormView{base: s.base(r, title), Request: req, Errors: errs,
+		FilesEnabled: s.Files != nil, UploadMax: s.Config.UploadMaxBytes}
 	if core.CanFileFor(u) {
 		var err error
 		if v.People, err = s.Store.ListUsers(r.Context()); err != nil {
@@ -240,7 +247,22 @@ func (s *Server) newRequest(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
 	u := auth.UserFrom(r.Context())
-	if err := r.ParseForm(); err != nil {
+	// With files attached the form is multipart. Its fields come first (the
+	// file input is the last thing in the form) and are read here; the files
+	// are streamed to storage once the request exists.
+	var mr *multipart.Reader
+	var firstFile *multipart.Part
+	if s.Files != nil && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		r.Body = http.MaxBytesReader(w, r.Body, s.uploadBodyLimit())
+		var err error
+		if mr, err = r.MultipartReader(); err == nil {
+			firstFile, err = readFields(r, mr)
+		}
+		if err != nil {
+			http.Error(w, "Bad form.", http.StatusBadRequest)
+			return
+		}
+	} else if err := r.ParseForm(); err != nil {
 		http.Error(w, "Bad form.", http.StatusBadRequest)
 		return
 	}
@@ -265,6 +287,9 @@ func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
 			errs.add("%s", err.Error())
 		}
 	}
+	if len(errs) > 0 && firstFile != nil {
+		errs.add("%s", "Your files were not kept; choose them again.")
+	}
 	if len(errs) > 0 {
 		v, err := s.formView(r, "New request", req, errs)
 		if err != nil {
@@ -282,20 +307,66 @@ func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	redirect(w, r, "/requests/"+strconv.FormatInt(req.ID, 10))
+	if firstFile != nil && core.CanUploadFile(u, req) {
+		msg, err := s.receiveFiles(r.Context(), mr, firstFile, req, u)
+		if err != nil {
+			s.Log.Error("uploading files with a new request", "request", req.ID, "err", err)
+			msg = "The request was filed, but its files could not be saved. Add them again below."
+		}
+		s.flash(r, msg)
+	}
+	redirect(w, r, requestPath(req.ID))
+}
+
+// Bounds on the plain fields of a multipart request form.
+const (
+	maxFieldBytes  = 64 << 10
+	maxFieldsBytes = 1 << 20
+)
+
+// readFields reads the non-file parts of a multipart form into r.Form and
+// r.PostForm, so the usual form helpers work, stopping at the first file
+// part, which it returns (nil when there is none). A file input left empty
+// arrives as a part with no file name and is skipped.
+func readFields(r *http.Request, mr *multipart.Reader) (*multipart.Part, error) {
+	vals := url.Values{}
+	var total int64
+	defer func() { r.Form, r.PostForm = vals, vals }()
+	for {
+		part, err := mr.NextPart()
+		if errors.Is(err, io.EOF) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		if part.FileName() != "" {
+			return part, nil
+		}
+		b, err := io.ReadAll(io.LimitReader(part, maxFieldBytes+1))
+		_ = part.Close()
+		if err != nil {
+			return nil, err
+		}
+		if total += int64(len(b)); len(b) > maxFieldBytes || total > maxFieldsBytes {
+			return nil, errors.New("form field too large")
+		}
+		if name := part.FormName(); name != "" && name != "file" {
+			vals.Add(name, string(b))
+		}
+	}
 }
 
 type detailView struct {
 	requestFormView
-	Checks         []core.PrinterCheck
-	AssignedReason []string // non-empty when the assigned printer is ineligible
-	Events         []core.Event
-	Files          []core.File
-	FilesEnabled   bool
-	CanUpload      bool
-	UploadMax      int64
-	LiveByID       map[int64]liveView
-	Shelf          []shelfMatch // admins: filaments near each rough color
+	Assigned      *core.PrinterCheck  // the assigned printer, when there is one
+	Checks        []core.PrinterCheck // every other printer
+	OtherEligible int                 // how many of Checks are eligible
+	Events        []core.Event
+	Files         []core.File
+	CanUpload     bool
+	LiveByID      map[int64]liveView
+	Shelf         []shelfMatch // admins: filaments near each rough color
 }
 
 func (s *Server) detail(w http.ResponseWriter, r *http.Request, status int, req *core.Request, errs formErrors) {
@@ -325,13 +396,15 @@ func (s *Server) detailWith(w http.ResponseWriter, r *http.Request, status int, 
 			return
 		}
 	}
-	v.Checks = core.Check(req, printers)
 	_, v.LiveByID = s.liveStatus(fv.User, printers)
-	if req.PrinterID != nil {
-		for _, c := range v.Checks {
-			if c.Printer.ID == *req.PrinterID && !c.Eligible {
-				v.AssignedReason = c.Reasons
-			}
+	for _, c := range core.Check(req, printers) {
+		if req.PrinterID != nil && c.Printer.ID == *req.PrinterID {
+			v.Assigned = &c
+			continue
+		}
+		v.Checks = append(v.Checks, c)
+		if c.Eligible {
+			v.OtherEligible++
 		}
 	}
 	if v.Events, err = s.Store.ListEvents(ctx, req.ID); err != nil {

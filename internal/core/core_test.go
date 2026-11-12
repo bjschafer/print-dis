@@ -232,3 +232,22 @@ func TestPrinterSource(t *testing.T) {
 		}
 	}
 }
+
+func TestFits(t *testing.T) {
+	cases := []struct {
+		in   []Dims
+		want *Dims
+	}{
+		{nil, nil},
+		{[]Dims{{10, 20, 30}}, &Dims{20, 10, 30}},
+		// Each part may be rotated on its own: a long thin part and a wide
+		// one need a box of the longest side by the widest short side.
+		{[]Dims{{200, 10, 5}, {50, 60, 40}}, &Dims{200, 50, 40}},
+	}
+	for _, c := range cases {
+		got := Fits(c.in...)
+		if (got == nil) != (c.want == nil) || (got != nil && *got != *c.want) {
+			t.Errorf("Fits(%v) = %v, want %v", c.in, got, c.want)
+		}
+	}
+}

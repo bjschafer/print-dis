@@ -121,6 +121,9 @@ create table request_files (
   content_type    text not null,
   size_bytes      bigint not null check (size_bytes >= 0),
   sha256          text not null,
+  size_x_mm       integer,                -- the model's bounding box, when it could be measured (section 6a)
+  size_y_mm       integer,
+  size_z_mm       integer,
   created_at      timestamptz not null default now()
 );
 ```
@@ -143,13 +146,13 @@ A pure function, `Eligible(request, printers) []Printer`, with no database acces
 
 The request form pre-ticks "needs enclosure" when the material, or a picked filament's material, is ABS, ASA, PC or PA, and pre-ticks "several colors or materials in one print" (needs multi-material) once two colors are picked. The user can untick either; two colors can also mean separate parts.
 
-The request page lists eligible printers and says why each of the others was excluded. Assigning an ineligible printer is allowed with a visible warning, because the owner sometimes knows better.
+The request page lists eligible printers and says why each of the others was excluded. Once a printer is assigned, it is shown on its own and the others fold into a collapsed "Other printers" list with a count of how many are eligible. Assigning an ineligible printer is allowed with a visible warning, because the owner sometimes knows better.
 
 ## 4. Screens
 
 Server-rendered HTML with `html/template`, htmx for partial updates, and SortableJS for dragging cards. Both scripts are vendored into the repo and embedded in the binary; there is no Node toolchain and no build step for the frontend. It must be usable on a phone.
 
-The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (light when the OS asks for it), a nav rail that becomes a bottom tab bar on phones, and panels with header strips. Board columns are lanes tinted with their status color, with cards as lighter raised tiles on them; a card is striped with its colors, top to bottom, when they are known. A firm date due within three days is a solid orange pill, the card's only alarm. Printer tiles above the board are a small dashboard: the state as a solid pill and progress in large type. The accent color comes from `ACCENT_COLOR`. Icons are an inline SVG sprite in `layout.html`; all styling is one hand-written `app.css`. Only admins can drag cards, so only their cards lift on hover and show a grab cursor.
+The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (light when the OS asks for it), a nav rail that becomes a bottom tab bar on phones, and panels with header strips. Board columns are lanes tinted with their status color, with cards as lighter raised tiles on them; a card is striped with its colors, top to bottom, when they are known. A firm date due within three days is a solid orange pill, the card's only alarm. Printer tiles above the board are a small dashboard: the state as a solid pill and progress in large type. The accent color comes from `ACCENT_COLOR`. Icons are an inline SVG sprite in `layout.html`; all styling is one hand-written `app.css`. Only admins can drag cards, so only their cards lift on hover and show a grab cursor. Avatars show a person's initials (first and last word of the name) on a hue chosen by a hash of their name, so people are told apart at a glance.
 
 | Route | Purpose |
 |---|---|
@@ -163,6 +166,7 @@ The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (lig
 | `POST /requests/{id}/files` | Upload one or more files (section 6a). |
 | `GET /files/{id}` | Download a file, subject to the same visibility as its request. |
 | `POST /files/{id}/delete` | Remove a file. |
+| `POST /files/{id}/size` | Set the request's size from a measured model file (section 6a). |
 | `GET /printers`, `POST /printers...` | Admin: printer list and editing, including bed dimensions and the live status source. |
 | `GET /printers/status` | Admin: the board's live status strip, polled by htmx (section 5a). |
 | `POST /printers/bambuddy` | Admin: save the Bambuddy connection (section 5a). |
@@ -220,6 +224,8 @@ Friends often have a model file and nowhere to host it, so a request can carry a
 - **Through the app, not presigned:** uploads are streamed from the multipart body to the bucket, hashing as they go; downloads are streamed back with `Content-Disposition: attachment`. This keeps every permission check in one place, needs no CORS on the gateway, and means the S3 endpoint never has to be reachable by friends.
 - **Permissions:** anyone who can see a request can download its files. A requester can upload to and delete their own uploads from their own request while they may edit it (`requested` or `needs_info`); an admin can do either at any time. Uploads and deletions are recorded as `file` events.
 - **Consistency:** the object is written first and the row inserted after; if the insert fails the object is deleted. Deleting a file deletes the row, then the object; a failed object delete is logged, not shown to the user.
+- **On the new-request form too:** files can be attached before the request is first saved. The form is then multipart with the file input last; the handler reads the fields from the stream, creates the request, and streams the files after it, so nothing is spooled to disk. If the form has an error the files are dropped and the form says to choose them again.
+- **Measuring:** each STL (binary or ASCII), OBJ or 3MF is read back after upload and its bounding box stored on the file (`internal/meshsize`), assuming millimetres where the format has no unit. A 3MF applies its build and component transforms, including the production extension's parts in other files, and measures each build item separately: its size is a box every part fits in, since parts laid out on one plate can be printed separately. 3MFs over 256 MiB are not measured, as the archive is read into memory; decompression is capped at 1 GiB. STEP and ZIP are not measured. When a request has no size, uploading measurable models sets it (the box all of them fit in, X the longer side) and records an edit event; a size already typed in is never overwritten, but a file's "Use size" button replaces it. A file that cannot be measured is logged and otherwise ignored.
 - If the bucket is unreachable the app still starts; the upload control says files are unavailable, and `/readyz` does not depend on it.
 
 ## 7. Stack and layout
@@ -256,6 +262,7 @@ internal/spoolman/    client and cache
 internal/preview/     link fetch and SSRF guard
 internal/printerstatus/  Moonraker and Bambuddy polling
 internal/files/       Blobs interface, s3 and dir backends
+internal/meshsize/    bounding boxes of STL, OBJ and 3MF files
 ```
 
 ### Testing

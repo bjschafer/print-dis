@@ -79,7 +79,7 @@ func TestAdminFlow(t *testing.T) {
 		t.Fatalf("edit: %d %s", code, body)
 	}
 	_, body = h.get(loc)
-	h.mustContain(body, "Spool holder v2", "assigned printer is not eligible", "changed title, printed, link, color, printer")
+	h.mustContain(body, "Spool holder v2", "Assigned to", "Trident is not eligible", "Other printers", "changed title, printed, link, color, printer")
 
 	// Comment, both plain and via htmx.
 	if code, _, _ := h.post(loc+"/comments", url.Values{"body": {"first"}}); code != http.StatusSeeOther {

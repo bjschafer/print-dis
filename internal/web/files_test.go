@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -389,4 +390,141 @@ func TestUploadsDisabled(t *testing.T) {
 	if code, _, _ := h.post("/files/1/delete", nil); code != http.StatusNotFound {
 		t.Fatalf("delete: %d", code)
 	}
+}
+
+// cubeSTL is a binary STL whose triangles span 0..x, 0..y, 0..z.
+func cubeSTL(x, y, z float32) []byte {
+	var b bytes.Buffer
+	b.Write(make([]byte, 80))
+	_ = binary.Write(&b, binary.LittleEndian, uint32(3))
+	pts := [][3]float32{{0, 0, 0}, {x, 0, 0}, {0, y, 0}, {0, 0, z}, {x, y, z}, {x, 0, z}, {0, 0, 0}, {0, y, z}, {x, y, 0}}
+	for i := 0; i < len(pts); i += 3 {
+		_ = binary.Write(&b, binary.LittleEndian, [3]float32{})
+		for _, p := range pts[i : i+3] {
+			_ = binary.Write(&b, binary.LittleEndian, p)
+		}
+		b.Write([]byte{0, 0})
+	}
+	return b.Bytes()
+}
+
+// postNewWithFiles files a request as a multipart form: the fields, then the
+// files, as a browser sends them.
+func (h *harness) postNewWithFiles(fields url.Values, ups ...upload) (int, string, string) {
+	h.t.Helper()
+	if h.csrf == "" {
+		h.get("/")
+	}
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	for k, vs := range fields {
+		for _, v := range vs {
+			_ = mw.WriteField(k, v)
+		}
+	}
+	if len(ups) == 0 { // an empty file input
+		w, _ := mw.CreateFormFile("file", "")
+		_, _ = w.Write(nil)
+	}
+	for _, u := range ups {
+		w, _ := mw.CreateFormFile("file", u.name)
+		_, _ = w.Write(u.data)
+	}
+	_ = mw.Close()
+	req, _ := http.NewRequest(http.MethodPost, h.srv.URL+"/requests?csrf="+url.QueryEscape(h.csrf), &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	res, err := h.c.Do(req)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	b, _ := io.ReadAll(res.Body)
+	return res.StatusCode, res.Header.Get("Location"), string(b)
+}
+
+func TestCreateRequestWithFiles(t *testing.T) {
+	dir := t.TempDir()
+	h := newHarness(t, withFiles(dir, 0))
+	alice := h.as(h.friend("Alice"))
+	ctx := context.Background()
+
+	// The form is multipart, with the file input last.
+	_, body := alice.get("/requests/new")
+	alice.mustContain(body, `enctype="multipart/form-data"`, `action="/requests?csrf=`, `name="file"`)
+
+	code, loc, body := alice.postNewWithFiles(url.Values{"title": {"Hook"}, "quantity": {"2"}},
+		upload{"hook.stl", cubeSTL(40, 120, 15.5)}, upload{"photo.png", []byte("png")})
+	if code != http.StatusSeeOther {
+		t.Fatalf("create: %d %s", code, body)
+	}
+	r, err := h.store.GetRequest(ctx, mustID(t, loc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Title != "Hook" || r.Quantity != 2 || r.RequesterID == 0 {
+		t.Fatalf("request: %+v", r)
+	}
+	// Size is set from the model, longer side first.
+	if d := r.SizeDims(); d == nil || *d != (core.Dims{X: 120, Y: 40, Z: 16}) {
+		t.Fatalf("size: %+v", d)
+	}
+	fs := fileIDs(t, h, loc)
+	if len(fs) != 2 || fs[0].Dims == nil || *fs[0].Dims != (core.Dims{X: 40, Y: 120, Z: 16}) || fs[1].Dims != nil {
+		t.Fatalf("files: %+v", fs)
+	}
+	_, body = alice.get(loc)
+	alice.mustContain(body, "Uploaded 2 files.", "Size set to 120 × 40 × 16 mm", "40 × 120 × 16 mm", "set size 120 × 40 × 16 mm from hook.stl")
+	// The request already has this size, so there is nothing to offer.
+	alice.mustNotContain(body, fmt.Sprintf("/files/%d/size", fs[0].ID))
+
+	// Without files, and with the empty file input a browser sends, it still files.
+	if code, _, body := alice.postNewWithFiles(url.Values{"title": {"Plain"}}); code != http.StatusSeeOther {
+		t.Fatalf("create without files: %d %s", code, body)
+	}
+
+	// A form error keeps nothing and says the files must be chosen again.
+	before := objectCount(t, dir)
+	code, _, body = alice.postNewWithFiles(url.Values{"title": {""}}, upload{"x.stl", cubeSTL(1, 1, 1)})
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid: %d", code)
+	}
+	alice.mustContain(body, "Give the request a title", "choose them again")
+	if objectCount(t, dir) != before {
+		t.Fatal("an invalid form left an object behind")
+	}
+}
+
+func TestUseFileSize(t *testing.T) {
+	dir := t.TempDir()
+	h := newHarness(t, withFiles(dir, 0))
+	ha, hb := h.as(h.friend("Alice")), h.as(h.friend("Bob"))
+	ctx := context.Background()
+	code, loc, body := ha.post("/requests", url.Values{"title": {"Box"}, "size_x": {"10"}, "size_y": {"10"}, "size_z": {"10"}})
+	if code != http.StatusSeeOther {
+		t.Fatalf("create: %d %s", code, body)
+	}
+	// A size typed in is not overwritten by an upload...
+	upOK(t, ha, loc, upload{"box.stl", cubeSTL(50, 60, 70)})
+	r, _ := h.store.GetRequest(ctx, mustID(t, loc))
+	if *r.SizeX != 10 {
+		t.Fatalf("upload overwrote the size: %+v", r.SizeDims())
+	}
+	// ...but can be replaced from the file on request.
+	f := fileIDs(t, h, loc)[0]
+	sizeURL := fmt.Sprintf("/files/%d/size", f.ID)
+	_, body = ha.get(loc)
+	ha.mustContain(body, sizeURL, "Use size")
+	if code, _, _ := hb.post(sizeURL, nil); code != http.StatusForbidden {
+		t.Fatalf("bob: %d", code)
+	}
+	if code, _, _ := ha.post(sizeURL, nil); code != http.StatusSeeOther {
+		t.Fatalf("use size: %d", code)
+	}
+	r, _ = h.store.GetRequest(ctx, mustID(t, loc))
+	if d := r.SizeDims(); d == nil || *d != (core.Dims{X: 50, Y: 60, Z: 70}) {
+		t.Fatalf("size: %+v", d)
+	}
+	_, body = ha.get(loc)
+	ha.mustContain(body, "set size 50 × 60 × 70 mm from box.stl")
+	ha.mustNotContain(body, sizeURL)
 }

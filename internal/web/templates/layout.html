@@ -66,7 +66,7 @@
   {{with .User}}
   <div class="appbar-actions">
     <a class="button primary" href="/requests/new">{{template "icon" "plus"}}<span>New request</span></a>
-    <span class="who" title="Signed in as {{.Name}}"><span class="avatar">{{initial .Name}}</span><span class="who-name">{{.Name}}</span></span>
+    <span class="who" title="Signed in as {{.Name}}"><span class="avatar" style="{{avatarHue .Name}}">{{initial .Name}}</span><span class="who-name">{{.Name}}</span></span>
     <form method="post" action="/auth/logout" class="inline">
       <input type="hidden" name="csrf" value="{{$.CSRF}}">
       <button class="icon-button" title="Sign out" aria-label="Sign out">{{template "icon" "logout"}}</button>

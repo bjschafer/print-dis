@@ -202,7 +202,35 @@ type File struct {
 	ContentType  string
 	SizeBytes    int64
 	SHA256       string
+	Dims         *Dims // the model's bounding box, when it could be measured
 	CreatedAt    time.Time
+}
+
+// Dims is a size in whole millimetres.
+type Dims struct{ X, Y, Z int }
+
+// SizeDims returns the request's size, or nil when any dimension is unknown.
+func (r *Request) SizeDims() *Dims {
+	if !r.HasSize() {
+		return nil
+	}
+	return &Dims{*r.SizeX, *r.SizeY, *r.SizeZ}
+}
+
+// Fits returns the smallest size, X and Y taken as the longer and shorter
+// side, that every one of ds fits in (rotating each about Z as needed). It is
+// nil when ds is empty.
+func Fits(ds ...Dims) *Dims {
+	var out *Dims
+	for _, d := range ds {
+		long, short := max(d.X, d.Y), min(d.X, d.Y)
+		if out == nil {
+			out = &Dims{long, short, d.Z}
+			continue
+		}
+		out.X, out.Y, out.Z = max(out.X, long), max(out.Y, short), max(out.Z, d.Z)
+	}
+	return out
 }
 
 // StatusChangeBody is the event text for a status change.

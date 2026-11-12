@@ -28,6 +28,7 @@ internal/spoolman/    client and cache
 internal/preview/     link fetch and SSRF guard
 internal/printerstatus/  Moonraker and Bambuddy status polling
 internal/files/       Blobs interface, s3 and dir backends
+internal/meshsize/    bounding boxes of STL, OBJ and 3MF files
 ```
 
 ## Conventions

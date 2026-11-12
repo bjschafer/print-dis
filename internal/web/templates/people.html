@@ -7,7 +7,7 @@
   <tbody>
   {{range .People}}
   <tr>
-    <td class="title-cell"><a class="who-sm" href="/requests?requester={{.ID}}"><span class="avatar sm">{{initial .Name}}</span>{{.Name}}</a></td>
+    <td class="title-cell"><a class="who-sm" href="/requests?requester={{.ID}}"><span class="avatar sm" style="{{avatarHue .Name}}">{{initial .Name}}</span>{{.Name}}</a></td>
     <td class="muted">{{str .Email}}</td>
     <td class="num">{{.Requests}}</td>
     <td>{{if .Placeholder}}<span class="badge needs_info">not signed in yet</span>{{end}}{{if .IsAdmin}}<span class="badge printing">admin</span>{{end}}</td>
