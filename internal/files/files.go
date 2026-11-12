@@ -23,7 +23,8 @@ type Blobs interface {
 	// behind under key if Put fails.
 	Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error
 	// Get opens the object and reports its size. The error is ErrNotFound
-	// when there is no such object.
+	// when there is no such object. The reader also implements io.ReaderAt,
+	// so a zip-based model can be measured without buffering it.
 	Get(ctx context.Context, key string) (io.ReadCloser, int64, error)
 	// Delete removes the object. Deleting a missing object is not an error.
 	Delete(ctx context.Context, key string) error

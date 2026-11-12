@@ -302,16 +302,12 @@ func (s *Server) storeFile(ctx context.Context, src io.Reader, requestID, userID
 	return f, "", nil
 }
 
-// maxMeasure3MF bounds the 3MF archives measured, as they are read into
-// memory whole.
-const maxMeasure3MF = 256 << 20
-
 // measure reads a stored model back and returns its size, or nil when it is
 // not a model, cannot be read, or holds nothing measurable. It never fails
 // the upload.
 func (s *Server) measure(ctx context.Context, key, name string, size int64) *core.Dims {
 	ext := strings.ToLower(path.Ext(name))
-	if !meshsize.Supported(ext) || (ext == ".3mf" && size > maxMeasure3MF) {
+	if !meshsize.Supported(ext) {
 		return nil
 	}
 	body, _, err := s.Files.Get(ctx, key)

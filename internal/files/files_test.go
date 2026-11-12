@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -23,6 +24,26 @@ func conformance(t *testing.T, b Blobs) {
 		data, err := io.ReadAll(rc)
 		return data, n, err
 	}
+
+	t.Run("random access", func(t *testing.T) {
+		key := "requests/1/ra"
+		if err := b.Put(ctx, key, strings.NewReader("0123456789"), -1, "model/3mf"); err != nil {
+			t.Fatal(err)
+		}
+		rc, _, err := b.Get(ctx, key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = rc.Close() }()
+		ra, ok := rc.(io.ReaderAt)
+		if !ok {
+			t.Fatalf("%T is not an io.ReaderAt", rc)
+		}
+		p := make([]byte, 3)
+		if _, err := ra.ReadAt(p, 6); err != nil || string(p) != "678" {
+			t.Fatalf("ReadAt: %q %v", p, err)
+		}
+	})
 
 	t.Run("round trip", func(t *testing.T) {
 		big := make([]byte, 3<<20)

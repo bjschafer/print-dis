@@ -71,8 +71,8 @@ func Supported(ext string) bool {
 }
 
 // Measure reads a whole model file of the given extension and size and
-// returns its bounding box. A 3MF is read fully into memory, so callers
-// should bound size.
+// returns its bounding box. A 3MF is read through io.ReaderAt when r has it;
+// otherwise it is buffered in memory, up to 64 MiB.
 func Measure(ext string, r io.Reader, size int64) (Box, error) {
 	var b Box
 	var err error

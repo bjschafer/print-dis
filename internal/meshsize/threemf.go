@@ -12,12 +12,14 @@ import (
 	"strings"
 )
 
-// 3MF limits: the archive is held in memory, and decompressed reads are
-// capped so a zip bomb cannot run the server out of time or memory.
+// 3MF limits: decompressed reads are capped so a zip bomb cannot run the
+// server out of time, and an archive without random access is buffered only
+// up to a bound.
 const (
-	maxUnzipped  = 1 << 30
-	maxDepth     = 16
-	maxInstances = 10_000
+	maxBuffered3MF = 64 << 20
+	maxUnzipped    = 1 << 30
+	maxDepth       = 16
+	maxInstances   = 10_000
 )
 
 // mat is a 3MF affine transform, "m00 m01 m02 m10 m11 m12 m20 m21 m22 m30
@@ -94,11 +96,21 @@ type instance struct {
 // parts laid out on a plate can be printed separately, so the plate's
 // overall extent is not the request's size.
 func threeMF(r io.Reader, size int64) (Box, error) {
-	buf, err := io.ReadAll(io.LimitReader(r, size+1))
-	if err != nil {
-		return Box{}, err
+	// A zip is read from its end, so it needs random access. Blob stores give
+	// it (an S3 object reads by range, a file by offset); anything else is
+	// buffered, within a bound.
+	ra, ok := r.(io.ReaderAt)
+	if !ok {
+		if size > maxBuffered3MF {
+			return Box{}, fmt.Errorf("meshsize: 3MF of %d bytes is too large to buffer", size)
+		}
+		buf, err := io.ReadAll(io.LimitReader(r, size+1))
+		if err != nil {
+			return Box{}, err
+		}
+		ra, size = bytes.NewReader(buf), int64(len(buf))
 	}
-	zr, err := zip.NewReader(bytes.NewReader(buf), int64(len(buf)))
+	zr, err := zip.NewReader(ra, size)
 	if err != nil {
 		return Box{}, fmt.Errorf("meshsize: not a 3MF archive: %w", err)
 	}

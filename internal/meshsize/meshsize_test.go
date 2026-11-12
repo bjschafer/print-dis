@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 	"testing"
@@ -151,6 +152,13 @@ func TestThreeMF(t *testing.T) {
 	})
 	if got := size(t, ".3mf", plain); got != [3]int{50, 20, 30} {
 		t.Errorf("plain: %v", got)
+	}
+	// Without io.ReaderAt the archive is buffered, but only up to a bound.
+	if b, err := Measure(".3mf", io.MultiReader(bytes.NewReader(plain)), int64(len(plain))); err != nil || b.Empty() {
+		t.Errorf("buffered: %v", err)
+	}
+	if _, err := Measure(".3mf", io.MultiReader(bytes.NewReader(plain)), maxBuffered3MF+1); err == nil {
+		t.Error("buffered an archive past the bound")
 	}
 
 	// Production-extension layout as slicers write it: the root model holds

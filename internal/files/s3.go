@@ -44,11 +44,20 @@ func NewS3(o S3Options) (*S3, error) {
 	return &S3{c: c, bucket: o.Bucket}, nil
 }
 
+// partSize is the multipart chunk an upload is buffered in. It must be set:
+// for a stream of unknown size minio-go otherwise assumes a 5 TiB object and
+// buffers ~537 MiB per upload. 8 MiB stays above S3's 5 MiB minimum and
+// gives 25 parts for a 200 MiB file, far below the 10,000-part limit.
+const partSize = 8 << 20
+
+// Get returns a *minio.Object, which reads by range.
+var _ io.ReaderAt = (*minio.Object)(nil)
+
 func (s *S3) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
 	if err := checkKey(key); err != nil {
 		return err
 	}
-	_, err := s.c.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{ContentType: contentType})
+	_, err := s.c.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{ContentType: contentType, PartSize: partSize})
 	return err
 }
 
