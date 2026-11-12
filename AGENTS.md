@@ -19,7 +19,7 @@ Once CI completes, you should generally ensure the new image is running. In ~/de
 ## Layout
 
 ```text
-cmd/print-dis/        main: serve, import-sheet
+cmd/print-dis/        main: serve, import-sheet, measure-files
 internal/config/      environment variables -> Config
 internal/core/        types, eligibility, permission rules (pure, no IO)
 internal/store/       SQL (pgx, hand-written) and goose migrations

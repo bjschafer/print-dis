@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"log/slog"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -293,7 +294,7 @@ func (s *Server) storeFile(ctx context.Context, src io.Reader, requestID, userID
 	f := &core.File{
 		RequestID: requestID, UploadedByID: userID, ObjectKey: key, Filename: name,
 		ContentType: ctype, SizeBytes: lh.n, SHA256: hex.EncodeToString(lh.h.Sum(nil)),
-		Dims: s.measure(ctx, key, name, lh.n),
+		Dims: measureFile(ctx, s.Files, s.Log, key, name, lh.n),
 	}
 	if err := s.Store.InsertFile(context.WithoutCancel(ctx), f); err != nil {
 		cleanup()
@@ -302,23 +303,23 @@ func (s *Server) storeFile(ctx context.Context, src io.Reader, requestID, userID
 	return f, "", nil
 }
 
-// measure reads a stored model back and returns its size, or nil when it is
-// not a model, cannot be read, or holds nothing measurable. It never fails
+// measureFile reads a stored model back and returns its size, or nil when it
+// is not a model, cannot be read, or holds nothing measurable. It never fails
 // the upload.
-func (s *Server) measure(ctx context.Context, key, name string, size int64) *core.Dims {
+func measureFile(ctx context.Context, blobs files.Blobs, log *slog.Logger, key, name string, size int64) *core.Dims {
 	ext := strings.ToLower(path.Ext(name))
 	if !meshsize.Supported(ext) {
 		return nil
 	}
-	body, _, err := s.Files.Get(ctx, key)
+	body, _, err := blobs.Get(ctx, key)
 	if err != nil {
-		s.Log.Warn("reading upload to measure", "key", key, "err", err)
+		log.Warn("reading upload to measure", "key", key, "err", err)
 		return nil
 	}
 	defer func() { _ = body.Close() }()
 	b, err := meshsize.Measure(ext, body, size)
 	if err != nil {
-		s.Log.Info("could not measure model", "file", name, "err", err)
+		log.Info("could not measure model", "file", name, "err", err)
 		return nil
 	}
 	x, y, z := b.Size()

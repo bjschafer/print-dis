@@ -81,6 +81,38 @@ func (s *Store) CountFiles(ctx context.Context, requestID int64) (int, error) {
 	return n, err
 }
 
+// ListUnmeasuredFiles returns every file with no measured size, by request.
+// They are the models uploaded before uploads were measured, plus files that
+// are not models or could not be measured.
+func (s *Store) ListUnmeasuredFiles(ctx context.Context) ([]core.File, error) {
+	rows, err := s.Pool.Query(ctx, `select `+fileCols+fileFrom+` where f.size_x_mm is null order by f.request_id, f.created_at, f.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []core.File
+	for rows.Next() {
+		f, err := scanFile(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *f)
+	}
+	return out, rows.Err()
+}
+
+// SetFileDims records a file's measured size.
+func (s *Store) SetFileDims(ctx context.Context, id int64, d core.Dims) error {
+	tag, err := s.Pool.Exec(ctx, `update request_files set size_x_mm=$2, size_y_mm=$3, size_z_mm=$4 where id=$1`, id, d.X, d.Y, d.Z)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // DeleteFile removes the row and records who removed it. The caller deletes
 // the object afterwards.
 func (s *Store) DeleteFile(ctx context.Context, f *core.File, byUser int64) error {

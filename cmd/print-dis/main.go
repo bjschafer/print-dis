@@ -38,8 +38,10 @@ func run(args []string) error {
 		return serve()
 	case "import-sheet":
 		return importSheet(args[1:], os.Getenv, os.Stdout)
+	case "measure-files":
+		return measureFiles(os.Getenv, os.Stdout)
 	default:
-		return fmt.Errorf("unknown command %q (want: serve, import-sheet)", cmd)
+		return fmt.Errorf("unknown command %q (want: serve, import-sheet, measure-files)", cmd)
 	}
 }
 

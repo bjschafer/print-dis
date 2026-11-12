@@ -528,3 +528,49 @@ func TestUseFileSize(t *testing.T) {
 	ha.mustContain(body, "set size 50 × 60 × 70 mm from box.stl")
 	ha.mustNotContain(body, sizeURL)
 }
+
+func TestMeasureOldFiles(t *testing.T) {
+	dir := t.TempDir()
+	h := newHarness(t, withFiles(dir, 0))
+	ha := h.as(h.friend("Alice"))
+	ctx := context.Background()
+	// One request with no size, one with a size typed in, each with a model
+	// uploaded before uploads were measured.
+	unsized := fileRequest(t, ha)
+	upOK(t, ha, unsized, upload{"a.stl", cubeSTL(40, 120, 15.5)}, upload{"b.stl", cubeSTL(130, 30, 10)}, upload{"photo.png", []byte("png")})
+	typed := fileRequest(t, ha)
+	upOK(t, ha, typed, upload{"c.stl", cubeSTL(50, 60, 70)})
+	if _, err := h.store.Pool.Exec(ctx, `update request_files set size_x_mm=null, size_y_mm=null, size_z_mm=null`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.store.Pool.Exec(ctx, `update requests set size_x_mm=null, size_y_mm=null, size_z_mm=null where id=$1`, mustID(t, unsized)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.store.Pool.Exec(ctx, `update requests set size_x_mm=10, size_y_mm=10, size_z_mm=10 where id=$1`, mustID(t, typed)); err != nil {
+		t.Fatal(err)
+	}
+
+	measured, n, err := MeasureOldFiles(ctx, h.store, h.s.Files, h.s.Log)
+	if err != nil || measured != 3 || n != 1 {
+		t.Fatalf("measured %d, sized %d, err %v", measured, n, err)
+	}
+	if fs := fileIDs(t, h, unsized); fs[0].Dims == nil || *fs[0].Dims != (core.Dims{X: 40, Y: 120, Z: 16}) || fs[2].Dims != nil {
+		t.Fatalf("files: %+v", fs)
+	}
+	// The unsized request fits both models; the typed size is kept.
+	r, _ := h.store.GetRequest(ctx, mustID(t, unsized))
+	if d := r.SizeDims(); d == nil || *d != (core.Dims{X: 130, Y: 40, Z: 16}) {
+		t.Fatalf("unsized: %+v", d)
+	}
+	r, _ = h.store.GetRequest(ctx, mustID(t, typed))
+	if d := r.SizeDims(); d == nil || *d != (core.Dims{X: 10, Y: 10, Z: 10}) {
+		t.Fatalf("typed: %+v", d)
+	}
+	_, body := ha.get(unsized)
+	ha.mustContain(body, "set size 130 × 40 × 16 mm from a.stl, b.stl")
+
+	// Running it again finds nothing new to measure.
+	if measured, n, err := MeasureOldFiles(ctx, h.store, h.s.Files, h.s.Log); err != nil || measured != 0 || n != 0 {
+		t.Fatalf("again: measured %d, sized %d, err %v", measured, n, err)
+	}
+}
