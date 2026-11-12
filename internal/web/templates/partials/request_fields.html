@@ -110,10 +110,10 @@
 <fieldset class="pick color-slot" data-slot>
   <legend><span data-slot-title>{{if $s.ShowLabel}}Color {{$s.Num}}{{else}}Color{{end}}</span></legend>
   <button type="button" class="small ghost slot-remove" data-slot-remove hidden>{{template "icon" "x"}}Remove</button>
-  <div class="dots">
-    <label class="dot" title="Any color"><input type="radio" name="{{$name}}" value="" {{if eq $s.Value ""}}checked{{end}}><span class="swatch lg any"></span><span class="dot-name">Any</span></label>
-    {{range roughColors}}<label class="dot" title="{{.Name}}"><input type="radio" name="{{$name}}" value="c:{{.Key}}" {{if eq $s.Value (print "c:" .Key)}}checked{{end}}><span class="swatch lg" style="background: {{.Hex}}"></span><span class="dot-name">{{.Name}}</span></label>{{end}}
-    <label class="dot exact" title="An exact color"><input type="radio" name="{{$name}}" value="hex" {{if eq $s.Value "hex"}}checked{{end}} data-exact-pick><input type="color" name="color_hex_{{$s.Key}}" value="{{$s.ExactHex}}" aria-label="Exact color" data-exact><span class="dot-name">Exact</span></label>
+  <div class="color-opts">
+    <label class="color-opt" title="Any color"><input type="radio" name="{{$name}}" value="" {{if eq $s.Value ""}}checked{{end}}><span class="swatch lg any"></span><span class="color-opt-name">Any</span></label>
+    {{range roughColors}}<label class="color-opt" title="{{.Name}}"><input type="radio" name="{{$name}}" value="c:{{.Key}}" {{if eq $s.Value (print "c:" .Key)}}checked{{end}}><span class="swatch lg" style="background: {{.Hex}}"></span><span class="color-opt-name">{{.Name}}</span></label>{{end}}
+    <label class="color-opt exact" title="An exact color"><input type="radio" name="{{$name}}" value="hex" {{if eq $s.Value "hex"}}checked{{end}} data-exact-pick><input type="color" name="color_hex_{{$s.Key}}" value="{{$s.ExactHex}}" aria-label="Exact color" data-exact><span class="color-opt-name">Exact</span></label>
   </div>
   {{if $s.Kept}}
   <div class="tiles kept">

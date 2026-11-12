@@ -86,7 +86,7 @@
     <p class="muted">No files attached.</p>
     {{end}}
     {{if .CanUpload}}
-    <form method="post" action="/requests/{{.Request.ID}}/files?csrf={{.CSRF}}" enctype="multipart/form-data" class="upload-form">
+    <form method="post" action="/requests/{{.Request.ID}}/files?csrf={{.CSRF}}" enctype="multipart/form-data" class="upload-form" data-upload>
       <label class="dropzone">{{template "icon" "upload"}}<span>Add files</span>
         <input type="file" name="file" multiple required accept="{{fileAccept}}">
       </label>

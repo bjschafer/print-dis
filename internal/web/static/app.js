@@ -129,7 +129,7 @@
       if (r) r.checked = true;
     }
     if (t.matches("[data-exact]")) {
-      const r = t.closest(".dot").querySelector("[data-exact-pick]");
+      const r = t.closest(".color-opt").querySelector("[data-exact-pick]");
       if (r) r.checked = true;
     }
     if (t.matches("[data-enclosure], [data-multi]") && e.type === "change") {
@@ -211,6 +211,79 @@
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();
+
+  // A form with files chosen is sent by XHR so the page shows how far the
+  // upload has got and then that the server is saving it, rather than the
+  // browser's spinner alone. Asked with HX-Request, the server answers success
+  // with HX-Redirect; a page (a form with errors) replaces this one, and a
+  // plain-text refusal shows in place. Without script the form posts normally.
+  function uploadStatus(form, submitter) {
+    let el = form.querySelector("[data-upload-status]");
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "progress upload-progress";
+      el.dataset.uploadStatus = "";
+      el.setAttribute("role", "status");
+      el.innerHTML = '<span class="bar"><span></span></span><span class="progress-text"></span>';
+      if (submitter) (submitter.closest(".actions") || submitter).after(el);
+      else form.append(el);
+    }
+    el.classList.remove("saving", "failed");
+    return el;
+  }
+  function showPage(html) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    document.title = doc.title;
+    document.body.replaceWith(document.adoptNode(doc.body));
+    if (window.htmx) window.htmx.process(document.body);
+    init();
+    window.scrollTo(0, 0);
+  }
+  document.addEventListener("submit", (e) => {
+    const form = e.target;
+    // A named button ("Add another color") re-renders the form; let it post.
+    if (e.defaultPrevented || !form.matches("form[data-upload]") || (e.submitter && e.submitter.name)) return;
+    const count = Array.from(form.querySelectorAll("input[type=file]")).reduce((n, i) => n + i.files.length, 0);
+    if (!count) return;
+    e.preventDefault();
+    const data = new FormData(form);
+    const buttons = form.querySelectorAll("button");
+    const status = uploadStatus(form, e.submitter);
+    const bar = status.querySelector(".bar > span");
+    const text = status.querySelector(".progress-text");
+    const fail = (msg) => {
+      status.classList.remove("saving");
+      status.classList.add("failed");
+      bar.style.width = "0";
+      text.textContent = msg;
+      buttons.forEach((b) => { b.disabled = false; });
+    };
+    buttons.forEach((b) => { b.disabled = true; });
+    bar.style.width = "0";
+    text.textContent = "Uploading…";
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", form.action);
+    xhr.setRequestHeader("HX-Request", "true");
+    xhr.upload.addEventListener("progress", (ev) => {
+      if (!ev.lengthComputable) return;
+      const pct = Math.floor((100 * ev.loaded) / ev.total);
+      bar.style.width = `${pct}%`;
+      text.textContent = `Uploading… ${pct}%`;
+    });
+    xhr.upload.addEventListener("load", () => {
+      status.classList.add("saving");
+      bar.style.width = "100%";
+      text.textContent = `Sent. Saving the ${count > 1 ? "files" : "file"}; this can take a little while…`;
+    });
+    xhr.addEventListener("load", () => {
+      const to = xhr.getResponseHeader("HX-Redirect");
+      if (to) { location.assign(to); return; }
+      if ((xhr.getResponseHeader("Content-Type") || "").startsWith("text/html")) { showPage(xhr.responseText); return; }
+      fail(xhr.responseText.trim() || "The upload failed. Try again in a moment.");
+    });
+    xhr.addEventListener("error", () => fail("The upload did not go through. Check your connection and try again."));
+    xhr.send(data);
+  });
 
   // Camera buttons open the printer's camera in a dialog. Without
   // JavaScript (or <dialog>) they are plain links to the camera page.

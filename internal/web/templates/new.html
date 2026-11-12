@@ -5,7 +5,7 @@
 <div class="form-layout">
   <section class="panel">
     <header class="panel-head">{{template "icon" "cube"}}<h2>Request</h2></header>
-    <form method="post" {{if .FilesEnabled}}action="/requests?csrf={{.CSRF}}" enctype="multipart/form-data"{{else}}action="/requests"{{end}} class="panel-body request-form">
+    <form method="post" {{if .FilesEnabled}}action="/requests?csrf={{.CSRF}}" enctype="multipart/form-data" data-upload{{else}}action="/requests"{{end}} class="panel-body request-form">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
       {{if .FetchImage}}<input type="hidden" name="fetch_image" value="1">{{end}}
       {{template "request_fields" .}}
