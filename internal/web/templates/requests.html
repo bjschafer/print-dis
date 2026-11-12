@@ -31,7 +31,7 @@
     {{if isAdmin $.User}}<td>{{.RequesterName}}</td>{{end}}
     <td><span class="badge {{.Status}}">{{.Status.Label}}</span></td>
     <td class="num">{{with progress .}}{{.}}{{else}}{{.Quantity}}{{end}}</td>
-    <td>{{with swatch .FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}{{if .FilamentLabel}}{{.FilamentLabel}}{{else}}{{.Material}}{{end}}</td>
+    <td class="filament-cell">{{with .Material}}<span class="chip material">{{.}}</span> {{end}}{{template "colors_inline" .Colors}}</td>
     <td class="num">{{date .NeededBy}}{{if and .NeededBy (eq .Timing "firm")}} <span class="firm-flag" title="Firm deadline">{{template "icon" "flag"}}</span>{{end}}</td>
     <td>{{.PrinterName}}</td>
     <td class="num muted">{{.CreatedAt.Local.Format "2006-01-02"}}</td>

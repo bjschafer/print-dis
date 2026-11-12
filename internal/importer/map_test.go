@@ -88,7 +88,7 @@ func TestFields(t *testing.T) {
 		{name: "resin", line: "Requested,X,,,RESIN,,,,,", qty: 1, timing: "whenever", notes: "Method: Resin"},
 		{name: "fdm", line: "Requested,X,,,FDM,,,,,", qty: 1, timing: "whenever"},
 		{name: "mat+color", line: "Requested,X,,,,PETG black,,,,", qty: 1, mat: "PETG", color: "black", timing: "whenever"},
-		{name: "mat dash any", line: "Requested,X,,,,PLA - any,,,,", qty: 1, mat: "PLA", color: "any", timing: "whenever"},
+		{name: "mat dash any", line: "Requested,X,,,,PLA - any,,,,", qty: 1, mat: "PLA", timing: "whenever"},
 		{name: "mat slash", line: "Requested,X,,,,ABS / orange,,,,", qty: 1, mat: "ABS", color: "orange", encl: true, timing: "whenever"},
 		{name: "mat lower", line: "Requested,X,,,,petg,,,,", qty: 1, mat: "PETG", timing: "whenever"},
 		{name: "mat plus", line: `Requested,X,,,,"PLA+, silk gold",,,,`, qty: 1, mat: "PLA+", color: "silk gold", timing: "whenever"},
@@ -96,7 +96,7 @@ func TestFields(t *testing.T) {
 		{name: "mat PA12-CF", line: "Requested,X,,,,PA12-CF black,,,,", qty: 1, mat: "PA12-CF", color: "black", encl: true, timing: "whenever"},
 		{name: "mat PCTG not enclosure", line: "Requested,X,,,,PCTG clear,,,,", qty: 1, mat: "PCTG", color: "clear", timing: "whenever"},
 		{name: "mat PET vs PETG", line: "Requested,X,,,,PET grey,,,,", qty: 1, mat: "PET", color: "grey", timing: "whenever"},
-		{name: "mat none", line: "Requested,X,,,,any,,,,", qty: 1, color: "any", timing: "whenever"},
+		{name: "mat none", line: "Requested,X,,,,any,,,,", qty: 1, timing: "whenever"},
 		{name: "mat not a prefix", line: "Requested,X,,,,PLATINUM,,,,", qty: 1, color: "PLATINUM", timing: "whenever"},
 		{name: "mat no separator", line: "Requested,X,,,,ASA,,,,", qty: 1, mat: "ASA", encl: true, timing: "whenever"},
 		{name: "link url", line: "Requested,X,,,," + ",https://www.printables.com/model/1,,,", qty: 1, link: &url, timing: "whenever"},
@@ -136,7 +136,7 @@ line two"`,
 				t.Fatalf("skipped: %s", r.Skip)
 			}
 			q := r.Req
-			if q.Quantity != tc.qty || q.Printed != tc.printd || q.Material != tc.mat || q.ColorNote != tc.color ||
+			if q.Quantity != tc.qty || q.Printed != tc.printd || q.Material != tc.mat || colorText(q.Colors) != tc.color ||
 				q.NeedsEnclosure != tc.encl || q.Timing != tc.timing || q.Notes != tc.notes {
 				t.Errorf("got %+v", q)
 			}
@@ -191,7 +191,7 @@ func TestRowsAndHeaders(t *testing.T) {
 		}
 		q := res.Rows[0].Req
 		if q.Title != "Vase" || q.Status != core.StatusPrinting || q.Quantity != 3 || q.Printed != 1 ||
-			q.Material != "PLA" || q.ColorNote != "red" || q.Timing != core.TimingFirm || q.Notes != "detail" || q.NeededBy == nil {
+			q.Material != "PLA" || colorText(q.Colors) != "red" || q.Timing != core.TimingFirm || q.Notes != "detail" || q.NeededBy == nil {
 			t.Errorf("got %+v", q)
 		}
 	})
@@ -261,4 +261,17 @@ func TestPrintNotesColumn(t *testing.T) {
 	if res.Rows[0].Key != res2.Rows[0].Key {
 		t.Fatal("print notes changed the key")
 	}
+}
+
+// colorText is the palette key or note of the only color, "" for any.
+func colorText(cs []core.ColorChoice) string {
+	switch {
+	case len(cs) == 0:
+		return ""
+	case len(cs) > 1:
+		return "several"
+	case cs[0].Rough != "":
+		return cs[0].Rough
+	}
+	return cs[0].Note
 }

@@ -89,11 +89,8 @@ create table requests (
   source_image_type     text,
 
   -- what it needs
-  material              text not null default '',   -- "PETG", "ABS", or empty for "any"
-  spoolman_filament_id  integer,                    -- set when picked from Spoolman
-  filament_label        text not null default '',   -- snapshot: "Tinmorry PETG-GF Blue"
-  filament_color_hex    text,                       -- snapshot
-  color_note            text not null default '',   -- free text: "any", "matte orange"
+  material              text not null default '',   -- "PETG", "PLA + TPU", or empty for "any"
+  colors                jsonb not null default '[]', -- ordered color choices; empty for "any" (section 5)
   needs_multi_material  boolean not null default false,
   needs_enclosure       boolean not null default false,
   size_x_mm             integer,
@@ -131,7 +128,7 @@ create table request_files (
 Notes on the choices:
 
 - **Statuses match the existing sheet** (Requested, Needs info, Printing, Ready for pickup, Delivered) plus `cancelled`. `delivered` and `cancelled` are terminal and hidden from the board.
-- **Filament fields are snapshots.** The Spoolman ID is kept for linking, but the label and colour are copied at pick time so a request still reads correctly after that filament is deleted or Spoolman is down.
+- **Colors are a list of snapshots.** A request lists zero or more colors (none means any color), each one of: a filament picked from Spoolman, a rough color from a fixed palette, an exact hex color, or just a note. The Spoolman ID is kept for linking, but the label, material and color are copied at pick time so a request still reads correctly after that filament is deleted or Spoolman is down. The list is a jsonb column rather than a table because it is only ever read and written with its request (migration `00005` moved the old single-filament columns into it).
 - **`printed_count` is the whole of progress tracking.** "3 of 10 printed" is enough; copies do not have individual states.
 - **`request_events` is both the comment thread and the audit trail.** A "needs info" exchange happens there.
 
@@ -144,7 +141,7 @@ A pure function, `Eligible(request, printers) []Printer`, with no database acces
 3. The request does not need an enclosure, or the printer has one.
 4. The request has no size, or the size fits the bed. X and Y may be swapped (rotation about Z); Z may not.
 
-The request form pre-ticks "needs enclosure" when the material is ABS, ASA, PC or PA. The user can untick it.
+The request form pre-ticks "needs enclosure" when the material, or a picked filament's material, is ABS, ASA, PC or PA, and pre-ticks "several colors or materials in one print" (needs multi-material) once two colors are picked. The user can untick either; two colors can also mean separate parts.
 
 The request page lists eligible printers and says why each of the others was excluded. Assigning an ineligible printer is allowed with a visible warning, because the owner sometimes knows better.
 
@@ -152,11 +149,11 @@ The request page lists eligible printers and says why each of the others was exc
 
 Server-rendered HTML with `html/template`, htmx for partial updates, and SortableJS for dragging cards. Both scripts are vendored into the repo and embedded in the binary; there is no Node toolchain and no build step for the frontend. It must be usable on a phone.
 
-The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (light when the OS asks for it), a nav rail that becomes a bottom tab bar on phones, and panels with header strips. Board columns are lanes tinted with their status colour, with cards as lighter raised tiles on them; a card is striped with its filament colour when that is known. A firm date due within three days is a solid orange pill, the card's only alarm. Printer tiles above the board are a small dashboard: the state as a solid pill and progress in large type. The accent colour comes from `ACCENT_COLOR`. Icons are an inline SVG sprite in `layout.html`; all styling is one hand-written `app.css`. Only admins can drag cards, so only their cards lift on hover and show a grab cursor.
+The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (light when the OS asks for it), a nav rail that becomes a bottom tab bar on phones, and panels with header strips. Board columns are lanes tinted with their status color, with cards as lighter raised tiles on them; a card is striped with its colors, top to bottom, when they are known. A firm date due within three days is a solid orange pill, the card's only alarm. Printer tiles above the board are a small dashboard: the state as a solid pill and progress in large type. The accent color comes from `ACCENT_COLOR`. Icons are an inline SVG sprite in `layout.html`; all styling is one hand-written `app.css`. Only admins can drag cards, so only their cards lift on hover and show a grab cursor.
 
 | Route | Purpose |
 |---|---|
-| `GET /` | Board. Columns: Requested, Needs info, Printing, Ready. Admin sees all requests and can drag between columns; requesters see their own, read-only. Cards show title, requester, quantity and progress, filament swatch, needed-by date, and assigned printer. Firm dates that are overdue or within three days are highlighted. Filters: requester, printer, material. |
+| `GET /` | Board. Columns: Requested, Needs info, Printing, Ready. Admin sees all requests and can drag between columns; requesters see their own, read-only. Cards show title, requester, quantity and progress, material and color swatches, needed-by date, and assigned printer. Firm dates that are overdue or within three days are highlighted. Filters: requester, printer, material. Any column can be collapsed to a thin lane (it still takes drops); which ones is remembered per browser in the `board_collapsed` cookie, so the server renders it collapsed. |
 | `GET /requests` | Table of everything, including delivered and cancelled. Sortable; the same filters. |
 | `GET /requests/new` | New request form. Accepts `?url=` to prefill from a link (section 6). Admins get a "for" field to pick or create a person. |
 | `GET /requests/{id}` | Detail: all fields, eligible printers, comment thread, history. Edit in place, subject to section 2. |
@@ -181,10 +178,12 @@ Every state-changing route requires a CSRF token.
 Read-only, against the in-cluster service `http://spoolman.spoolman.svc.cluster.local:8000`.
 
 - Fetch `GET /api/v1/filament` and `GET /api/v1/spool`, and cache both in memory for five minutes.
-- The picker lists filaments grouped by material, each with vendor, name, a colour swatch, and whether any unarchived spool has stock left.
-- Picking one fills `spoolman_filament_id`, `filament_label`, `filament_color_hex` and `material`.
-- The picker always offers "any" and a free-text colour note alongside it.
-- If Spoolman is unreachable, the form falls back to free-text material and colour and says so. The app must start and work without Spoolman.
+- The form asks for a material first, as chips: Any, the common ones (PLA, PETG, ABS, ASA, TPU), every material Spoolman has, and Other with a text box. Someone who only cares about material picks it and leaves color on Any.
+- Then one or more colors, each with: a row of rough palette colors (`core.RoughColors`) plus Any and an exact color picker; a collapsible "filament on the shelf" grid of swatch tiles, grouped by material, in-stock first, with grams left, filtered by the chosen material and a search box; and a free-text note. "Add another color" adds a slot (up to eight); without script it re-renders the form with a blank slot instead of saving.
+- Multi-color filaments (`multi_color_hexes`) show as a pie swatch.
+- Picking a filament snapshots its ID, label, material and colors; the client's values for those are never read. When the request names no material, the picked filaments' material is used.
+- On a request page, the owner sees "On the shelf": the in-stock filaments closest in color to each rough or exact color asked for, in the requested material. Inventory is often out of date, so rough colors are first-class and these are suggestions only.
+- If Spoolman is unreachable, the form offers the material chips and rough colors and says the filament list is unavailable. The app must start and work without Spoolman.
 
 print-dis never writes to Spoolman.
 
@@ -239,7 +238,7 @@ Friends often have a model file and nowhere to host it, so a request can carry a
 | `ADMIN_GROUP` | Authentik group whose members are admins. |
 | `SPOOLMAN_URL` | Optional. Integration is off when unset. |
 | `PREVIEW_ALLOW_HOSTS` | Optional, comma-separated internal hosts the preview fetch may reach. |
-| `ACCENT_COLOR` | Optional hex colour for the UI accent, e.g. `#3b82f6`. Default `#00ae42`. Text on it is picked black or white for contrast. |
+| `ACCENT_COLOR` | Optional hex color for the UI accent, e.g. `#3b82f6`. Default `#00ae42`. Text on it is picked black or white for contrast. |
 | `FILES_BACKEND` | `s3`, `dir`, or empty to disable uploads. |
 | `FILES_DIR` | Directory for the `dir` backend. |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION` | For the `s3` backend. Path-style addressing is always used. |
@@ -284,7 +283,7 @@ Each milestone ends with `make check` passing and the listed behaviour demonstra
 **M0. Reset and skeleton.** Remove the old code. Module layout from section 7, config loading, migrations runner with the full schema from section 3, `/healthz` and `/readyz`, Dockerfile, CI that tests and publishes the image, a rewritten `AGENTS.md` and `README.md`.
 *Done when:* the container starts against an empty database, applies migrations, and answers both health routes.
 
-**M1. Requests, board and printers, behind `DEV_USER`.** Everything in section 4 except auth and people, with the eligibility logic of section 3. Filament and colour are free text for now.
+**M1. Requests, board and printers, behind `DEV_USER`.** Everything in section 4 except auth and people, with the eligibility logic of section 3. Filament and color are free text for now.
 *Done when:* an admin can create, edit, comment on, drag and deliver a request; printers can be created with bed sizes; a request needing multi-material lists only printers that have it and explains the exclusions.
 
 **M2. Sign-in, roles and people.** OIDC login, user creation on first sign-in, admin from the `groups` claim, the permission rules of section 2 enforced in handlers and reflected in the UI, placeholders, linking by verified email, and merge.

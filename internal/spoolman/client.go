@@ -27,9 +27,11 @@ type FilamentOption struct {
 	Vendor   string
 	Name     string
 	Material string
-	ColorHex string // "#rrggbb", or "" when unknown
-	Label    string // "Vendor Name"
-	InStock  bool   // any unarchived spool has weight left
+	ColorHex string   // "#rrggbb", or "" when unknown; the first of Hexes
+	Hexes    []string // every color of a multi-color filament, else just ColorHex
+	Label    string   // "Vendor Name"
+	InStock  bool     // any unarchived spool has weight left
+	Grams    float64  // weight left across unarchived spools
 }
 
 // MaterialGroup is the options of one material, sorted by label.
@@ -38,7 +40,8 @@ type MaterialGroup struct {
 	Options  []FilamentOption
 }
 
-// GroupByMaterial groups options by material (sorted), then label.
+// GroupByMaterial groups options by material (sorted); within a group,
+// filaments in stock come first, then by label.
 func GroupByMaterial(opts []FilamentOption) []MaterialGroup {
 	idx := map[string]int{}
 	var groups []MaterialGroup
@@ -55,7 +58,11 @@ func GroupByMaterial(opts []FilamentOption) []MaterialGroup {
 	sort.Slice(groups, func(i, j int) bool { return groups[i].Material < groups[j].Material })
 	for _, g := range groups {
 		sort.SliceStable(g.Options, func(i, j int) bool {
-			return strings.ToLower(g.Options[i].Label) < strings.ToLower(g.Options[j].Label)
+			a, b := g.Options[i], g.Options[j]
+			if a.InStock != b.InStock {
+				return a.InStock
+			}
+			return strings.ToLower(a.Label) < strings.ToLower(b.Label)
 		})
 	}
 	return groups
@@ -146,18 +153,28 @@ func (c *Client) get(ctx context.Context, path string, v any) error {
 }
 
 func buildOptions(filaments []Filament, spools []Spool) []FilamentOption {
-	stock := map[int]bool{}
+	grams := map[int]float64{}
 	for _, s := range spools {
 		if !s.Archived && s.RemainingWeight > 0 {
-			stock[s.Filament.ID] = true
+			grams[s.Filament.ID] += s.RemainingWeight
 		}
 	}
 	opts := make([]FilamentOption, 0, len(filaments))
 	for _, f := range filaments {
-		hex := NormalizeHex(f.ColorHex)
-		if f.MultiColorHexes != "" {
-			first, _, _ := strings.Cut(f.MultiColorHexes, ",")
-			hex = NormalizeHex(first)
+		var hexes []string
+		for part := range strings.SplitSeq(f.MultiColorHexes, ",") {
+			if h := NormalizeHex(part); h != "" {
+				hexes = append(hexes, h)
+			}
+		}
+		if len(hexes) == 0 {
+			if h := NormalizeHex(f.ColorHex); h != "" {
+				hexes = []string{h}
+			}
+		}
+		hex := ""
+		if len(hexes) > 0 {
+			hex = hexes[0]
 		}
 		vendor := strings.TrimSpace(f.Vendor.Name)
 		name := strings.TrimSpace(f.Name)
@@ -167,8 +184,10 @@ func buildOptions(filaments []Filament, spools []Spool) []FilamentOption {
 			Name:     name,
 			Material: strings.ToUpper(strings.TrimSpace(f.Material)),
 			ColorHex: hex,
+			Hexes:    hexes,
 			Label:    strings.TrimSpace(vendor + " " + name),
-			InStock:  stock[f.ID],
+			InStock:  grams[f.ID] > 0,
+			Grams:    grams[f.ID],
 		})
 	}
 	sort.SliceStable(opts, func(i, j int) bool {
@@ -180,7 +199,7 @@ func buildOptions(filaments []Filament, spools []Spool) []FilamentOption {
 	return opts
 }
 
-// NormalizeHex returns "#rrggbb" for a 6 or 8 digit hex colour with or
+// NormalizeHex returns "#rrggbb" for a 6 or 8 digit hex color with or
 // without "#", or "" when s is not one.
 func NormalizeHex(s string) string {
 	s = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(s)), "#")

@@ -60,12 +60,12 @@ func (s *Store) ImportRequests(ctx context.Context, email, name string, items []
 			r := it.Req
 			tag, err := tx.Exec(ctx, `
 				insert into requests (requester_id, created_by_id, title, quantity, printed_count, status, needed_by, timing,
-					notes, source_url, material, color_note, needs_enclosure, import_key, position)
+					notes, source_url, material, colors, needs_enclosure, import_key, position)
 				values ($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
 					coalesce((select max(position) from requests where status = $5), 0) + 1)
 				on conflict (import_key) do nothing`,
 				uid, r.Title, r.Quantity, r.Printed, r.Status, r.NeededBy, r.Timing,
-				r.Notes, r.SourceURL, r.Material, r.ColorNote, r.NeedsEnclosure, it.Key)
+				r.Notes, r.SourceURL, r.Material, colorsParam(r.Colors), r.NeedsEnclosure, it.Key)
 			if err != nil {
 				return err
 			}

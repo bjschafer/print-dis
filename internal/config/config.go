@@ -98,7 +98,7 @@ func FromEnv(getenv func(string) string) (*Config, error) {
 		if h, ok := parseHex(raw); ok {
 			c.AccentColor = h
 		} else {
-			errs = append(errs, fmt.Errorf("ACCENT_COLOR %q is not a hex colour like #00ae42", raw))
+			errs = append(errs, fmt.Errorf("ACCENT_COLOR %q is not a hex color like #00ae42", raw))
 		}
 	}
 	switch c.FilesBackend {

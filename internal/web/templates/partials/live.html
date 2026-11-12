@@ -1,7 +1,7 @@
 {{/* Live printer status (docs/design.md section 5a). Admin only; handlers
      pass nothing for anyone else. */}}
 
-{{/* live_state takes a liveView: the coloured dot and label. */}}
+{{/* live_state takes a liveView: the colored dot and label. */}}
 {{define "live_state"}}<span class="live-state st-{{if .Known}}{{.Status.State}}{{else}}unknown{{end}}"><span class="dot" aria-hidden="true"></span>{{if .Known}}{{.Status.State.Label}}{{else}}Checking…{{end}}</span>{{end}}
 
 {{/* live_progress takes a liveView; it renders only while a job is on the printer. */}}

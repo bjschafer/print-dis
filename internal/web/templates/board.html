@@ -6,11 +6,12 @@
 {{if .Live}}{{template "printer_strip" .Live}}{{end}}
 <div class="board" {{if canMove .User}}data-can-move{{end}}>
   {{range .Columns}}
-  <section class="column s-{{.Status}}">
+  <section class="column s-{{.Status}}{{if .Collapsed}} collapsed{{end}}" data-column="{{.Status}}">
     <header class="column-head">
       <span class="dot" aria-hidden="true"></span>
       <h2>{{.Status.Label}}</h2>
       <span class="count">{{len .Requests}}</span>
+      <button type="button" class="col-toggle" data-col-toggle aria-expanded="{{if .Collapsed}}false{{else}}true{{end}}" aria-label="{{if .Collapsed}}Show{{else}}Hide{{end}} {{.Status.Label}}" title="{{if .Collapsed}}Show{{else}}Hide{{end}} this column" hidden>{{template "icon" "chevron"}}</button>
     </header>
     <div class="column-list" data-status="{{.Status}}">
       {{range .Requests}}{{template "cardctx" (dict "R" . "Today" $.Today "Live" $.LiveByID)}}{{end}}

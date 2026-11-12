@@ -99,7 +99,7 @@ func TestRun(t *testing.T) {
 		}
 	}
 	b := by["Benchy"]
-	if b.Quantity != 1 || b.Notes != "Qty: 2 plates\n\nfor my desk" || b.Material != "PETG" || b.ColorNote != "black" ||
+	if b.Quantity != 1 || b.Notes != "Qty: 2 plates\n\nfor my desk" || b.Material != "PETG" || len(b.Colors) != 1 || b.Colors[0].Rough != "black" ||
 		b.Timing != core.TimingFirm || b.NeededBy == nil || b.NeededBy.Year() != 2026 || b.SourceURL == nil || b.Status != core.StatusRequested {
 		t.Errorf("benchy = %+v", b)
 	}

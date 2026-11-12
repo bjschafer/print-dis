@@ -1,5 +1,5 @@
 /* print-dis. Dark-first, in the spirit of printer UIs like Fluidd and
-   Bambuddy: a nav rail, panels with header strips, colour-coded status. */
+   Bambuddy: a nav rail, panels with header strips, color-coded status. */
 
 :root {
   --bg: #0f1115;
@@ -23,7 +23,7 @@
   --warn: #f5a524;
   --urgent: #ff7a45;
 
-  /* status colours */
+  /* status colors */
   --s-requested: #8b9cff;
   --s-needs_info: #f5a524;
   --s-printing: #38bdf8;
@@ -305,7 +305,7 @@ fieldset.admin legend { color: var(--accent); }
   .filters select { min-width: 0; width: 100%; }
 }
 
-/* ---------- status colours ---------- */
+/* ---------- status colors ---------- */
 .s-requested, .badge.requested, .to-requested { --c: var(--s-requested); }
 .s-needs_info, .badge.needs_info, .to-needs_info { --c: var(--s-needs_info); }
 .s-printing, .badge.printing, .to-printing { --c: var(--s-printing); }
@@ -345,7 +345,7 @@ fieldset.admin legend { color: var(--accent); }
 
 /* ---------- board ---------- */
 .board {
-  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(17rem, 1fr);
+  display: flex;
   gap: .9rem; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: .5rem;
   /* Columns stretch to the board's height and their lists fill them, so a
      card can be dropped anywhere in a column, not just among its cards:
@@ -353,8 +353,30 @@ fieldset.admin legend { color: var(--accent); }
   align-items: stretch;
   min-height: calc(100dvh - 11rem);
 }
-@media (max-width: 760px) { .board { grid-auto-columns: 86%; gap: .75rem; min-height: calc(100dvh - 18rem); } }
-/* Each column is a lane tinted with its status colour, so the four read
+.board > .column { flex: 1 0 17rem; }
+@media (max-width: 760px) { .board { gap: .75rem; min-height: calc(100dvh - 18rem); } .board > .column { flex: 0 0 86%; } }
+/* A collapsed column is a thin lane with its name running down it. Cards
+   are hidden but the lane still takes drops. */
+.col-toggle {
+  min-height: 1.7rem; width: 1.7rem; padding: 0; margin-right: -.3rem;
+  background: transparent; border-color: transparent; color: var(--c);
+}
+.col-toggle:hover { background: color-mix(in srgb, var(--c) 18%, transparent); }
+.col-toggle .icon { width: 1rem; height: 1rem; transition: transform .15s; }
+.board > .column.collapsed { flex: 0 0 3rem; cursor: pointer; }
+.column.collapsed .column-head {
+  flex-direction: column; gap: .6rem; padding: .7rem 0; margin: 0; border-bottom: 0; height: 100%;
+}
+.column.collapsed .column-head h2 { writing-mode: vertical-rl; white-space: nowrap; }
+.column.collapsed .column-head .count { margin-left: 0; order: -1; }
+.column.collapsed .col-toggle { order: -2; margin: 0; }
+.column.collapsed .col-toggle .icon { transform: rotate(180deg); }
+.column.collapsed .column-list { position: absolute; inset: 0; padding: 0; min-height: 0; }
+.column.collapsed .column-list > .card:not(.ghost), .column.collapsed .column-list::after { display: none; }
+.column.collapsed { position: relative; }
+.column.collapsed .column-head { position: relative; z-index: 1; pointer-events: none; }
+.column.collapsed .col-toggle { pointer-events: auto; }
+/* Each column is a lane tinted with its status color, so the four read
    apart at a glance; cards sit on it as lighter, raised tiles. */
 .column {
   display: flex; flex-direction: column; min-width: 0;
@@ -385,7 +407,7 @@ fieldset.admin legend { color: var(--accent); }
   box-shadow: var(--shadow);
   transition: border-color .15s, transform .15s, box-shadow .15s;
 }
-/* filament-colour stripe, like a loaded spool; only when the colour is known */
+/* filament-color stripe, like a loaded spool; only when the color is known */
 .card.has-fil { padding-left: 1.05rem; }
 .card.has-fil::before {
   content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
@@ -713,3 +735,83 @@ ol.steps li::before {
   .ptile-pct { font-size: 1.25rem; }
   .ptile-meta span:nth-child(2) { display: none; }
 }
+
+/* ---------- material and color picker ---------- */
+.tile[hidden], .shelf-group[hidden], .slot-remove[hidden], .col-toggle[hidden], .add-color [hidden], .shelf-search[hidden] { display: none; }
+fieldset.pick { margin: 0 0 1rem; }
+.choice-chips { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-bottom: .35rem; }
+.chip-opt { margin: 0; cursor: pointer; }
+.chip-opt input, .dot input[type=radio], .tile input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.chip-opt span {
+  display: block; padding: .35rem .8rem; border-radius: 999px; font-size: .85rem; font-weight: 600;
+  border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text);
+}
+.chip-opt:hover span { border-color: var(--accent); }
+.chip-opt input:checked + span { background: var(--brand); border-color: var(--brand); color: var(--brand-text); }
+.chip-opt input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.material-other { width: 9rem; padding: .35rem .7rem; font-size: .85rem; border-radius: 999px; }
+.material-pick small { display: block; font-size: .8rem; }
+
+.color-slots { display: flex; flex-direction: column; gap: .75rem; margin-bottom: .5rem; }
+.color-slot {
+  position: relative; padding: .8rem .9rem 0; margin: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2);
+}
+.color-slot legend { float: left; width: auto; margin-bottom: .6rem; }
+.slot-remove { position: absolute; top: .45rem; right: .5rem; }
+.slot-remove .icon { width: .85rem; height: .85rem; }
+.dots { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .75rem; }
+.dot {
+  display: flex; flex-direction: column; align-items: center; gap: .2rem; width: 3.3rem; margin: 0;
+  padding: .3rem .1rem; border-radius: var(--radius-sm); cursor: pointer;
+  font-size: .7rem; font-weight: 600; color: var(--muted); text-align: center;
+}
+.dot:hover { background: var(--surface-3); }
+.dot:has(input[type=radio]:checked) { background: var(--surface); color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
+.dot:has(input[type=radio]:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.swatch.lg { width: 1.9rem; height: 1.9rem; margin: 0; vertical-align: middle; }
+.swatch.any, .swatch.unknown {
+  background: repeating-linear-gradient(45deg, var(--surface-3) 0 4px, transparent 4px 8px);
+}
+.dot.exact input[type=color] {
+  width: 1.9rem; height: 1.9rem; padding: 0; margin: 0; border: 0; border-radius: 50%;
+  background: none; cursor: pointer; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+.dot.exact input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+.dot.exact input[type=color]::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.dot.exact input[type=color]::-moz-color-swatch { border: 0; border-radius: 50%; }
+
+details.shelf { margin: 0 0 .75rem; }
+details.shelf > summary { cursor: pointer; font-size: .88rem; font-weight: 600; color: var(--accent); padding: .2rem 0; }
+.shelf-search { margin: .5rem 0 .25rem; }
+.shelf-group h4 { margin: .7rem 0 .4rem; font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.tiles {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 12.5rem), 1fr)); gap: .4rem;
+  list-style: none; padding: 0; margin: 0;
+}
+.tiles.kept { margin-bottom: .75rem; }
+.tile {
+  display: flex; align-items: center; gap: .6rem; margin: 0; padding: .45rem .6rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface);
+  color: var(--text); font-size: .85rem; font-weight: 550; cursor: pointer; min-width: 0;
+}
+label.tile:hover { border-color: var(--border-strong); }
+.tile:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.tile:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tile.out { opacity: .6; }
+.tile-text { display: flex; flex-direction: column; min-width: 0; }
+.tile-name { overflow-wrap: anywhere; line-height: 1.25; }
+.tile-sub { font-size: .74rem; font-weight: 500; color: var(--muted); }
+.slot-note { margin-bottom: .8rem; }
+.add-color { margin: 0 0 1rem; }
+.add-color .icon { width: .9rem; height: .9rem; }
+
+.color-item { display: inline-flex; align-items: center; gap: .3rem; margin-right: .5rem; }
+.color-item .fil-note { color: var(--muted); }
+.color-list { display: flex; flex-wrap: wrap; gap: .3rem 0; }
+.filament-cell .color-item .swatch { margin-right: 0; }
+.shelf-matches { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .8rem; }
+.shelf-matches .want { margin-bottom: .35rem; font-weight: 600; }
+.shelf-matches .tiles { grid-template-columns: 1fr; }
+.shelf-matches .tile { cursor: default; }

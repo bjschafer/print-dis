@@ -14,8 +14,8 @@ import (
 
 // requestCols excludes source_image, which is fetched separately.
 const requestCols = `r.id, r.requester_id, r.created_by_id, r.title, r.quantity, r.printed_count, r.status, r.needed_by,
-	r.timing, r.notes, r.source_url, r.source_title, r.source_image_type, r.material, r.spoolman_filament_id,
-	r.filament_label, r.filament_color_hex, r.color_note, r.needs_multi_material, r.needs_enclosure,
+	r.timing, r.notes, r.source_url, r.source_title, r.source_image_type, r.material, r.colors,
+	r.needs_multi_material, r.needs_enclosure,
 	r.size_x_mm, r.size_y_mm, r.size_z_mm, r.printer_id, r.position, r.created_at, r.updated_at,
 	u.name, coalesce(p.name, ''), (r.source_image is not null)`
 
@@ -25,8 +25,8 @@ func scanRequest(row pgx.Row) (*core.Request, error) {
 	var r core.Request
 	var hasImage bool
 	err := row.Scan(&r.ID, &r.RequesterID, &r.CreatedByID, &r.Title, &r.Quantity, &r.Printed, &r.Status, &r.NeededBy,
-		&r.Timing, &r.Notes, &r.SourceURL, &r.SourceTitle, &r.SourceImageType, &r.Material, &r.SpoolmanFilamentID,
-		&r.FilamentLabel, &r.FilamentColorHex, &r.ColorNote, &r.NeedsMultiMaterial, &r.NeedsEnclosure,
+		&r.Timing, &r.Notes, &r.SourceURL, &r.SourceTitle, &r.SourceImageType, &r.Material, &r.Colors,
+		&r.NeedsMultiMaterial, &r.NeedsEnclosure,
 		&r.SizeX, &r.SizeY, &r.SizeZ, &r.PrinterID, &r.Position, &r.CreatedAt, &r.UpdatedAt,
 		&r.RequesterName, &r.PrinterName, &hasImage)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -39,6 +39,14 @@ func scanRequest(row pgx.Row) (*core.Request, error) {
 		r.SourceImageType = nil
 	}
 	return &r, err
+}
+
+// colorsParam is cs for the not-null jsonb colors column: never JSON null.
+func colorsParam(cs []core.ColorChoice) []core.ColorChoice {
+	if cs == nil {
+		return []core.ColorChoice{}
+	}
+	return cs
 }
 
 // Filter narrows a request listing. Zero values mean "no constraint".
@@ -151,15 +159,15 @@ func (s *Store) GetRequestImage(ctx context.Context, id int64) ([]byte, string, 
 func (s *Store) CreateRequest(ctx context.Context, r *core.Request) error {
 	return s.Pool.QueryRow(ctx, `
 		insert into requests (requester_id, created_by_id, title, quantity, printed_count, status, needed_by, timing, notes,
-			source_url, source_title, source_image, source_image_type, material, spoolman_filament_id, filament_label,
-			filament_color_hex, color_note, needs_multi_material, needs_enclosure, size_x_mm, size_y_mm, size_z_mm,
+			source_url, source_title, source_image, source_image_type, material, colors,
+			needs_multi_material, needs_enclosure, size_x_mm, size_y_mm, size_z_mm,
 			printer_id, position)
-		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,
+		values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
 			coalesce((select max(position) from requests where status = $6), 0) + 1)
 		returning id, position, created_at, updated_at`,
 		r.RequesterID, r.CreatedByID, r.Title, r.Quantity, r.Printed, r.Status, r.NeededBy, r.Timing, r.Notes,
-		r.SourceURL, r.SourceTitle, r.SourceImage, r.SourceImageType, r.Material, r.SpoolmanFilamentID, r.FilamentLabel,
-		r.FilamentColorHex, r.ColorNote, r.NeedsMultiMaterial, r.NeedsEnclosure, r.SizeX, r.SizeY, r.SizeZ,
+		r.SourceURL, r.SourceTitle, r.SourceImage, r.SourceImageType, r.Material, colorsParam(r.Colors),
+		r.NeedsMultiMaterial, r.NeedsEnclosure, r.SizeX, r.SizeY, r.SizeZ,
 		r.PrinterID,
 	).Scan(&r.ID, &r.Position, &r.CreatedAt, &r.UpdatedAt)
 }
@@ -170,13 +178,13 @@ func (s *Store) UpdateRequest(ctx context.Context, r *core.Request, byUser int64
 	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `
 			update requests set requester_id=$2, title=$3, quantity=$4, printed_count=$5, needed_by=$6, timing=$7, notes=$8,
-				source_url=$9, source_title=$10, material=$11, spoolman_filament_id=$12, filament_label=$13,
-				filament_color_hex=$14, color_note=$15, needs_multi_material=$16, needs_enclosure=$17,
-				size_x_mm=$18, size_y_mm=$19, size_z_mm=$20, printer_id=$21, updated_at=now()
+				source_url=$9, source_title=$10, material=$11, colors=$12,
+				needs_multi_material=$13, needs_enclosure=$14,
+				size_x_mm=$15, size_y_mm=$16, size_z_mm=$17, printer_id=$18, updated_at=now()
 			where id=$1`,
 			r.ID, r.RequesterID, r.Title, r.Quantity, r.Printed, r.NeededBy, r.Timing, r.Notes,
-			r.SourceURL, r.SourceTitle, r.Material, r.SpoolmanFilamentID, r.FilamentLabel,
-			r.FilamentColorHex, r.ColorNote, r.NeedsMultiMaterial, r.NeedsEnclosure,
+			r.SourceURL, r.SourceTitle, r.Material, colorsParam(r.Colors),
+			r.NeedsMultiMaterial, r.NeedsEnclosure,
 			r.SizeX, r.SizeY, r.SizeZ, r.PrinterID)
 		if err != nil {
 			return err

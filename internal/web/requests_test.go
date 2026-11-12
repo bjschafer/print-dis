@@ -41,7 +41,7 @@ func TestAdminFlow(t *testing.T) {
 	// Create.
 	code, loc, body := h.post("/requests", url.Values{
 		"title": {"Spool holder"}, "quantity": {"4"}, "timing": {"firm"}, "needed_by": {"2026-11-12"},
-		"material": {"petg"}, "color_note": {"blue"}, "needs_multi_material": {"on"},
+		"material": {"petg"}, "colors_form": {"1"}, "color_0": {"c:blue"}, "needs_multi_material": {"on"},
 		"size_x": {"100"}, "size_y": {"80"}, "size_z": {"50"}, "source_url": {"https://www.printables.com/model/1"},
 	})
 	if code != http.StatusSeeOther || !strings.HasPrefix(loc, "/requests/") {
@@ -72,14 +72,14 @@ func TestAdminFlow(t *testing.T) {
 	}
 	edit := url.Values{
 		"title": {"Spool holder v2"}, "quantity": {"4"}, "timing": {"firm"}, "needed_by": {"2026-11-12"},
-		"material": {"PETG"}, "needs_multi_material": {"on"}, "size_x": {"100"}, "size_y": {"80"}, "size_z": {"50"},
+		"material": {"PETG"}, "colors_form": {"1"}, "needs_multi_material": {"on"}, "size_x": {"100"}, "size_y": {"80"}, "size_z": {"50"},
 		"printer_id": {itoa(trident)}, "printed_count": {"1"}, "requester_id": {itoa(r.RequesterID)},
 	}
 	if code, _, body := h.post(loc, edit); code != http.StatusSeeOther {
 		t.Fatalf("edit: %d %s", code, body)
 	}
 	_, body = h.get(loc)
-	h.mustContain(body, "Spool holder v2", "assigned printer is not eligible", "changed title, printed, link, colour, printer")
+	h.mustContain(body, "Spool holder v2", "assigned printer is not eligible", "changed title, printed, link, color, printer")
 
 	// Comment, both plain and via htmx.
 	if code, _, _ := h.post(loc+"/comments", url.Values{"body": {"first"}}); code != http.StatusSeeOther {

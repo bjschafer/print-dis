@@ -129,8 +129,12 @@ func summarize(r *core.Request) string {
 	if r.Material != "" {
 		parts = append(parts, "material="+r.Material)
 	}
-	if r.ColorNote != "" {
-		parts = append(parts, fmt.Sprintf("color=%q", r.ColorNote))
+	for _, c := range r.Colors {
+		name := c.Name()
+		if c.Note != "" {
+			name = c.Note
+		}
+		parts = append(parts, fmt.Sprintf("color=%q", name))
 	}
 	if r.NeedsEnclosure {
 		parts = append(parts, "enclosure")

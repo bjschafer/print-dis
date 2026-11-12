@@ -204,7 +204,9 @@ func mapRow(num int, get func(string) string, now time.Time) Row {
 	}
 
 	// Material / color
-	r.Material, r.ColorNote = ParseMaterial(get(colMaterial))
+	var colorNote string
+	r.Material, colorNote = ParseMaterial(get(colMaterial))
+	r.Colors = core.ParseColorNote(colorNote)
 	r.NeedsEnclosure = core.MaterialWantsEnclosure(r.Material)
 
 	// Link
@@ -281,10 +283,10 @@ const separators = " \t-/,;:|"
 var embeddedMaterialRE = regexp.MustCompile(`(?:^|[^A-Za-z0-9])((?:PETG|PCTG|PLA|ABS|ASA|TPU|HIPS|PVA|PET|PC|PA)\d{0,2}(?:\+|-(?:CF|GF|HF|HT|FR|ESD|LW))*)(?:$|[^A-Za-z0-9+])`)
 
 // ParseMaterial splits free text such as "PETG black" into an upper-cased
-// material and the remaining colour note. A material elsewhere in the text,
+// material and the remaining color note. A material elsewhere in the text,
 // in capitals, is recognised too, and then the whole text is kept as the
-// colour note since vendor and colour surround it. Unrecognised text is all
-// colour.
+// color note since vendor and color surround it. Unrecognised text is all
+// color.
 func ParseMaterial(s string) (material, colorNote string) {
 	s = strings.TrimSpace(s)
 	if m := materialRE.FindString(s); m != "" {

@@ -37,9 +37,7 @@ func ChangedFields(a, b *Request) []string {
 	add(a.Notes != b.Notes, "notes")
 	add(!eqPtr(a.SourceURL, b.SourceURL) || !eqPtr(a.SourceTitle, b.SourceTitle), "link")
 	add(a.Material != b.Material, "material")
-	add(!eqPtr(a.SpoolmanFilamentID, b.SpoolmanFilamentID) || a.FilamentLabel != b.FilamentLabel ||
-		!eqPtr(a.FilamentColorHex, b.FilamentColorHex), "filament")
-	add(a.ColorNote != b.ColorNote, "colour")
+	add(!slices.EqualFunc(a.Colors, b.Colors, ColorChoice.Equal), "color")
 	add(a.NeedsMultiMaterial != b.NeedsMultiMaterial, "multi-material")
 	add(a.NeedsEnclosure != b.NeedsEnclosure, "enclosure")
 	add(!eqPtr(a.SizeX, b.SizeX) || !eqPtr(a.SizeY, b.SizeY) || !eqPtr(a.SizeZ, b.SizeZ), "size")

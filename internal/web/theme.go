@@ -10,7 +10,7 @@ import (
 
 const defaultAccent = "#00ae42"
 
-// accent is the configured accent colour, or the default.
+// accent is the configured accent color, or the default.
 func (s *Server) accent() string {
 	if s.Config != nil && s.Config.AccentColor != "" {
 		return s.Config.AccentColor
@@ -56,7 +56,7 @@ func luminance(hex string) float64 {
 
 func contrast(a, b float64) float64 { return (max(a, b) + 0.05) / (min(a, b) + 0.05) }
 
-// favicon is the logo mark in the accent colour.
+// favicon is the logo mark in the accent color.
 func (s *Server) favicon(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "public, max-age=3600")

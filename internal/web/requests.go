@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -51,8 +52,28 @@ func (s *Server) filters(r *http.Request, u *core.User) (store.Filter, *filterVi
 }
 
 type column struct {
-	Status   core.Status
-	Requests []core.Request
+	Status    core.Status
+	Requests  []core.Request
+	Collapsed bool
+}
+
+// collapsedCookie lists the board columns a viewer has collapsed, as
+// status names joined with ".". Script sets it; the server only reads it,
+// so the board renders collapsed from the start.
+const collapsedCookie = "board_collapsed"
+
+func collapsedColumns(r *http.Request) map[core.Status]bool {
+	c, err := r.Cookie(collapsedCookie)
+	if err != nil {
+		return nil
+	}
+	out := map[core.Status]bool{}
+	for part := range strings.SplitSeq(c.Value, ".") {
+		if st := core.Status(part); st.Valid() {
+			out[st] = true
+		}
+	}
+	return out
 }
 
 func (s *Server) board(w http.ResponseWriter, r *http.Request) {
@@ -71,8 +92,10 @@ func (s *Server) board(w http.ResponseWriter, r *http.Request) {
 	}
 	cols := make([]column, len(core.BoardStatuses))
 	idx := map[core.Status]int{}
+	collapsed := collapsedColumns(r)
 	for i, st := range core.BoardStatuses {
 		cols[i].Status = st
+		cols[i].Collapsed = collapsed[st]
 		idx[st] = i
 	}
 	for _, rq := range reqs {
@@ -122,15 +145,19 @@ type requestFormView struct {
 	People   []core.User    // admins: the "for" picker
 	Printers []core.Printer // admins: assignment
 
-	// Filament picker. FilamentsConfigured is true when a source exists;
-	// FilamentsDown when it is configured but could not be read, in which
-	// case the form falls back to free text.
+	// Color picker. FilamentsConfigured is true when a Spoolman source
+	// exists; FilamentsDown when it is configured but could not be read,
+	// in which case the form offers only rough colors.
 	Filaments           []spoolman.MaterialGroup
 	FilamentsConfigured bool
 	FilamentsDown       bool
-	SelectedFilament    int     // the request's current pick, 0 for any
-	SelectedHex         *string // swatch for the current pick
-	CurrentGone         bool    // the current pick is no longer in the list
+	InStock             int
+	Materials           []string    // material chips
+	MaterialOther       string      // the request's material when it is not a chip
+	Slots               []colorSlot // one per color, at least one
+	BlankSlot           colorSlot   // the template script copies to add a color
+	extraSlots          int         // blank slots to add, for "add another color" without script
+	opts                []spoolman.FilamentOption
 	// Link preview state for the new-request form.
 	PreviewNote string       // shown when a link could not be read
 	Thumb       template.URL // data: URI of the fetched thumbnail
@@ -153,74 +180,41 @@ func (s *Server) formView(r *http.Request, title string, req *core.Request, errs
 	return v, nil
 }
 
-// fillFilaments loads the picker's options into v.
+// fillFilaments loads the color picker's options into v.
 func (s *Server) fillFilaments(r *http.Request, v *requestFormView) {
-	if s.Filaments == nil {
-		return
-	}
-	v.FilamentsConfigured = true
-	opts, err := s.Filaments.Filaments(r.Context())
-	if err != nil {
-		s.Log.Warn("filament list unavailable", "err", err)
-		v.FilamentsDown = true
-		return
-	}
-	v.Filaments = spoolman.GroupByMaterial(opts)
-	if id := v.Request.SpoolmanFilamentID; id != nil {
-		v.SelectedFilament = *id
-		v.SelectedHex = v.Request.FilamentColorHex
-		v.CurrentGone = true
-		for _, o := range opts {
-			if o.ID == *id {
-				v.CurrentGone = false
-				v.SelectedHex = optString(o.ColorHex)
-			}
-		}
-	}
-}
-
-// applyFilament handles the filament picker. A pick is looked up in the
-// source and its label, colour and material are snapshotted onto req; what
-// the client posted for those is ignored. A pick the source no longer knows
-// is kept only when it is the request's existing one.
-func (s *Server) applyFilament(r *http.Request, req *core.Request, errs *formErrors) {
-	if !r.PostForm.Has("spoolman_filament_id") {
-		return
-	}
-	raw := trimmed(r, "spoolman_filament_id")
-	if raw == "" {
-		req.SpoolmanFilamentID, req.FilamentLabel, req.FilamentColorHex = nil, "", nil
-		if !r.PostForm.Has("material") {
-			req.Material = ""
-		}
-		return
-	}
-	id, ok := optID(raw)
-	if !ok {
-		errs.add("Pick a filament from the list, or choose Any filament.")
-		return
-	}
-	n := int(id)
 	if s.Filaments != nil {
+		v.FilamentsConfigured = true
 		opts, err := s.Filaments.Filaments(r.Context())
 		if err != nil {
 			s.Log.Warn("filament list unavailable", "err", err)
-		}
-		for _, o := range opts {
-			if o.ID == n {
-				req.SpoolmanFilamentID = &n
-				req.FilamentLabel = o.Label
-				req.FilamentColorHex = optString(o.ColorHex)
-				req.Material = o.Material
-				return
+			v.FilamentsDown = true
+		} else {
+			v.opts = opts
+			v.Filaments = spoolman.GroupByMaterial(opts)
+			for _, o := range opts {
+				if o.InStock {
+					v.InStock++
+				}
 			}
 		}
 	}
-	if req.SpoolmanFilamentID != nil && *req.SpoolmanFilamentID == n {
-		return
+	v.Materials = formMaterials(v.opts)
+	if m := v.Request.Material; m != "" && !slices.Contains(v.Materials, m) {
+		v.MaterialOther = m
 	}
-	errs.add("That filament is not in the list any more. Pick another, or choose Any filament.")
+	v.layoutSlots()
 }
+
+// layoutSlots (re)builds the form's color slots from the request.
+func (v *requestFormView) layoutSlots() {
+	v.Slots = buildSlots(v.Request.Colors, v.extraSlots, v.opts, v.FilamentsDown)
+	v.BlankSlot = colorSlot{Key: "__N__", ExactHex: defaultExactHex, ShowLabel: true}
+}
+
+// addColorRequested reports whether the form was posted by its "add
+// another color" button, which without script re-shows the form with one
+// more slot instead of saving.
+func addColorRequested(r *http.Request) bool { return r.PostFormValue("add_color") != "" }
 
 func (s *Server) newRequest(w http.ResponseWriter, r *http.Request) {
 	u := auth.UserFrom(r.Context())
@@ -253,7 +247,19 @@ func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
 	req := &core.Request{RequesterID: u.ID, CreatedByID: u.ID, Status: core.StatusRequested}
 	admin := core.CanFileFor(u)
 	errs := applyRequestForm(r, req, admin)
-	s.applyFilament(r, req, &errs)
+	s.applyColors(r, req, &errs)
+	if addColorRequested(r) {
+		v, err := s.formView(r, "New request", req, nil)
+		if err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		v.extraSlots = 1
+		v.layoutSlots()
+		v.FetchImage = r.PostFormValue("fetch_image") == "1"
+		s.render(w, r, http.StatusOK, "new.html", v)
+		return
+	}
 	if admin && len(errs) == 0 {
 		if err := s.resolveRequester(r, req); err != nil {
 			errs.add("%s", err.Error())
@@ -289,16 +295,29 @@ type detailView struct {
 	CanUpload      bool
 	UploadMax      int64
 	LiveByID       map[int64]liveView
+	Shelf          []shelfMatch // admins: filaments near each rough color
 }
 
 func (s *Server) detail(w http.ResponseWriter, r *http.Request, status int, req *core.Request, errs formErrors) {
+	s.detailWith(w, r, status, req, errs, 0)
+}
+
+// detailWith renders the detail page with extra blank color slots.
+func (s *Server) detailWith(w http.ResponseWriter, r *http.Request, status int, req *core.Request, errs formErrors, extraSlots int) {
 	ctx := r.Context()
 	fv, err := s.formView(r, req.Title, req, errs)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
+	if extraSlots > 0 {
+		fv.extraSlots = extraSlots
+		fv.layoutSlots()
+	}
 	v := detailView{requestFormView: *fv}
+	if core.CanSeeAll(fv.User) {
+		v.Shelf = shelfMatches(req, fv.opts)
+	}
 	printers := fv.Printers
 	if printers == nil {
 		if printers, err = s.Store.ListPrinters(ctx); err != nil {
@@ -349,7 +368,11 @@ func (s *Server) updateRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	before := *req
 	errs := applyRequestForm(r, req, core.CanEditAdminFields(u))
-	s.applyFilament(r, req, &errs)
+	s.applyColors(r, req, &errs)
+	if addColorRequested(r) {
+		s.detailWith(w, r, http.StatusOK, req, nil, 1)
+		return
+	}
 	if len(errs) > 0 {
 		s.detail(w, r, http.StatusUnprocessableEntity, req, errs)
 		return

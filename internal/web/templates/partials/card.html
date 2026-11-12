@@ -1,16 +1,15 @@
 {{/* cardctx takes (dict "R" core.Request "Today" time.Time "Live" map[int64]liveView) */}}
 {{define "cardctx"}}
 {{$r := .R}}
-<article class="card{{if urgent $r .Today}} urgent{{end}}{{if swatch $r.FilamentColorHex}} has-fil{{end}}" data-id="{{$r.ID}}"{{with swatch $r.FilamentColorHex}} style="--fil: {{.}}"{{end}}>
+<article class="card{{if urgent $r .Today}} urgent{{end}}{{if stripe $r.Colors}} has-fil{{end}}" data-id="{{$r.ID}}"{{with stripe $r.Colors}} style="--fil: {{.}}"{{end}}>
   <div class="card-top">
     <a class="card-title" href="/requests/{{$r.ID}}" draggable="false">{{$r.Title}}</a>
     {{if and (not (progress $r)) (gt $r.Quantity 1)}}<span class="qty">×{{$r.Quantity}}</span>{{end}}
   </div>
-  {{if or $r.FilamentLabel $r.Material $r.ColorNote}}
+  {{if or $r.Material $r.Colors}}
   <div class="card-filament">
-    {{with swatch $r.FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}
-    {{if $r.FilamentLabel}}<span class="fil-label">{{$r.FilamentLabel}}</span>{{else if $r.Material}}<span class="chip material">{{$r.Material}}</span>{{end}}
-    {{with $r.ColorNote}}<span class="fil-note">{{.}}</span>{{end}}
+    {{with $r.Material}}<span class="chip material">{{.}}</span>{{end}}
+    {{template "colors_inline" $r.Colors}}
   </div>
   {{end}}
   {{with progress $r}}
@@ -24,3 +23,6 @@
   </div>
 </article>
 {{end}}
+
+{{/* colors_inline takes []core.ColorChoice: a swatch, name and note for each. */}}
+{{define "colors_inline"}}{{range .}}<span class="color-item">{{with swatches .Hexes}}<span class="swatch" style="background: {{.}}"></span>{{end}}{{if not .IsAny}}<span class="fil-label">{{.Name}}</span>{{end}}{{with .Note}}<span class="fil-note">{{.}}</span>{{end}}</span>{{end}}{{end}}

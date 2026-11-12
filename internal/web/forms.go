@@ -18,13 +18,6 @@ func (e *formErrors) add(format string, a ...any) { *e = append(*e, fmt.Sprintf(
 
 func trimmed(r *http.Request, name string) string { return strings.TrimSpace(r.PostFormValue(name)) }
 
-func optString(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
 func checkbox(r *http.Request, name string) bool {
 	v := r.PostFormValue(name)
 	return v == "on" || v == "true" || v == "1"
@@ -101,12 +94,20 @@ func applyRequestForm(r *http.Request, req *core.Request, admin bool) formErrors
 		req.SourceTitle = &t
 	}
 
-	if r.PostForm.Has("material") {
-		req.Material = strings.ToUpper(trimmed(r, "material"))
+	// Material is a choice of chips, one of them "other" with a text box.
+	// Text typed in the box without picking "other" still counts.
+	if r.PostForm.Has("material") || r.PostForm.Has("material_other") {
+		m, other := trimmed(r, "material"), trimmed(r, "material_other")
+		if m == "other" || (m == "" && other != "") {
+			m = other
+		}
+		req.Material = strings.ToUpper(m)
+		if len([]rune(req.Material)) > 40 {
+			errs.add("The material is too long (at most 40 characters).")
+		}
 	}
-	req.ColorNote = trimmed(r, "color_note")
-	// spoolman_filament_id and the filament snapshot are handled by
-	// applyFilament, which never trusts a client-supplied label or colour.
+	// Colors are handled by applyColors, which never trusts a
+	// client-supplied filament label or color.
 
 	req.NeedsMultiMaterial = checkbox(r, "needs_multi_material")
 	req.NeedsEnclosure = checkbox(r, "needs_enclosure")
@@ -147,7 +148,7 @@ func countSet(ps ...*int) int {
 	return n
 }
 
-// normHex returns "#rrggbb" for a valid hex colour, or "".
+// normHex returns "#rrggbb" for a valid hex color, or "".
 func normHex(s string) string {
 	s = strings.TrimPrefix(strings.ToLower(s), "#")
 	if len(s) != 6 && len(s) != 8 {

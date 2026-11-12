@@ -142,11 +142,8 @@ type Request struct {
 	SourceImage     []byte
 	SourceImageType *string
 
-	Material           string
-	SpoolmanFilamentID *int
-	FilamentLabel      string
-	FilamentColorHex   *string
-	ColorNote          string
+	Material           string        // "PETG", "PLA + TPU", or "" for any
+	Colors             []ColorChoice // in order; none means any color
 	NeedsMultiMaterial bool
 	NeedsEnclosure     bool
 	SizeX, SizeY       *int

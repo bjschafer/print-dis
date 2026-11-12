@@ -43,7 +43,8 @@
     <dl class="fields panel-body">
       <div><dt>Quantity</dt><dd>{{$r.Quantity}}{{if $r.Printed}} ({{$r.Printed}} printed){{end}}</dd></div>
       {{with $r.NeededBy}}<div><dt>Needed by</dt><dd>{{date .}} <span class="muted">({{$r.Timing.Label}})</span></dd></div>{{end}}
-      <div><dt>Filament</dt><dd>{{with swatch $r.FilamentColorHex}}<span class="swatch" style="background: {{.}}"></span>{{end}}{{if $r.FilamentLabel}}{{$r.FilamentLabel}}{{else if $r.Material}}{{$r.Material}}{{else}}any{{end}}{{with $r.ColorNote}} · {{.}}{{end}}</dd></div>
+      <div><dt>Material</dt><dd>{{or $r.Material "any"}}</dd></div>
+      <div class="wide"><dt>{{if gt (len $r.Colors) 1}}Colors{{else}}Color{{end}}</dt><dd class="color-list">{{if $r.Colors}}{{template "colors_inline" $r.Colors}}{{else}}any{{end}}</dd></div>
       {{if or $r.NeedsMultiMaterial $r.NeedsEnclosure}}<div><dt>Needs</dt><dd>{{if $r.NeedsMultiMaterial}}multi-material {{end}}{{if $r.NeedsEnclosure}}enclosure{{end}}</dd></div>{{end}}
       {{if $r.HasSize}}<div><dt>Size</dt><dd>{{int $r.SizeX}} × {{int $r.SizeY}} × {{int $r.SizeZ}} mm</dd></div>{{end}}
       {{with $r.PrinterName}}<div><dt>Printer</dt><dd>{{.}}</dd></div>{{end}}
@@ -112,6 +113,24 @@
     </ul>
     </div>
   </section>
+
+  {{with .Shelf}}
+  <section class="panel shelf-panel">
+    <header class="panel-head">{{template "icon" "cube"}}<h2>On the shelf</h2></header>
+    <div class="panel-body">
+      <p class="muted">In-stock filaments close to what was asked for{{with $r.Material}}, in {{.}}{{end}}.</p>
+      <ul class="shelf-matches">
+      {{range .}}
+        <li>
+          <div class="want">{{template "colors_inline" (list .Choice)}}</div>
+          {{if .Options}}<ul class="tiles">{{range .Options}}<li class="tile"><span class="swatch lg"{{with swatches .Hexes}} style="background: {{.}}"{{end}}></span><span class="tile-text"><span class="tile-name">{{.Label}}</span><span class="tile-sub">{{.Material}} · {{grams .Grams}} left</span></span></li>{{end}}</ul>
+          {{else}}<p class="muted">Nothing close in stock.</p>{{end}}
+        </li>
+      {{end}}
+      </ul>
+    </div>
+  </section>
+  {{end}}
 
   <section id="thread" class="panel">
     <header class="panel-head">{{template "icon" "chat"}}<h2>Conversation</h2></header>

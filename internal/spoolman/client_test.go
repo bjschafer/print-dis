@@ -2,6 +2,7 @@ package spoolman
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -163,5 +164,73 @@ func TestBadJSON(t *testing.T) {
 	defer srv.Close()
 	if _, err := New(srv.URL).Filaments(context.Background()); err == nil {
 		t.Error("want error")
+	}
+}
+
+func TestMultiColorAndGrams(t *testing.T) {
+	f := newFake(t)
+	opts, err := New(f.srv.URL).Filaments(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, o := range opts {
+		switch o.ID {
+		case 3:
+			if len(o.Hexes) != 2 || o.Hexes[1] != "#00ff00" || o.Grams != 10.5 {
+				t.Errorf("rainbow = %+v", o)
+			}
+		case 2:
+			if len(o.Hexes) != 1 || o.Grams != 500 {
+				t.Errorf("black = %+v", o)
+			}
+		case 4:
+			if o.Hexes != nil || o.Grams != 0 {
+				t.Errorf("archived = %+v", o)
+			}
+		}
+	}
+}
+
+func TestGroupPutsStockFirst(t *testing.T) {
+	groups := GroupByMaterial([]FilamentOption{
+		{ID: 1, Material: "PLA", Label: "A empty"},
+		{ID: 2, Material: "PLA", Label: "B full", InStock: true},
+	})
+	if groups[0].Options[0].ID != 2 {
+		t.Errorf("order = %+v", groups[0].Options)
+	}
+}
+
+func TestClosest(t *testing.T) {
+	opts := []FilamentOption{
+		{ID: 1, Material: "PLA", Hexes: []string{"#1e66d0"}, InStock: true},  // blue
+		{ID: 2, Material: "PLA", Hexes: []string{"#0a2a80"}, InStock: true},  // navy
+		{ID: 3, Material: "PETG", Hexes: []string{"#2070e0"}, InStock: true}, // blue PETG
+		{ID: 4, Material: "PLA", Hexes: []string{"#2266cc"}, InStock: false}, // out of stock
+		{ID: 5, Material: "PLA", Hexes: []string{"#d32f2f"}, InStock: true},  // red: too far
+		{ID: 6, Material: "PLA", InStock: true},                              // no color
+		{ID: 7, Material: "PETG-CF", Hexes: []string{"#ff0000", "#1e60d0"}, InStock: true},
+	}
+	ids := func(os []FilamentOption) []int {
+		var out []int
+		for _, o := range os {
+			out = append(out, o.ID)
+		}
+		return out
+	}
+	if got := ids(Closest(opts, "#1e66d0", "", 10)); fmt.Sprint(got) != "[1 7 3 2]" {
+		t.Errorf("any material = %v", got)
+	}
+	if got := ids(Closest(opts, "#1e66d0", "petg", 10)); fmt.Sprint(got) != "[7 3]" {
+		t.Errorf("PETG = %v", got)
+	}
+	if got := ids(Closest(opts, "#1e66d0", "", 1)); fmt.Sprint(got) != "[1]" {
+		t.Errorf("limit = %v", got)
+	}
+	if Closest(opts, "nope", "", 3) != nil {
+		t.Error("bad hex should match nothing")
+	}
+	if got := Materials(opts); fmt.Sprint(got) != "[PETG PETG-CF PLA]" {
+		t.Errorf("materials = %v", got)
 	}
 }

@@ -83,15 +83,29 @@ var funcs = template.FuncMap{
 		}
 		return fmt.Sprintf("%d/%d", r.Printed, r.Quantity)
 	},
-	// swatch returns a safe CSS colour for inline style, or "".
-	"swatch": func(p *string) template.CSS {
-		if p == nil {
-			return ""
+	// swatches is a CSS background for a swatch of these colors: the color
+	// itself, or a pie of them for a multi-color filament. "" when none.
+	"swatches": swatchCSS,
+	// stripe is a CSS background for a card's edge: the colors of every
+	// choice, top to bottom. "" when no choice has a color.
+	"stripe": func(cs []core.ColorChoice) template.CSS {
+		var hexes []string
+		for _, c := range cs {
+			hexes = append(hexes, c.Hexes...)
 		}
-		if h := normHex(*p); h != "" {
-			return template.CSS(h) // #nosec G203 -- validated hex
+		return bandsCSS("to bottom", hexes)
+	},
+	"list":        func(c core.ColorChoice) []core.ColorChoice { return []core.ColorChoice{c} },
+	"roughColors": func() []core.RoughColor { return core.RoughColors },
+	"maxColors":   func() int { return core.MaxColors },
+	"hasPrefix":   strings.HasPrefix,
+	"lower":       strings.ToLower,
+	// grams formats filament left on the shelf: "340 g", "1.2 kg".
+	"grams": func(g float64) string {
+		if g >= 1000 {
+			return fmt.Sprintf("%.1f kg", g/1000)
 		}
-		return ""
+		return fmt.Sprintf("%.0f g", g)
 	},
 	// sortLink keeps the current filters and toggles direction on the active column.
 	"sortLink": func(q url.Values, col string) string {
@@ -150,4 +164,50 @@ var funcs = template.FuncMap{
 		}
 		return fmt.Sprintf("%d B", n)
 	},
+}
+
+// validHexes keeps the valid colors of hexes, normalized.
+func validHexes(hexes []string) []string {
+	var out []string
+	for _, h := range hexes {
+		if n := normHex(h); n != "" {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+func swatchCSS(hexes []string) template.CSS {
+	hs := validHexes(hexes)
+	switch len(hs) {
+	case 0:
+		return ""
+	case 1:
+		return template.CSS(hs[0]) // #nosec G203 -- validated hex
+	}
+	return bandsCSS("from 0deg", hs)
+}
+
+// bandsCSS is a hard-edged gradient with one equal band per color. dir is
+// "to bottom" for a linear stripe or "from 0deg" for a pie.
+func bandsCSS(dir string, hexes []string) template.CSS {
+	hs := validHexes(hexes)
+	switch len(hs) {
+	case 0:
+		return ""
+	case 1:
+		return template.CSS(hs[0]) // #nosec G203 -- validated hex
+	}
+	kind := "linear-gradient"
+	if strings.HasPrefix(dir, "from") {
+		kind = "conic-gradient"
+	}
+	var b strings.Builder
+	b.WriteString(kind + "(" + dir)
+	step := 100.0 / float64(len(hs))
+	for i, h := range hs {
+		fmt.Fprintf(&b, ", %s %.2f%% %.2f%%", h, step*float64(i), step*float64(i+1))
+	}
+	b.WriteString(")")
+	return template.CSS(b.String()) // #nosec G203 -- validated hexes and fixed syntax
 }
