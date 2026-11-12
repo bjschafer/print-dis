@@ -281,14 +281,15 @@ internal/meshsize/    bounding boxes of STL, OBJ and 3MF files
 
 ## 8. Deployment
 
-Three repositories and one bucket are involved. Steps 2 to 4 change live infrastructure and need the owner's go-ahead at the time.
+Four repositories and one bucket are involved. Steps 2 to 6 change live infrastructure and need the owner's go-ahead at the time.
 
 1. **This repo.** A multi-stage `Dockerfile` producing a static binary on a distroless non-root base. A GitHub Actions workflow tests, then builds and pushes `ghcr.io/bjschafer/print-dis:main` on every push to `main`. Mirror the workflow in `bjschafer/pfapi`, which is deployed the same way.
 2. **`~/development/tf/authentik`.** Add an OAuth2 provider and application named `print-dis`, with redirect URI `https://prints.cmdcentral.xyz/auth/callback`. Follow that repo's `CLAUDE.md` exactly: set `grant_types` explicitly, use `local.default_scope_mappings`, and add the app to `local.kv_oauth2_clients` so the client secret is published to `kv/kubernetes/print-dis/authentik`. Add the admin group in `groups.tf`. Pushing triggers a CI apply against the live identity provider.
 3. **The bucket.** Create a `print-dis` bucket and access key on versitygw, and store them in OpenBao at `kv/kubernetes/print-dis/s3`.
 4. **`~/development/k8s/generators`.** Add `apps/print-dis/app.ts` using `AppPlus`, and a `printdis` entry in `apps/postgres/databases.ts` with a generated, symbol-free password (the URL-safe pattern used by `bambuddy`). Serve it at `prints.cmdcentral.xyz` only. Connect to the primary (`prod.postgres.svc.cluster.local`), not the pooler, because migrations run at boot. Run as non-root with a read-only root filesystem. There are no volumes; uploads go to the bucket via an `OpenBaoSecret` for the S3 credentials. Follow that repo's `AGENTS.md`: run `mise run pre-commit`, commit `dist/` with the source, commit to `main`.
 
-The app is internal-only. Do not add the `cmdcentral.xyz/external` ingress label without asking.
+5. **Remote access.** `prints.cmdcentral.xyz` is routed through the `cmdcentral` Cloudflare tunnel (`~/development/tf/cloudflare`, `tunnels.tf`) behind a Cloudflare Access application that admits any Authentik login, with 30-day sessions to match the app's so htmx requests do not meet an Access re-login. LAN clients resolve the host to traefik and skip Cloudflare. The ingress carries the `cmdcentral.xyz/external` label. Remote uploads pass through Cloudflare, whose request-body limit for the zone (`max_upload`, Enterprise) is 500 MB, above `UPLOAD_MAX_BYTES`. A single form with several files counts as one request against it.
+6. **Who may sign in.** In `tf/authentik`, the print-dis application is bound to the `print-dis users` and `print-dis admins` groups; anyone else is refused by Authentik before the app sees them. Friends without an account are invited: Directory > Invitations > Create, flow `print-dis registration`, single use, with an expiry. That flow refuses to run without an invitation, verifies the email address, adds the new user to `print-dis users` and lands them on the board. Membership of `print-dis users` is seeded in Terraform and otherwise managed in the Authentik UI. Invite a friend who already has a placeholder with the placeholder's email, so their requests link on first sign-in.
 
 ## 9. Milestones
 
@@ -333,5 +334,5 @@ Each has a default so that work is not blocked. The owner may overrule any of th
 
 1. **File uploads.** Decided: yes, in an S3 bucket (section 6a). Still open: whether the versitygw bucket is itself backed up offsite, and whether files should be pruned some time after a request is delivered.
 2. **Can requesters see each other's requests?** Default: no.
-3. **Do friends already have Authentik accounts?** Sign-in depends on it. If not, enrollment needs sorting out in `tf/authentik` before M3 is useful to anyone but the owner.
+3. **Do friends already have Authentik accounts?** Decided: some do; the rest are invited (section 8, step 6).
 4. **Repository and image name.** Default: keep `print-dis`.
