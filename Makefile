@@ -35,6 +35,13 @@ test:
 .PHONY: check
 check: vet lint test
 
+# Regenerate the README images in docs/images from made-up data. Needs
+# `make db` and chromium on PATH.
+.PHONY: screenshots
+screenshots:
+	SCREENSHOTS=1 TEST_DATABASE_URL=$${TEST_DATABASE_URL:-postgres://postgres:pg@localhost:55432/printdis?sslmode=disable} \
+	go test -run '^TestScreenshots$$' -count=1 -v ./internal/web/
+
 .PHONY: clean
 clean:
 	rm -rf bin .files

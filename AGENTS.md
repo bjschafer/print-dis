@@ -7,6 +7,7 @@ A print-request queue for one owner and their friends. `docs/design.md` is the s
 - `make db`: start a throwaway Postgres 17 on port 55432 (podman).
 - `make run`: build and serve on :8080 with `DEV_USER` sign-in and files in `./.files`.
 - `make check`: vet, golangci-lint, tests. Must pass before any work is called done.
+- `make screenshots`: regenerate the README images in `docs/images` from made-up data (needs `make db` and chromium). Re-run when the UI changes enough that they look stale.
 - Tests that need Postgres read `TEST_DATABASE_URL` and skip without it. Locally:
   `TEST_DATABASE_URL='postgres://postgres:pg@localhost:55432/printdis?sslmode=disable' make check`
 
