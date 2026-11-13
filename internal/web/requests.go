@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"html/template"
 	"io"
 	"mime/multipart"
@@ -96,16 +97,32 @@ func collapsedColumns(r *http.Request) map[core.Status]bool {
 	return out
 }
 
-func (s *Server) board(w http.ResponseWriter, r *http.Request) {
-	u := auth.UserFrom(r.Context())
+// boardRequests is what the board shows this viewer under the filters in
+// the URL.
+func (s *Server) boardRequests(r *http.Request, u *core.User) ([]core.Request, *filterView, error) {
 	f, fv, err := s.filters(r, u)
 	if err != nil {
-		s.serverError(w, r, err)
-		return
+		return nil, nil, err
 	}
 	f.Statuses = core.BoardStatuses
 	f.Sort = ""
 	reqs, err := s.Store.ListRequests(r.Context(), f)
+	return reqs, fv, err
+}
+
+// boardVersion fingerprints the cards on a board: it changes when one is
+// added, removed, moved or edited.
+func boardVersion(reqs []core.Request) string {
+	h := fnv.New64a()
+	for _, rq := range reqs {
+		_, _ = fmt.Fprintf(h, "%d %s %g %d\n", rq.ID, rq.Status, rq.Position, rq.UpdatedAt.UnixNano())
+	}
+	return strconv.FormatUint(h.Sum64(), 36)
+}
+
+func (s *Server) board(w http.ResponseWriter, r *http.Request) {
+	u := auth.UserFrom(r.Context())
+	reqs, fv, err := s.boardRequests(r, u)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -122,13 +139,28 @@ func (s *Server) board(w http.ResponseWriter, r *http.Request) {
 		cols[idx[rq.Status]].Requests = append(cols[idx[rq.Status]].Requests, rq)
 	}
 	live, byID := s.liveStatus(u, fv.Printers)
+	w.Header().Set("Cache-Control", "no-store")
 	s.render(w, r, http.StatusOK, "board.html", struct {
 		base
 		Filters  *filterView
 		Columns  []column
 		Live     []liveView
 		LiveByID map[int64]liveView
-	}{s.base(r, "Board"), fv, cols, live, byID})
+		Version  string
+	}{s.base(r, "Board"), fv, cols, live, byID, boardVersion(reqs)})
+}
+
+// boardVersionText is what the board polls, with the board's own query
+// string, to learn whether it is out of date (docs/design.md section 4).
+func (s *Server) boardVersionText(w http.ResponseWriter, r *http.Request) {
+	reqs, _, err := s.boardRequests(r, auth.UserFrom(r.Context()))
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = io.WriteString(w, boardVersion(reqs))
 }
 
 func (s *Server) requestList(w http.ResponseWriter, r *http.Request) {

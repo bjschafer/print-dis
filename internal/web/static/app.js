@@ -146,6 +146,10 @@
   document.addEventListener("change", onPicker);
   function initPickers() { document.querySelectorAll("form").forEach((f) => { if (f.querySelector("[data-slots]")) initPicker(f); }); }
 
+  // busy counts drags and posts in flight on the board; it is not swapped
+  // for a fresh one while any are.
+  let busy = 0;
+
   // Board drag and drop, for admins.
   function initBoard() {
     const board = document.querySelector(".board[data-can-move]");
@@ -159,7 +163,9 @@
         ghostClass: "ghost",
         filter: ".card-deliver",
         preventOnFilter: false,
+        onStart: () => { busy++; },
         onEnd: (evt) => {
+          busy--;
           if (evt.from === evt.to && evt.oldIndex === evt.newIndex) return;
           const id = evt.item.dataset.id;
           const order = Array.from(evt.to.querySelectorAll(".card")).map((c) => c.dataset.id);
@@ -195,6 +201,7 @@
     const card = form.closest(".card");
     const board = form.closest(".board");
     form.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    busy++;
     fetch(form.action, {
       method: "POST",
       headers: { "HX-Request": "true", "Content-Type": "application/x-www-form-urlencoded" },
@@ -207,7 +214,7 @@
     }).catch(() => {
       alert("Could not mark that delivered. The board will reload.");
       location.reload();
-    });
+    }).finally(() => { busy--; });
   });
   // Board columns collapse to a thin lane; which ones is kept in a cookie
   // so the board renders that way from the start.
@@ -236,6 +243,67 @@
     initBoard();
     initPickers();
     document.querySelectorAll("[data-col-toggle]").forEach((b) => { b.hidden = false; });
+  }
+  // The board keeps itself current: every 20s (browsers stretch that in a
+  // background tab), and when the tab comes back, it asks whether its cards
+  // changed and, if so, swaps in a fresh board. Cards that were not there
+  // before stay highlighted until the board has been in view for a while,
+  // and while the tab is in the background its title counts them.
+  const pollEvery = 20000;
+  const baseTitle = document.title;
+  const newIds = new Set();
+  let unseenTimer = 0;
+  function markSeenSoon() {
+    clearTimeout(unseenTimer);
+    if (!newIds.size) return;
+    unseenTimer = setTimeout(() => {
+      if (document.hidden) return;
+      newIds.clear();
+      document.title = baseTitle;
+      document.querySelectorAll(".card-new").forEach((c) => c.classList.remove("card-new"));
+    }, 8000);
+  }
+  function swapBoard(board, html) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const fresh = doc.querySelector(".board[data-version]");
+    if (!fresh || busy || !board.isConnected || board.contains(document.activeElement)) return;
+    const had = new Set(Array.from(board.querySelectorAll(".card")).map((c) => c.dataset.id));
+    fresh.querySelectorAll(".card").forEach((c) => {
+      if (!had.has(c.dataset.id)) newIds.add(c.dataset.id);
+      if (newIds.has(c.dataset.id)) c.classList.add("card-new");
+    });
+    board.replaceWith(document.adoptNode(fresh));
+    if (window.htmx) window.htmx.process(fresh);
+    fresh.querySelectorAll("[data-col-toggle]").forEach((b) => { b.hidden = false; });
+    initBoard();
+    const shown = fresh.querySelectorAll(".card-new").length;
+    document.title = shown && document.hidden ? `(${shown}) ${baseTitle}` : baseTitle;
+    markSeenSoon();
+  }
+  function pollBoard() {
+    const board = document.querySelector(".board[data-version]");
+    // Not while a drag or post is under way, or a button on the board has
+    // focus: the next poll tries again.
+    if (!board || busy || board.contains(document.activeElement)) return;
+    // HX-Request makes a lapsed session answer 401 rather than redirect
+    // the fetch to sign-in; reloading then signs in the usual way.
+    const q = location.search;
+    const get = (url) => fetch(url, { headers: { "HX-Request": "true" }, credentials: "same-origin" }).then((r) => {
+      if (r.status === 401) { location.reload(); return ""; }
+      return r.ok ? r.text() : "";
+    });
+    get(`/board/version${q}`)
+      .then((v) => (!v || v === board.dataset.version ? "" : get(`/${q}`)))
+      .then((html) => { if (html) swapBoard(board, html); })
+      .catch(() => {}); // offline or restarting: the next poll tries again
+  }
+  if (document.querySelector(".board[data-version]")) {
+    setInterval(pollBoard, pollEvery);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) return;
+      markSeenSoon();
+      pollBoard();
+    });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();

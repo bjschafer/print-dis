@@ -4,7 +4,7 @@
   {{template "filters" .Filters}}
 </div>
 {{if .Live}}{{template "printer_strip" (dict "Live" .Live "CSRF" .CSRF)}}{{end}}
-<div class="board" {{if canMove .User}}data-can-move{{end}}>
+<div class="board" data-version="{{.Version}}" {{if canMove .User}}data-can-move{{end}}>
   {{range .Columns}}
   <section class="column s-{{.Status}}{{if .Collapsed}} collapsed{{end}}" data-column="{{.Status}}">
     <header class="column-head">

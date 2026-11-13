@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -243,4 +244,54 @@ func mustID(t *testing.T, loc string) int64 {
 		t.Fatalf("location %q", loc)
 	}
 	return id
+}
+
+// TestBoardVersion covers the board's poll: the version it fetches matches
+// the page it has, changes when a request is filed, and only follows the
+// cards that viewer can see.
+func TestBoardVersion(t *testing.T) {
+	h := newHarness(t)
+	friend := h.as(h.friend("Sam"))
+	pageVersion := func(c *harness) string {
+		t.Helper()
+		_, body := c.get("/")
+		m := regexp.MustCompile(`data-version="([^"]+)"`).FindStringSubmatch(body)
+		if m == nil {
+			t.Fatalf("board has no version: %s", body)
+		}
+		return m[1]
+	}
+	version := func(c *harness, q string) string {
+		t.Helper()
+		code, body := c.get("/board/version" + q)
+		if code != http.StatusOK || body == "" {
+			t.Fatalf("version: %d %q", code, body)
+		}
+		return body
+	}
+
+	empty := version(h, "")
+	if got := pageVersion(h); got != empty {
+		t.Fatalf("page version %q, poll says %q", got, empty)
+	}
+	friendBefore := version(friend, "")
+
+	if code, _, body := h.post("/requests", url.Values{"title": {"Hook"}, "quantity": {"1"}, "timing": {"none"}}); code != http.StatusSeeOther {
+		t.Fatalf("create: %d %s", code, body)
+	}
+	after := version(h, "")
+	if after == empty {
+		t.Fatal("version did not change after a request was filed")
+	}
+	if got := pageVersion(h); got != after {
+		t.Fatalf("page version %q, poll says %q", got, after)
+	}
+	// The admin's own request is not on the friend's board.
+	if got := version(friend, ""); got != friendBefore {
+		t.Fatalf("friend's version changed for a request they cannot see: %q -> %q", friendBefore, got)
+	}
+	// Filters apply: a material nothing has looks like an empty board.
+	if got := version(h, "?material=ASA"); got != empty {
+		t.Fatalf("filtered version %q, want the empty board's %q", got, empty)
+	}
 }

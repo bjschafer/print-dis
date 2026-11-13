@@ -409,6 +409,8 @@ fieldset.admin legend { color: var(--accent); }
   box-shadow: var(--shadow);
   transition: border-color .15s, transform .15s, box-shadow .15s;
 }
+/* arrived since the board was loaded (app.js), until it has been seen */
+.card.card-new { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent), var(--shadow); }
 /* filament-color stripe, like a loaded spool; only when the color is known */
 .card.has-fil { padding-left: 1.05rem; }
 .card.has-fil::before {
