@@ -437,6 +437,8 @@ fieldset.admin legend { color: var(--accent); }
 .card-foot > span { display: inline-flex; align-items: center; gap: .3rem; }
 .card-foot .who-sm { margin-right: auto; min-width: 0; }
 .card-foot .icon { width: .9rem; height: .9rem; }
+.card-deliver { position: relative; z-index: 1; } /* above the whole-card link */
+.card-deliver button { min-height: 1.8rem; padding: .15rem .55rem; font-size: .78rem; }
 /* Due dates and printers are small pills; a firm date close by turns solid
    orange, which is the card's only alarm. */
 .card-foot .due, .card-foot .printer {
@@ -683,6 +685,8 @@ ol.steps li::before {
 .ptile-meta { display: flex; justify-content: space-between; gap: .5rem; font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ptile.st-offline, .ptile.st-unknown { box-shadow: none; }
 .ptile.st-offline .ptile-name, .ptile.st-unknown .ptile-name { color: var(--muted); }
+.ptile-ago { font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ptile-clear { margin-block: 0; }
 
 .icon-btn {
   position: relative; z-index: 1; /* above a card's whole-card link */

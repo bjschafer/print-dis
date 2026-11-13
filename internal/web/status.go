@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/bjschafer/print-dis/internal/auth"
 	"github.com/bjschafer/print-dis/internal/core"
@@ -15,22 +16,27 @@ import (
 	"github.com/bjschafer/print-dis/internal/store"
 )
 
-// StatusSource is print-dis's read-only link to the printers: live status,
-// cameras, and Bambuddy's printer list. *printerstatus.Monitor implements
-// it; tests use a fake.
+// StatusSource is print-dis's link to the printers: live status, cameras,
+// and Bambuddy's printer list. It never sends anything to a printer;
+// ClearPlate only changes what print-dis shows. *printerstatus.Monitor
+// implements it; tests use a fake.
 type StatusSource interface {
 	Status(printerID int64) (printerstatus.Status, bool)
+	ClearPlate(printerID int64)
 	Camera(ctx context.Context, t printerstatus.Target) (printerstatus.CameraInfo, error)
 	OpenCamera(ctx context.Context, t printerstatus.Target) (*printerstatus.CameraStream, error)
 	BambuddyPrinters(ctx context.Context, baseURL, apiKey string) ([]printerstatus.BambuddyPrinter, error)
 }
 
 // liveView is one printer with its live status. Known is false when the
-// printer has a source but has not been read yet.
+// printer has a source but has not been read yet. Ago says how long ago
+// the last job ended ("3h ago"), and is "" while a job is on or when
+// print-dis did not see it end.
 type liveView struct {
 	Printer core.Printer
 	Status  printerstatus.Status
 	Known   bool
+	Ago     string
 }
 
 // liveStatus returns the active printers with a status source and their
@@ -41,6 +47,7 @@ func (s *Server) liveStatus(u *core.User, printers []core.Printer) ([]liveView, 
 	if s.PrinterStatus == nil || !core.CanSeePrinterStatus(u) {
 		return nil, nil
 	}
+	now := s.Now()
 	var list []liveView
 	byID := map[int64]liveView{}
 	for _, p := range printers {
@@ -49,21 +56,64 @@ func (s *Server) liveStatus(u *core.User, printers []core.Printer) ([]liveView, 
 		}
 		st, ok := s.PrinterStatus.Status(p.ID)
 		lv := liveView{Printer: p, Status: st, Known: ok}
+		if ok && st.State.Ended() && !st.Since.IsZero() {
+			lv.Ago = ago(now.Sub(st.Since))
+		}
 		byID[p.ID] = lv
 		list = append(list, lv)
 	}
 	return list, byID
 }
 
-// printerStatusFragment is what the board's status strip polls: the strip
-// itself, plus out-of-band updates for each card on a printer that is
-// printing.
+// ago formats how long ago something happened: "just now", "12m ago",
+// "3h ago", "2d ago".
+func ago(d time.Duration) string {
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d/time.Minute))
+	case d < 48*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d/time.Hour))
+	}
+	return fmt.Sprintf("%dd ago", int(d/(24*time.Hour)))
+}
+
+// printerStatusFragment is what the board's status strip polls.
 func (s *Server) printerStatusFragment(w http.ResponseWriter, r *http.Request) {
 	u := auth.UserFrom(r.Context())
 	if !core.CanSeePrinterStatus(u) {
 		forbidden(w)
 		return
 	}
+	s.writeStatusFragment(w, r, u)
+}
+
+// clearPlate marks a printer's plate cleared after its last job ended, so
+// its tile reads idle until the printer reports something else. htmx gets
+// the fresh strip back; a plain form goes back to the board.
+func (s *Server) clearPlate(w http.ResponseWriter, r *http.Request) {
+	u := auth.UserFrom(r.Context())
+	if !core.CanSeePrinterStatus(u) {
+		forbidden(w)
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || s.PrinterStatus == nil {
+		notFound(w)
+		return
+	}
+	s.PrinterStatus.ClearPlate(id)
+	if r.Header.Get("HX-Request") != "" {
+		s.writeStatusFragment(w, r, u)
+		return
+	}
+	redirect(w, r, "/")
+}
+
+// writeStatusFragment renders the strip itself, plus out-of-band updates
+// for each card on a printer that is printing.
+func (s *Server) writeStatusFragment(w http.ResponseWriter, r *http.Request, u *core.User) {
 	printers, err := s.Store.ListPrinters(r.Context())
 	if err != nil {
 		s.serverError(w, r, err)
@@ -94,7 +144,8 @@ func (s *Server) printerStatusFragment(w http.ResponseWriter, r *http.Request) {
 	s.renderTemplate(w, r, http.StatusOK, "board.html", "status_fragment", struct {
 		Live  []liveView
 		Cards []liveView
-	}{list, cards})
+		CSRF  string
+	}{list, cards, s.Auth.CSRFToken(r.Context())})
 }
 
 // cameraTarget loads the {id} printer and its status target for the camera

@@ -69,14 +69,19 @@ var funcs = template.FuncMap{
 	"urgent": func(r core.Request, today time.Time) bool {
 		return r.Urgent(today)
 	},
-	"statuses":       func() []core.Status { return core.Statuses },
-	"boardStatuses":  func() []core.Status { return core.BoardStatuses },
-	"timings":        func() []core.Timing { return core.Timings },
-	"canEdit":        core.CanEdit,
-	"canComment":     core.CanComment,
-	"canSetStatus":   core.CanSetStatus,
-	"canMove":        core.CanMove,
-	"canCancel":      core.CanCancel,
+	"statuses":      func() []core.Status { return core.Statuses },
+	"boardStatuses": func() []core.Status { return core.BoardStatuses },
+	"timings":       func() []core.Timing { return core.Timings },
+	"canEdit":       core.CanEdit,
+	"canComment":    core.CanComment,
+	"canSetStatus":  core.CanSetStatus,
+	"canMove":       core.CanMove,
+	"canCancel":     core.CanCancel,
+	// canDeliver: a Ready card on the board offers "Delivered" to whoever
+	// may make that change.
+	"canDeliver": func(u *core.User, r core.Request) bool {
+		return r.Status == core.StatusReady && core.CanSetStatus(u, &r, core.StatusDelivered)
+	},
 	"isAdmin":        func(u *core.User) bool { return u != nil && u.IsAdmin },
 	"wantsEnclosure": core.MaterialWantsEnclosure,
 	"progress": func(r core.Request) string {

@@ -72,10 +72,17 @@ type Status struct {
 	Layers    int           // 0 when unknown
 	Camera    bool          // a camera can be opened
 	At        time.Time     // when this was read
+	// Since is when print-dis saw the printer enter State. It is zero when
+	// print-dis did not see the change: the state already held at its first
+	// reading, or began while the printer was offline.
+	Since time.Time
 }
 
 // Active reports whether a job is on the printer now.
 func (s Status) Active() bool { return s.State == Printing || s.State == Paused }
+
+// Ended reports whether the last job is over and may still be on the plate.
+func (s State) Ended() bool { return s == Finished || s == Failed || s == Cancelled }
 
 // Percent is Progress as a whole percentage.
 func (s Status) Percent() int {
@@ -115,7 +122,21 @@ type Monitor struct {
 
 	mu       sync.RWMutex
 	statuses map[int64]Status
+	tracks   map[int64]track
 }
+
+// track is what the monitor remembers of a printer's state across polls,
+// including through offline readings, so a printer that drops off the
+// network for a minute keeps its "finished 3h ago".
+type track struct {
+	state   State // the last state read, never Offline or Unknown
+	job     string
+	since   time.Time // see Status.Since
+	cleared bool      // the plate was marked cleared while in this state
+}
+
+// reachable reports whether s is a state the printer itself reported.
+func reachable(s State) bool { return s != Offline && s != Unknown }
 
 // New returns a monitor; call Run to start polling.
 func New(o Options) *Monitor {
@@ -131,7 +152,7 @@ func New(o Options) *Monitor {
 	if o.Log == nil {
 		o.Log = slog.Default()
 	}
-	return &Monitor{opts: o, statuses: map[int64]Status{}}
+	return &Monitor{opts: o, statuses: map[int64]Status{}, tracks: map[int64]track{}}
 }
 
 // Status returns the latest reading for a printer, and false when there is
@@ -175,14 +196,58 @@ func (m *Monitor) Poll(ctx context.Context) {
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	old := m.statuses
+	old, oldTracks := m.statuses, m.tracks
 	m.statuses = make(map[int64]Status, len(targets))
+	m.tracks = make(map[int64]track, len(targets))
 	for i, t := range targets {
-		m.statuses[t.PrinterID] = results[i]
-		if prev, ok := old[t.PrinterID]; ok && prev.State != results[i].State {
-			m.opts.Log.Info("printer status changed", "printer_id", t.PrinterID, "from", prev.State, "to", results[i].State)
+		s := results[i]
+		prev, seen := old[t.PrinterID]
+		tr, tracked := oldTracks[t.PrinterID]
+		if reachable(s.State) {
+			if !tracked || tr.state != s.State || tr.job != s.Job {
+				// A change print-dis watched happen has a time; one that
+				// happened before the first reading or while offline does not.
+				tr = track{state: s.State, job: s.Job}
+				if seen && reachable(prev.State) {
+					tr.since = s.At
+				}
+			}
+			s.Since = tr.since
+			if tr.cleared {
+				s = clearedStatus(s)
+			}
+		}
+		if tracked || reachable(s.State) {
+			m.tracks[t.PrinterID] = tr
+		}
+		m.statuses[t.PrinterID] = s
+		if seen && prev.State != s.State {
+			m.opts.Log.Info("printer status changed", "printer_id", t.PrinterID, "from", prev.State, "to", s.State)
 		}
 	}
+}
+
+// ClearPlate records that the owner cleared a printer's plate after its last
+// job ended. Until the printer reports another state, it reads as idle. It
+// does nothing unless the printer is showing an ended job now.
+func (m *Monitor) ClearPlate(printerID int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	s, ok := m.statuses[printerID]
+	tr, tracked := m.tracks[printerID]
+	if !ok || !tracked || !s.State.Ended() || s.State != tr.state {
+		return
+	}
+	tr.cleared = true
+	m.tracks[printerID] = tr
+	m.statuses[printerID] = clearedStatus(s)
+	m.opts.Log.Info("printer plate cleared", "printer_id", printerID, "state", s.State, "job", s.Job)
+}
+
+// clearedStatus is how a printer whose plate was cleared reads: idle, with
+// no job.
+func clearedStatus(s Status) Status {
+	return Status{State: Idle, Camera: s.Camera, At: s.At}
 }
 
 func (m *Monitor) read(ctx context.Context, t Target) Status {

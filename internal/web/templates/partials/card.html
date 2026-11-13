@@ -1,4 +1,4 @@
-{{/* cardctx takes (dict "R" core.Request "Today" time.Time "Live" map[int64]liveView) */}}
+{{/* cardctx takes (dict "R" core.Request "Today" time.Time "Live" map[int64]liveView "U" *core.User "CSRF" string) */}}
 {{define "cardctx"}}
 {{$r := .R}}
 <article class="card{{if urgent $r .Today}} urgent{{end}}{{if stripe $r.Colors}} has-fil{{end}}" data-id="{{$r.ID}}"{{with stripe $r.Colors}} style="--fil: {{.}}"{{end}}>
@@ -20,6 +20,14 @@
     <span class="who-sm" title="Requested by {{$r.RequesterName}}"><span class="avatar sm" style="{{avatarHue $r.RequesterName}}">{{initial $r.RequesterName}}</span>{{$r.RequesterName}}</span>
     {{with $r.NeededBy}}<span class="due{{if eq $r.Timing "firm"}} firm{{end}}" title="{{$r.Timing.Label}} deadline">{{if eq $r.Timing "firm"}}{{template "icon" "flag"}}{{else}}{{template "icon" "calendar"}}{{end}}{{shortDate .}}</span>{{end}}
     {{with $r.PrinterName}}<span class="printer">{{template "icon" "printer"}}{{.}}</span>{{end}}
+    {{if canDeliver .U $r}}
+    <form method="post" action="/requests/{{$r.ID}}/status" class="inline card-deliver" data-deliver>
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input type="hidden" name="status" value="delivered">
+      <input type="hidden" name="back" value="/">
+      <button class="small" title="Mark delivered: it leaves the board">{{template "icon" "check"}}Delivered</button>
+    </form>
+    {{end}}
   </div>
 </article>
 {{end}}

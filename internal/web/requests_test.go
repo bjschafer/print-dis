@@ -122,6 +122,45 @@ func TestAdminFlow(t *testing.T) {
 	h.mustContain(body, "No requests match")
 }
 
+func TestDeliverFromBoard(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	alice := h.friend("Alice")
+	ids := map[string]int64{}
+	for _, r := range []*core.Request{
+		{Title: "Lamp shade", Status: core.StatusReady},
+		{Title: "Spool holder", Status: core.StatusPrinting},
+	} {
+		r.RequesterID, r.CreatedByID, r.Quantity, r.Timing = alice.ID, alice.ID, 1, core.TimingWhenever
+		if err := h.store.CreateRequest(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+		ids[r.Title] = r.ID
+	}
+	ready := "/requests/" + itoa(ids["Lamp shade"])
+
+	// Only the Ready card offers it, and only to the admin.
+	_, body := h.get("/")
+	h.mustContain(body, `action="`+ready+`/status" class="inline card-deliver" data-deliver`)
+	if n := strings.Count(body, "data-deliver"); n != 1 {
+		t.Errorf("%d Delivered buttons, want 1", n)
+	}
+	ha := h.as(alice)
+	_, body = ha.get("/")
+	ha.mustContain(body, "Lamp shade")
+	ha.mustNotContain(body, "data-deliver")
+
+	// Script posts it and removes the card itself.
+	if code, _, _ := h.post(ready+"/status", url.Values{"status": {"delivered"}, "back": {"/"}}, "HX-Request", "true"); code != http.StatusNoContent {
+		t.Fatalf("deliver: %d", code)
+	}
+	if got, _ := h.store.GetRequest(ctx, ids["Lamp shade"]); got.Status != core.StatusDelivered {
+		t.Fatalf("status: %s", got.Status)
+	}
+	_, body = h.get("/")
+	h.mustNotContain(body, "Lamp shade")
+}
+
 func TestCSRFRequired(t *testing.T) {
 	h := newHarness(t)
 	h.get("/")

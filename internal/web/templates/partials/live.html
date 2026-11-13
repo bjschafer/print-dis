@@ -1,17 +1,18 @@
 {{/* Live printer status (docs/design.md section 5a). Admin only; handlers
      pass nothing for anyone else. */}}
 
-{{/* live_state takes a liveView: the colored dot and label. */}}
-{{define "live_state"}}<span class="live-state st-{{if .Known}}{{.Status.State}}{{else}}unknown{{end}}"><span class="dot" aria-hidden="true"></span>{{if .Known}}{{.Status.State.Label}}{{else}}Checking…{{end}}</span>{{end}}
+{{/* live_state takes a liveView: the colored dot and label, and how long ago the last job ended. */}}
+{{define "live_state"}}<span class="live-state st-{{if .Known}}{{.Status.State}}{{else}}unknown{{end}}"><span class="dot" aria-hidden="true"></span>{{if .Known}}{{.Status.State.Label}}{{with .Ago}} {{.}}{{end}}{{else}}Checking…{{end}}</span>{{end}}
 
 {{/* live_progress takes a liveView; it renders only while a job is on the printer. */}}
 {{define "live_progress"}}{{if .Status.Active}}<div class="progress live-progress" title="{{.Status.Percent}}% printed"><span class="bar"><span style="width: {{.Status.Percent}}%"></span></span><span class="progress-text">{{.Status.Percent}}%{{with .Status.Remaining}} · {{left .}}{{end}}</span></div>{{end}}{{end}}
 
-{{/* printer_strip takes []liveView. It polls itself, and the cards, every 15s. */}}
+{{/* printer_strip takes (dict "Live" []liveView "CSRF" string). It polls
+     itself, and the cards, every 15s. */}}
 {{define "printer_strip"}}
-{{if .}}
+{{if .Live}}
 <section id="printer-strip" class="printer-strip" aria-label="Printers now" hx-get="/printers/status" hx-trigger="every 15s" hx-swap="outerHTML">
-  {{range .}}
+  {{range .Live}}
   {{$st := "unknown"}}{{if .Known}}{{$st = .Status.State}}{{end}}
   <div class="ptile st-{{$st}}">
     <div class="ptile-head">
@@ -21,6 +22,7 @@
     <div class="ptile-state">
       <span class="state-pill">{{if .Known}}{{.Status.State.Label}}{{else}}Checking…{{end}}</span>
       {{if .Status.Active}}<span class="ptile-pct">{{.Status.Percent}}<small>%</small></span>{{end}}
+      {{with .Ago}}<span class="ptile-ago">{{.}}</span>{{end}}
     </div>
     <div class="ptile-job{{if not .Status.Job}} muted{{end}}"{{with .Status.Job}} title="{{.}}"{{end}}>
       {{- if .Status.Job}}{{.Status.Job}}
@@ -34,6 +36,11 @@
       <span>{{with .Status.Remaining}}{{left .}}{{else}}&nbsp;{{end}}</span>
       {{if .Status.Layers}}<span>Layer {{.Status.Layer}}/{{.Status.Layers}}</span>{{end}}
     </div>
+    {{else if and .Known .Status.State.Ended}}
+    <form method="post" action="/printers/{{.Printer.ID}}/clear" hx-post="/printers/{{.Printer.ID}}/clear" hx-target="#printer-strip" hx-swap="outerHTML" class="ptile-clear">
+      <input type="hidden" name="csrf" value="{{$.CSRF}}">
+      <button class="small" title="The plate is clear: show this printer as ready for a job">{{template "icon" "check"}}Plate cleared</button>
+    </form>
     {{end}}
   </div>
   {{end}}

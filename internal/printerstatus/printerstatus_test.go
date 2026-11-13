@@ -196,6 +196,75 @@ func TestPollFollowsTargets(t *testing.T) {
 	}
 }
 
+func TestSinceAndClearPlate(t *testing.T) {
+	var reply atomic.Value // "" makes the printer unreachable
+	srv := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/server/webcams/list" {
+			json200(`{"result":{"webcams":[]}}`)(w, r)
+			return
+		}
+		state := reply.Load().(string)
+		if state == "" {
+			http.Error(w, "down", http.StatusServiceUnavailable)
+			return
+		}
+		json200(`{"result":{"status":{"print_stats":{"state":"`+state+`","filename":"lid.gcode"}}}}`)(w, r)
+	})
+	now := t0
+	m := New(Options{
+		Targets: func(context.Context) ([]Target, error) { return []Target{{PrinterID: 1, MoonrakerURL: srv.URL}}, nil },
+		Now:     func() time.Time { return now },
+		Log:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	step := func(state string) Status {
+		t.Helper()
+		now = now.Add(time.Minute)
+		reply.Store(state)
+		m.Poll(context.Background())
+		s, _ := m.Status(1)
+		return s
+	}
+
+	// Already finished at the first reading: when is unknown.
+	if s := step("complete"); s.State != Finished || !s.Since.IsZero() {
+		t.Fatalf("first reading: %+v", s)
+	}
+	// Clearing the plate reads idle, and stays so while the printer still
+	// says finished.
+	m.ClearPlate(1)
+	if s, _ := m.Status(1); s.State != Idle || s.Job != "" {
+		t.Fatalf("after clearing: %+v", s)
+	}
+	if s := step("complete"); s.State != Idle {
+		t.Fatalf("cleared plate came back: %+v", s)
+	}
+	// A watched job: printing, then finished at a known time.
+	if s := step("printing"); s.State != Printing || !s.Since.Equal(now) {
+		t.Fatalf("printing: %+v", s)
+	}
+	m.ClearPlate(1) // nothing to clear mid-job
+	if s, _ := m.Status(1); s.State != Printing {
+		t.Fatalf("cleared while printing: %+v", s)
+	}
+	finishedAt := now.Add(time.Minute)
+	if s := step("complete"); s.State != Finished || !s.Since.Equal(finishedAt) {
+		t.Fatalf("finished: %+v, want since %v", s, finishedAt)
+	}
+	// Dropping offline and back keeps when it finished.
+	if s := step(""); s.State != Offline {
+		t.Fatalf("down: %+v", s)
+	}
+	if s := step("complete"); s.State != Finished || !s.Since.Equal(finishedAt) {
+		t.Fatalf("back after a blip: %+v, want since %v", s, finishedAt)
+	}
+	// A job that ends while the printer is offline has no time.
+	step("printing")
+	step("")
+	if s := step("complete"); s.State != Finished || !s.Since.IsZero() {
+		t.Fatalf("finished while offline: %+v", s)
+	}
+}
+
 func TestRunStopsWithContext(t *testing.T) {
 	var n atomic.Int32
 	m := New(Options{

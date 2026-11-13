@@ -69,6 +69,15 @@ func (f *fakeStatus) set(id int64, s printerstatus.Status) {
 	f.m[id] = s
 }
 
+// ClearPlate mimics the monitor: an ended job reads idle afterwards.
+func (f *fakeStatus) ClearPlate(id int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if s, ok := f.m[id]; ok && s.State.Ended() {
+		f.m[id] = printerstatus.Status{State: printerstatus.Idle, Camera: s.Camera}
+	}
+}
+
 // statusFixture makes three printers (two with a source, one without), a
 // friend, and a printing request of theirs on the first printer.
 type statusFixture struct {
@@ -170,6 +179,53 @@ func TestBoardShowsPrinterStatus(t *testing.T) {
 	h.mustNotContain(body, "<html", "42<small>",
 		// H2D has no printing card, so no update for one.
 		`live-p`+strconv.FormatInt(f.h2d, 10))
+}
+
+func TestFinishedAgoAndPlateCleared(t *testing.T) {
+	f := newStatusFixture(t, true)
+	h := f.h
+	f.fake.set(f.trident, printerstatus.Status{State: printerstatus.Finished, Job: "Spool_holder_PETG", Progress: 1,
+		Since: time.Now().Add(-3*time.Hour - 5*time.Minute)})
+	// H2D finished before print-dis was watching: no time rather than a wrong one.
+	f.fake.set(f.h2d, printerstatus.Status{State: printerstatus.Finished, Job: "Lid", Progress: 1})
+
+	_, body := h.get("/")
+	strip := between(t, body, `id="printer-strip"`, "</section>")
+	h.mustContain(strip, `<span class="ptile-ago">3h ago</span>`,
+		`action="/printers/`+strconv.FormatInt(f.trident, 10)+`/clear"`,
+		`action="/printers/`+strconv.FormatInt(f.h2d, 10)+`/clear"`)
+	if n := strings.Count(strip, "ptile-ago"); n != 1 {
+		t.Errorf("%d ago labels, want 1 (H2D's end was not seen)", n)
+	}
+	// The printing card on Trident says it too.
+	h.mustContain(body, "Finished 3h ago")
+
+	// Requesters may not clear a plate.
+	alice := f.h.as(f.friend)
+	if code, _, _ := alice.post("/printers/"+strconv.FormatInt(f.trident, 10)+"/clear", nil); code != http.StatusForbidden {
+		t.Errorf("requester clear: %d", code)
+	}
+	if s, _ := f.fake.Status(f.trident); s.State != printerstatus.Finished {
+		t.Fatalf("requester cleared the plate: %+v", s)
+	}
+
+	// htmx gets the fresh strip; Trident is ready for a job and has no button.
+	code, _, body := h.post("/printers/"+strconv.FormatInt(f.trident, 10)+"/clear", nil, "HX-Request", "true")
+	if code != http.StatusOK {
+		t.Fatalf("clear: %d", code)
+	}
+	h.mustContain(body, `id="printer-strip"`, "Ready for a job",
+		`hx-swap-oob="outerHTML:.s-printing .live-p`+strconv.FormatInt(f.trident, 10)+`"`)
+	h.mustNotContain(body, "<html", "3h ago", `action="/printers/`+strconv.FormatInt(f.trident, 10)+`/clear"`)
+
+	// Without script it goes back to the board.
+	code, loc, _ := h.post("/printers/"+strconv.FormatInt(f.h2d, 10)+"/clear", nil)
+	if code != http.StatusSeeOther || loc != "/" {
+		t.Errorf("plain clear: %d %q", code, loc)
+	}
+	if s, _ := f.fake.Status(f.h2d); s.State != printerstatus.Idle {
+		t.Errorf("H2D after clearing: %+v", s)
+	}
 }
 
 func TestPrinterStatusIsAdminOnly(t *testing.T) {

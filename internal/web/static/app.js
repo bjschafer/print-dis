@@ -157,6 +157,8 @@
         delayOnTouchOnly: true,
         delay: 180,
         ghostClass: "ghost",
+        filter: ".card-deliver",
+        preventOnFilter: false,
         onEnd: (evt) => {
           if (evt.from === evt.to && evt.oldIndex === evt.newIndex) return;
           const id = evt.item.dataset.id;
@@ -184,6 +186,29 @@
       if (c) c.textContent = col.querySelectorAll(".card").length;
     });
   }
+  // A Ready card's "Delivered" button takes the card off the board in
+  // place. Without script the form posts and the board reloads.
+  document.addEventListener("submit", (e) => {
+    const form = e.target;
+    if (e.defaultPrevented || !form.matches("form[data-deliver]")) return;
+    e.preventDefault();
+    const card = form.closest(".card");
+    const board = form.closest(".board");
+    form.querySelectorAll("button").forEach((b) => { b.disabled = true; });
+    fetch(form.action, {
+      method: "POST",
+      headers: { "HX-Request": "true", "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams(new FormData(form)),
+      credentials: "same-origin",
+    }).then((r) => {
+      if (!r.ok) throw new Error(r.status);
+      card.remove();
+      if (board) updateCounts(board);
+    }).catch(() => {
+      alert("Could not mark that delivered. The board will reload.");
+      location.reload();
+    });
+  });
   // Board columns collapse to a thin lane; which ones is kept in a cookie
   // so the board renders that way from the start.
   function saveCollapsed(board) {
