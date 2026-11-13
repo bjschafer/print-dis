@@ -41,6 +41,8 @@ check: vet lint test
 screenshots:
 	SCREENSHOTS=1 TEST_DATABASE_URL=$${TEST_DATABASE_URL:-postgres://postgres:pg@localhost:55432/printdis?sslmode=disable} \
 	go test -run '^TestScreenshots$$' -count=1 -v ./internal/web/
+	@if command -v oxipng >/dev/null; then oxipng -q -o max --strip safe docs/images/*.png; \
+	else echo "oxipng not found; PNGs left uncompressed"; fi
 
 .PHONY: clean
 clean:
