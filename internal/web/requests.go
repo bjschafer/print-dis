@@ -28,6 +28,9 @@ type filterView struct {
 	Requester  int64
 	Printer    int64
 	Material   string
+	// Projects and Project are for admins only.
+	Projects []string
+	Project  string
 }
 
 func (s *Server) filters(r *http.Request, u *core.User) (store.Filter, *filterView, error) {
@@ -43,6 +46,18 @@ func (s *Server) filters(r *http.Request, u *core.User) (store.Filter, *filterVi
 			return f, nil, err
 		}
 		fv.Requesters = users
+		fv.Project = q.Get("project")
+		switch {
+		case fv.Project == projectNone:
+			f.NoProject = true
+		case strings.HasPrefix(fv.Project, projectExcept):
+			f.ExceptProject = strings.TrimPrefix(fv.Project, projectExcept)
+		default:
+			f.Project = fv.Project
+		}
+		if fv.Projects, err = s.Store.ListProjects(r.Context()); err != nil {
+			return f, nil, err
+		}
 	} else {
 		f.RequesterID = u.ID
 	}
@@ -149,6 +164,7 @@ type requestFormView struct {
 	Errors   formErrors
 	People   []core.User    // admins: the "for" picker
 	Printers []core.Printer // admins: assignment
+	Projects []string       // admins: the project field's suggestions
 
 	// Color picker. FilamentsConfigured is true when a Spoolman source
 	// exists; FilamentsDown when it is configured but could not be read,
@@ -199,6 +215,9 @@ func (s *Server) formView(r *http.Request, title string, req *core.Request, errs
 			return nil, err
 		}
 		if v.Printers, err = s.Store.ListPrinters(r.Context()); err != nil {
+			return nil, err
+		}
+		if v.Projects, err = s.Store.ListProjects(r.Context()); err != nil {
 			return nil, err
 		}
 	}
@@ -332,6 +351,7 @@ func cloneRequest(src *core.Request, u *core.User) *core.Request {
 	}
 	if core.CanFileFor(u) {
 		c.RequesterID = src.RequesterID
+		c.Project = src.Project
 	}
 	return c
 }

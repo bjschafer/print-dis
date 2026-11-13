@@ -22,7 +22,7 @@ func (s *Store) ExistingImportKeys(ctx context.Context, keys []string) (map[stri
 	if len(keys) == 0 {
 		return out, nil
 	}
-	rows, err := s.Pool.Query(ctx, `select import_key from requests where import_key = any($1)`, keys)
+	rows, err := s.Pool.Query(ctx, `select external_key from requests where external_key = any($1)`, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -60,10 +60,10 @@ func (s *Store) ImportRequests(ctx context.Context, email, name string, items []
 			r := it.Req
 			tag, err := tx.Exec(ctx, `
 				insert into requests (requester_id, created_by_id, title, quantity, printed_count, status, needed_by, timing,
-					notes, source_url, material, colors, needs_enclosure, import_key, position)
+					notes, source_url, material, colors, needs_enclosure, external_key, position)
 				values ($1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
 					coalesce((select max(position) from requests where status = $5), 0) + 1)
-				on conflict (import_key) do nothing`,
+				on conflict (external_key) do nothing`,
 				uid, r.Title, r.Quantity, r.Printed, r.Status, r.NeededBy, r.Timing,
 				r.Notes, r.SourceURL, r.Material, colorsParam(r.Colors), r.NeedsEnclosure, it.Key)
 			if err != nil {

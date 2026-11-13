@@ -10,6 +10,7 @@ import (
 
 	"github.com/bjschafer/print-dis/internal/core"
 	"github.com/bjschafer/print-dis/internal/preview"
+	"github.com/bjschafer/print-dis/internal/store"
 )
 
 // Previewer reads a link's title and thumbnail. *preview.Fetcher is the
@@ -78,11 +79,24 @@ type helpView struct {
 	base
 	Bookmarklet template.URL
 	BaseURL     string
+	// The API panel, for admins: their tokens, and one just created, which
+	// is shown this once.
+	Tokens   []store.APIToken
+	NewToken string
 }
 
 func (s *Server) help(w http.ResponseWriter, r *http.Request) {
 	base := strings.TrimRight(s.Config.BaseURL.String(), "/")
-	s.render(w, r, http.StatusOK, "help.html", helpView{s.base(r, "Help"), bookmarklet(base), base})
+	v := helpView{base: s.base(r, "Help"), Bookmarklet: bookmarklet(base), BaseURL: base}
+	if core.CanUseAPI(v.User) {
+		var err error
+		if v.Tokens, err = s.Store.ListAPITokens(r.Context(), v.User.ID); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		v.NewToken = s.Auth.Sessions.PopString(r.Context(), newTokenKey)
+	}
+	s.render(w, r, http.StatusOK, "help.html", v)
 }
 
 // bookmarklet builds the javascript: URL from the configured base URL only.

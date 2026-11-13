@@ -49,6 +49,16 @@ func optID(s string) (int64, bool) {
 
 const maxTitle = 200
 
+const maxProject = 80
+
+// The project filter's value is a project's name, projectNone for requests
+// in no project, or projectExcept followed by a name to leave that one out.
+// No project may be named so as to collide with them.
+const (
+	projectNone   = "-"
+	projectExcept = "!"
+)
+
 // applyRequestForm copies form fields onto req. Admin-only fields are applied
 // only when admin is true; requesters cannot set them even by crafting a form.
 func applyRequestForm(r *http.Request, req *core.Request, admin bool) formErrors {
@@ -132,6 +142,15 @@ func applyRequestForm(r *http.Request, req *core.Request, admin bool) formErrors
 				errs.add("Printed must be zero or more.")
 			} else {
 				req.Printed = n
+			}
+		}
+		if r.PostForm.Has("project") {
+			req.Project = trimmed(r, "project")
+			switch {
+			case len([]rune(req.Project)) > maxProject:
+				errs.add("The project name is too long (at most %d characters).", maxProject)
+			case req.Project == projectNone || strings.HasPrefix(req.Project, projectExcept):
+				errs.add("A project name can't be %q or start with %q.", projectNone, projectExcept)
 			}
 		}
 	}

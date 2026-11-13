@@ -219,6 +219,7 @@ func (s *Store) MergeUsers(ctx context.Context, fromID, intoID int64) error {
 			`update requests set created_by_id = $2 where created_by_id = $1`,
 			`update request_events set user_id = $2 where user_id = $1`,
 			`update request_files set uploaded_by_id = $2 where uploaded_by_id = $1`,
+			`update api_tokens set user_id = $2 where user_id = $1`,
 		} {
 			if _, err := tx.Exec(ctx, q, fromID, intoID); err != nil {
 				return err

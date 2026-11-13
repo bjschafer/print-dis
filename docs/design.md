@@ -2,7 +2,7 @@
 
 Status: accepted, 2026-11-11. Open decision 1 is overruled: friends can upload files (section 6a).
 
-Progress: M0 to M8 are built and pass `make check`. Deployed 2026-11-11 at https://prints.cmdcentral.xyz (tf/authentik `fd6ad20`, k8s/generators `4d57a247`, bucket `print-dis` on versitygw).
+Progress: M0 to M8 are built and pass `make check`, and so is the JSON API (section 6b). Deployed 2026-11-11 at https://prints.cmdcentral.xyz (tf/authentik `fd6ad20`, k8s/generators `4d57a247`, bucket `print-dis` on versitygw).
 
 This is a ground-up rewrite in the existing repository. The current code (Go, static HTML, SQLite/Postgres, local password accounts) is replaced, not extended; only `internal/spoolman/types.go` is worth carrying over.
 
@@ -98,6 +98,8 @@ create table requests (
   size_z_mm             integer,
 
   printer_id            bigint references printers(id),
+  project               text not null default '',  -- groups requests, e.g. the parts of one build; '' for none
+  external_key          text unique,             -- set by the script that filed it (sheet import, API), for re-runs
   position              double precision not null default 0,  -- manual order within a column
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now()
@@ -126,6 +128,15 @@ create table request_files (
   size_z_mm       integer,
   created_at      timestamptz not null default now()
 );
+
+create table api_tokens (
+  id            bigint generated always as identity primary key,
+  user_id       bigint not null references users(id) on delete cascade,
+  name          text not null,
+  token_hash    bytea not null unique,   -- SHA-256 of the token; the token is shown once and never stored
+  created_at    timestamptz not null default now(),
+  last_used_at  timestamptz
+);
 ```
 
 Notes on the choices:
@@ -134,6 +145,7 @@ Notes on the choices:
 - **Colors are a list of snapshots.** A request lists zero or more colors (none means any color), each one of: a filament picked from Spoolman, a rough color from a fixed palette, an exact hex color, or just a note. The Spoolman ID is kept for linking, but the label, material and color are copied at pick time so a request still reads correctly after that filament is deleted or Spoolman is down. The list is a jsonb column rather than a table because it is only ever read and written with its request (migration `00005` moved the old single-filament columns into it).
 - **`printed_count` is the whole of progress tracking.** "3 of 10 printed" is enough; copies do not have individual states.
 - **`request_events` is both the comment thread and the audit trail.** A "needs info" exchange happens there.
+- **Projects are a plain text column**, not a table: a project is only ever a label that requests share. Only admins set or see it. It exists for builds like a Voron, whose hundred-odd parts would otherwise bury the board; the board and table filter to one project, to none, or to everything but one. The filter's value is the name, `-` for none, or `!` and the name to leave one out, so no project may be called `-` or start with `!`.
 
 ### Printer eligibility
 
@@ -156,7 +168,7 @@ The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (lig
 
 | Route | Purpose |
 |---|---|
-| `GET /` | Board. Columns: Requested, Needs info, Printing, Ready. Admin sees all requests and can drag between columns; requesters see their own, read-only. Cards show title, requester, quantity and progress, material and color swatches, needed-by date, and assigned printer. A Ready card has a "Delivered" button for the admin, which takes it off the board in place (no confirmation: a delivered request is still in the table and can be moved back from its page). Firm dates that are overdue or within three days are highlighted. Filters: requester, printer, material. Any column can be collapsed to a thin lane (it still takes drops); which ones is remembered per browser in the `board_collapsed` cookie, so the server renders it collapsed. |
+| `GET /` | Board. Columns: Requested, Needs info, Printing, Ready. Admin sees all requests and can drag between columns; requesters see their own, read-only. Cards show title, requester, quantity and progress, material and color swatches, needed-by date, assigned printer and, for the admin, project. A Ready card has a "Delivered" button for the admin, which takes it off the board in place (no confirmation: a delivered request is still in the table and can be moved back from its page). Firm dates that are overdue or within three days are highlighted. Filters: requester, printer, material, and for the admin project (section 3). Any column can be collapsed to a thin lane (it still takes drops); which ones is remembered per browser in the `board_collapsed` cookie, so the server renders it collapsed. |
 | `GET /requests` | Table of everything, including delivered and cancelled. Sortable; the same filters. |
 | `GET /requests/new` | New request form. Accepts `?url=` to prefill from a link (section 6), or `?from={id}` to clone a request (below). Admins get a "for" field to pick or create a person. |
 | `GET /requests/{id}` | Detail: all fields, eligible printers, comment thread, history. Edit in place, subject to section 2. A Clone button opens the new-request form copied from it. |
@@ -173,10 +185,13 @@ The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (lig
 | `POST /printers/bambuddy` | Admin: save the Bambuddy connection (section 5a). |
 | `GET /printers/{id}/camera`, `GET /printers/{id}/camera/stream` | Admin: a printer's live camera, and the relayed MJPEG stream behind it (section 5a). |
 | `GET /people` | Admin: users and placeholders; create a placeholder; merge two rows. |
+| `GET /help` | How to file a request, the bookmarklet, and for the admin, API tokens (section 6b). |
+| `POST /tokens`, `POST /tokens/{id}/delete` | Admin: create an API token, shown once on the help page; revoke one. |
+| `/api/v1/...` | The JSON API (section 6b). |
 | `GET /auth/login`, `/auth/callback`, `POST /auth/logout` | OIDC code flow with PKCE. |
 | `GET /healthz`, `GET /readyz` | Liveness, and readiness including a database ping. |
 
-Every state-changing route requires a CSRF token.
+Every state-changing route requires a CSRF token, except the API's, which never read the session cookie (section 6b).
 
 **Cloning and batches.** Friends often want the same thing in several colors, each with its own count, and the owner tracks each color separately. Two shortcuts file those as separate requests:
 
@@ -237,6 +252,21 @@ Friends often have a model file and nowhere to host it, so a request can carry a
 - **Measuring:** each STL (binary or ASCII), OBJ or 3MF is read back after upload and its bounding box stored on the file (`internal/meshsize`), assuming millimetres where the format has no unit. A 3MF applies its build and component transforms, including the production extension's parts in other files, and measures each build item separately: its size is a box every part fits in, since parts laid out on one plate can be printed separately. A 3MF is read by random access from the blob store (ranged reads on S3), not buffered; decompression is capped at 1 GiB. STEP and ZIP are not measured. When a request has no size, uploading measurable models sets it (the box all of them fit in, X the longer side) and records an edit event; a size already typed in is never overwritten, but a file's "Use size" button replaces it. A file that cannot be measured is logged and otherwise ignored.
 - **Older uploads:** files uploaded before measuring existed are sized by a one-off `print-dis measure-files`, run in the server's pod (`kubectl -n print-dis exec deploy/print-dis -- /print-dis measure-files`). It measures every stored model with no size, then sizes each of those requests that has none, as the upload would have, recording the edit as made by the uploader. It is safe to re-run; a model that cannot be measured is logged and retried next time. There is no button, since every new upload is measured.
 - If the bucket is unreachable the app still starts; the upload control says files are unavailable, and `/readyz` does not depend on it.
+
+## 6b. JSON API
+
+So a script can file and track requests: the motivating case is walking the Voron repository's `STLs/` tree and filing one request per part, so none is forgotten. The reference, with every field and status code, is `docs/api.md`.
+
+- **Admins only.** A token acts as the admin who made it, and stops working if they stop being an admin. Tokens are made, listed (with when each was last used) and revoked on the help page. A new token is shown once, carried to that page in the session so a reload cannot mint another, and only its SHA-256 is stored. Tokens look like `pd_` and 43 URL-safe characters, so a secret scanner can spot them.
+- **Bearer tokens, never cookies.** The API is mounted outside the session middleware and authenticates only by `Authorization: Bearer`. A browser cannot be made to send that header cross-site, so there is no CSRF token; a signed-in admin's cookie gets a 401.
+- **Routes**, all JSON, errors as `{"error": "a plain sentence"}`:
+  - `GET /api/v1/requests`, filtered by `project`, `key` and repeated `status`.
+  - `POST /api/v1/requests`: file one. It is checked by the same code as the request form, by encoding the JSON as the form's fields, so the rules cannot drift and a Spoolman filament's label and color still come from Spoolman. Unknown fields are refused, so a misspelling is an error. "Needs an enclosure" defaults from the material and "multi-material" from having two or more colors, as the form pre-ticks them; an explicit `false` wins.
+  - `GET /api/v1/requests/{id}`, and `GET .../files`.
+  - `POST .../files?name=part.stl` with the file as the raw body: the same type and size limits, and the same measuring and sizing, as a browser upload.
+  - `POST .../status` with `{"status": ...}`, and `POST .../printed` with `{"printed": n}`. Setting what is already there answers 200 and records nothing.
+- **Re-runs.** A request may carry a `key`, unique across requests (the sheet import's keys live in the same column). Filing with a key already in use answers 200 with the existing request instead of 201, so a script can be run again after adding parts and files only what is new.
+- **Remote use.** Off the LAN, `prints.cmdcentral.xyz` is behind Cloudflare Access (section 8, step 5), which would answer a script with its login page. Scripts run from the LAN, where the host resolves to traefik; using it remotely would need an Access service token, which is not set up.
 
 ## 7. Stack and layout
 
@@ -328,7 +358,6 @@ Each milestone ends with `make check` passing and the listed behaviour demonstra
 ### Later, not planned in detail
 
 - Notifications: email the requester on `ready` and `needs_info`; notify the owner of new requests.
-- A JSON API with tokens.
 - A Prometheus metrics endpoint.
 
 ## 10. Open decisions

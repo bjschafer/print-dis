@@ -26,5 +26,38 @@
     <p>Bookmarklets are awkward on phones. Instead, copy the link from the model page (share, then copy link), open <a href="/requests/new">New request</a> and paste it into the link field.</p>
   </div>
 </section>
+
+{{if isAdmin .User}}
+<section class="panel" id="api">
+  <header class="panel-head">{{template "icon" "key"}}<h2>API</h2></header>
+  <div class="panel-body">
+    <p>Scripts can file and update requests through the JSON API at <code>{{.BaseURL}}/api/v1/</code>. Each call sends a token as <code>Authorization: Bearer …</code>, and the token acts as you. The reference is <code>docs/api.md</code> in the repository.</p>
+    {{with .NewToken}}
+    <div class="new-token" role="status">
+      <p><strong>Your new token.</strong> Copy it now; it won't be shown again.</p>
+      <input readonly value="{{.}}" aria-label="New API token" spellcheck="false">
+    </div>
+    {{end}}
+    {{if .Tokens}}
+    <ul class="tokens">
+      {{range .Tokens}}
+      <li>
+        <span><strong>{{.Name}}</strong><br><small class="muted">created {{when .CreatedAt}} · {{with .LastUsedAt}}last used {{when .}}{{else}}never used{{end}}</small></span>
+        <form method="post" action="/tokens/{{.ID}}/delete" class="inline">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button class="small danger" data-confirm="Revoke {{.Name}}? Scripts using it will stop working.">Revoke</button>
+        </form>
+      </li>
+      {{end}}
+    </ul>
+    {{end}}
+    <form method="post" action="/tokens" class="token-new">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label>New token for <input name="name" required maxlength="80" placeholder="voron script"></label>
+      <button class="primary">{{template "icon" "plus"}}Create token</button>
+    </form>
+  </div>
+</section>
+{{end}}
 </div>
 {{end}}

@@ -121,8 +121,11 @@ func (s *Server) routes() http.Handler {
 	signedIn.HandleFunc("POST /printers/{id}", s.savePrinter)
 	s.peopleRoutes(signedIn)
 	s.fileRoutes(signedIn)
+	s.tokenRoutes(signedIn)
 	app.Handle("/", s.Auth.RequireUser(signedIn))
 
+	// The API authenticates by bearer token alone, outside the session.
+	public.Handle("/api/", securityHeaders(s.apiRoutes()))
 	public.Handle("/", securityHeaders(s.Auth.Middleware(s.Auth.RequireCSRF(app))))
 	return s.recoverer(public)
 }

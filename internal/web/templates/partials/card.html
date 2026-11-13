@@ -20,6 +20,7 @@
     <span class="who-sm" title="Requested by {{$r.RequesterName}}"><span class="avatar sm" style="{{avatarHue $r.RequesterName}}">{{initial $r.RequesterName}}</span>{{$r.RequesterName}}</span>
     {{with $r.NeededBy}}<span class="due{{if eq $r.Timing "firm"}} firm{{end}}" title="{{$r.Timing.Label}} deadline">{{if eq $r.Timing "firm"}}{{template "icon" "flag"}}{{else}}{{template "icon" "calendar"}}{{end}}{{shortDate .}}</span>{{end}}
     {{with $r.PrinterName}}<span class="printer">{{template "icon" "printer"}}{{.}}</span>{{end}}
+    {{if and $r.Project (isAdmin .U)}}<span class="project" title="Project">{{template "icon" "folder"}}{{$r.Project}}</span>{{end}}
     {{if canDeliver .U $r}}
     <form method="post" action="/requests/{{$r.ID}}/status" class="inline card-deliver" data-deliver>
       <input type="hidden" name="csrf" value="{{.CSRF}}">

@@ -20,6 +20,20 @@
       {{range .Materials}}<option {{if eq . $.Material}}selected{{end}}>{{.}}</option>{{end}}
     </select>
   </label>
+  {{with .Projects}}
+  <label>Project
+    <select name="project">
+      <option value="">Any</option>
+      <option value="-" {{if eq $.Project "-"}}selected{{end}}>None</option>
+      <optgroup label="Only">
+        {{range .}}<option value="{{.}}" {{if eq . $.Project}}selected{{end}}>{{.}}</option>{{end}}
+      </optgroup>
+      <optgroup label="All but">
+        {{range .}}<option value="!{{.}}" {{if eq (print "!" .) $.Project}}selected{{end}}>Not {{.}}</option>{{end}}
+      </optgroup>
+    </select>
+  </label>
+  {{end}}
   {{with .Query.Get "sort"}}<input type="hidden" name="sort" value="{{.}}">{{end}}
   {{with .Query.Get "desc"}}<input type="hidden" name="desc" value="{{.}}">{{end}}
   {{block "extraFilters" .}}{{end}}

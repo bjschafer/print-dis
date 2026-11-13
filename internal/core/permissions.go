@@ -60,6 +60,9 @@ func CanSeePrinterStatus(u *User) bool { return isAdmin(u) }
 // CanSeeAll decides whether lists are filtered to the user's own requests.
 func CanSeeAll(u *User) bool { return isAdmin(u) }
 
+// CanUseAPI: the JSON API, and the tokens that open it, are for admins.
+func CanUseAPI(u *User) bool { return isAdmin(u) }
+
 // CanDownloadFile follows request visibility.
 func CanDownloadFile(u *User, r *Request) bool { return CanView(u, r) }
 

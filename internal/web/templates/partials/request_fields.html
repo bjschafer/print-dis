@@ -63,9 +63,13 @@
   <textarea name="notes" rows="4">{{$r.Notes}}</textarea>
 </label>
 
-{{if .Printers}}
+{{if .People}}
 <fieldset class="row admin">
   <legend>Owner</legend>
+  <label>Project
+    <input name="project" value="{{$r.Project}}" maxlength="80" list="projects" autocomplete="off" placeholder="none">
+    <datalist id="projects">{{range .Projects}}<option value="{{.}}">{{end}}</datalist>
+  </label>
   <label>Printer
     <select name="printer_id">
       <option value="">Unassigned</option>

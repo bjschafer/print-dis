@@ -149,6 +149,13 @@ type Request struct {
 	SizeX, SizeY       *int
 	SizeZ              *int
 
+	// Project groups requests that belong together, such as the parts of one
+	// build; "" for none. Only admins set it.
+	Project string
+	// Key is set by the script that filed the request (the sheet import or an
+	// API client), so that running it again does not file it twice.
+	Key *string
+
 	PrinterID *int64
 	Position  float64
 	CreatedAt time.Time

@@ -42,5 +42,6 @@ func ChangedFields(a, b *Request) []string {
 	add(a.NeedsEnclosure != b.NeedsEnclosure, "enclosure")
 	add(!eqPtr(a.SizeX, b.SizeX) || !eqPtr(a.SizeY, b.SizeY) || !eqPtr(a.SizeZ, b.SizeZ), "size")
 	add(!eqPtr(a.PrinterID, b.PrinterID), "printer")
+	add(a.Project != b.Project, "project")
 	return slices.Clip(out)
 }

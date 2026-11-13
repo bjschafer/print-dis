@@ -17,6 +17,7 @@ const requestCols = `r.id, r.requester_id, r.created_by_id, r.title, r.quantity,
 	r.timing, r.notes, r.source_url, r.source_title, r.source_image_type, r.material, r.colors,
 	r.needs_multi_material, r.needs_enclosure,
 	r.size_x_mm, r.size_y_mm, r.size_z_mm, r.printer_id, r.position, r.created_at, r.updated_at,
+	r.project, r.external_key,
 	u.name, coalesce(p.name, ''), (r.source_image is not null)`
 
 const requestFrom = ` from requests r join users u on u.id = r.requester_id left join printers p on p.id = r.printer_id`
@@ -28,6 +29,7 @@ func scanRequest(row pgx.Row) (*core.Request, error) {
 		&r.Timing, &r.Notes, &r.SourceURL, &r.SourceTitle, &r.SourceImageType, &r.Material, &r.Colors,
 		&r.NeedsMultiMaterial, &r.NeedsEnclosure,
 		&r.SizeX, &r.SizeY, &r.SizeZ, &r.PrinterID, &r.Position, &r.CreatedAt, &r.UpdatedAt,
+		&r.Project, &r.Key,
 		&r.RequesterName, &r.PrinterName, &hasImage)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -55,6 +57,13 @@ type Filter struct {
 	PrinterID   int64
 	Material    string
 	Statuses    []core.Status
+	// Project keeps only that project's requests; NoProject keeps only
+	// requests in none; ExceptProject leaves that project's out.
+	Project       string
+	NoProject     bool
+	ExceptProject string
+	// Key keeps only the request filed with that key.
+	Key string
 	// Sort is a column key from SortColumns; empty means board order.
 	Sort string
 	Desc bool
@@ -70,6 +79,7 @@ var SortColumns = map[string]string{
 	"updated":   "r.updated_at",
 	"printer":   "lower(p.name)",
 	"material":  "lower(r.material)",
+	"project":   "lower(nullif(r.project, ''))",
 }
 
 func (s *Store) ListRequests(ctx context.Context, f Filter) ([]core.Request, error) {
@@ -87,6 +97,17 @@ func (s *Store) ListRequests(ctx context.Context, f Filter) ([]core.Request, err
 	}
 	if f.Material != "" {
 		add("lower(r.material) = lower($%d)", f.Material)
+	}
+	switch {
+	case f.Project != "":
+		add("r.project = $%d", f.Project)
+	case f.NoProject:
+		where = append(where, "r.project = ''")
+	case f.ExceptProject != "":
+		add("r.project <> $%d", f.ExceptProject)
+	}
+	if f.Key != "" {
+		add("r.external_key = $%d", f.Key)
 	}
 	if len(f.Statuses) > 0 {
 		ss := make([]string, len(f.Statuses))
@@ -133,8 +154,22 @@ func (s *Store) ListMaterials(ctx context.Context) ([]string, error) {
 	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
+// ListProjects returns the distinct projects in use, for filters and the form.
+func (s *Store) ListProjects(ctx context.Context) ([]string, error) {
+	rows, err := s.Pool.Query(ctx, `select distinct project from requests where project <> '' order by 1`)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
+}
+
 func (s *Store) GetRequest(ctx context.Context, id int64) (*core.Request, error) {
 	return scanRequest(s.Pool.QueryRow(ctx, `select `+requestCols+requestFrom+` where r.id = $1`, id))
+}
+
+// GetRequestByKey returns the request filed with key, or ErrNotFound.
+func (s *Store) GetRequestByKey(ctx context.Context, key string) (*core.Request, error) {
+	return scanRequest(s.Pool.QueryRow(ctx, `select `+requestCols+requestFrom+` where r.external_key = $1`, key))
 }
 
 // GetRequestImage returns the stored thumbnail and its content type.
@@ -156,22 +191,23 @@ func (s *Store) GetRequestImage(ctx context.Context, id int64) ([]byte, string, 
 }
 
 // CreateRequest inserts each request at the end of its column, in one
-// transaction, and fills in their IDs and timestamps.
+// transaction, and fills in their IDs and timestamps. It returns
+// ErrDuplicate when a request's Key is already taken.
 func (s *Store) CreateRequest(ctx context.Context, rs ...*core.Request) error {
-	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
+	err := pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
 		for _, r := range rs {
 			err := tx.QueryRow(ctx, `
 				insert into requests (requester_id, created_by_id, title, quantity, printed_count, status, needed_by, timing, notes,
 					source_url, source_title, source_image, source_image_type, material, colors,
 					needs_multi_material, needs_enclosure, size_x_mm, size_y_mm, size_z_mm,
-					printer_id, position)
-				values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
+					printer_id, project, external_key, position)
+				values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,
 					coalesce((select max(position) from requests where status = $6), 0) + 1)
 				returning id, position, created_at, updated_at`,
 				r.RequesterID, r.CreatedByID, r.Title, r.Quantity, r.Printed, r.Status, r.NeededBy, r.Timing, r.Notes,
 				r.SourceURL, r.SourceTitle, r.SourceImage, r.SourceImageType, r.Material, colorsParam(r.Colors),
 				r.NeedsMultiMaterial, r.NeedsEnclosure, r.SizeX, r.SizeY, r.SizeZ,
-				r.PrinterID,
+				r.PrinterID, r.Project, r.Key,
 			).Scan(&r.ID, &r.Position, &r.CreatedAt, &r.UpdatedAt)
 			if err != nil {
 				return err
@@ -179,6 +215,10 @@ func (s *Store) CreateRequest(ctx context.Context, rs ...*core.Request) error {
 		}
 		return nil
 	})
+	if isUniqueViolation(err) {
+		return ErrDuplicate
+	}
+	return err
 }
 
 // UpdateRequest writes every editable column (not status or position) and
@@ -189,12 +229,12 @@ func (s *Store) UpdateRequest(ctx context.Context, r *core.Request, byUser int64
 			update requests set requester_id=$2, title=$3, quantity=$4, printed_count=$5, needed_by=$6, timing=$7, notes=$8,
 				source_url=$9, source_title=$10, material=$11, colors=$12,
 				needs_multi_material=$13, needs_enclosure=$14,
-				size_x_mm=$15, size_y_mm=$16, size_z_mm=$17, printer_id=$18, updated_at=now()
+				size_x_mm=$15, size_y_mm=$16, size_z_mm=$17, printer_id=$18, project=$19, updated_at=now()
 			where id=$1`,
 			r.ID, r.RequesterID, r.Title, r.Quantity, r.Printed, r.NeededBy, r.Timing, r.Notes,
 			r.SourceURL, r.SourceTitle, r.Material, colorsParam(r.Colors),
 			r.NeedsMultiMaterial, r.NeedsEnclosure,
-			r.SizeX, r.SizeY, r.SizeZ, r.PrinterID)
+			r.SizeX, r.SizeY, r.SizeZ, r.PrinterID, r.Project)
 		if err != nil {
 			return err
 		}
