@@ -81,3 +81,4 @@ openapi.json
 # print-dis v2
 .files/
 .claude/
+.pgdata/

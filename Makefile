@@ -15,10 +15,16 @@ run: build
 	FILES_BACKEND=$${FILES_BACKEND:-dir} FILES_DIR=$${FILES_DIR:-./.files} \
 	./bin/print-dis serve
 
-# Throwaway Postgres for tests and `make run`, on port 55432.
+# Throwaway Postgres for tests and `make run`, on port 55432. Uses podman or
+# docker if one is running, else local Postgres binaries; see scripts/devdb.sh.
 .PHONY: db
 db:
-	podman run -d --rm --name printdis-pg -e POSTGRES_PASSWORD=pg -e POSTGRES_DB=printdis -p 55432:5432 docker.io/library/postgres:17-alpine
+	./scripts/devdb.sh start
+
+# Stop it and throw its data away.
+.PHONY: db-stop
+db-stop:
+	./scripts/devdb.sh stop
 
 .PHONY: vet
 vet:

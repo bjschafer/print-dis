@@ -4,7 +4,7 @@ A print-request queue for one owner and their friends. `docs/design.md` is the s
 
 ## Commands
 
-- `make db`: start a throwaway Postgres 17 on port 55432 (podman).
+- `make db`: start a throwaway Postgres on port 55432; `make db-stop` stops it and deletes its data. `scripts/devdb.sh` uses podman, then docker (if its daemon is up), then local Postgres binaries (Homebrew `postgresql@17` preferred, else `pg_ctl` on PATH) with data in `./.pgdata`. Force one with `DEVDB=podman|docker|native`. Native may be a newer major than CI's 17; CI is the check for that.
 - `make run`: build and serve on :8080 with `DEV_USER` sign-in and files in `./.files`.
 - `make check`: vet, golangci-lint, tests. Must pass before any work is called done.
 - `make screenshots`: regenerate the README images in `docs/images` from made-up data (needs `make db` and chromium). Re-run when the UI changes enough that they look stale.

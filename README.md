@@ -16,7 +16,7 @@ See [`docs/design.md`](docs/design.md) for the design.
 ## Running locally
 
 ```sh
-make db     # Postgres in podman on :55432
+make db     # Postgres on :55432: podman, docker, or local binaries
 make run    # http://localhost:8080, signed in as an admin via DEV_USER
 ```
 
