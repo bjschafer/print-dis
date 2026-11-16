@@ -455,7 +455,7 @@ func (s *Server) apiSetStatus(w http.ResponseWriter, r *http.Request) {
 		apiError(w, http.StatusForbidden, "You cannot make that status change.")
 		return
 	}
-	if err := s.Store.SetStatus(r.Context(), req.ID, in.Status, u.ID); err != nil {
+	if err := s.Store.SetStatus(r.Context(), req.ID, core.ResolveStatus(u, req, in.Status), u.ID); err != nil {
 		s.apiServerError(w, r, err)
 		return
 	}

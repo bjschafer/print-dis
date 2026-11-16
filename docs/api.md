@@ -165,7 +165,7 @@ Replies 201 with the file. Uploading the same file twice stores it twice. Check 
 curl -H "Authorization: Bearer $PD_TOKEN" "$PD/api/v1/requests/42/status" -d '{"status": "printing"}'
 ```
 
-Replies with the request. The change is recorded in the request's history, the same as a change in the browser. Setting the status it already has does nothing and replies 200.
+Replies with the request. The change is recorded in the request's history, the same as a change in the browser. Setting the status it already has does nothing and replies 200. Moving a request whose requester is the token's owner to `ready` delivers it instead, since nobody will pick it up; the reply shows `delivered`.
 
 ### `POST /api/v1/requests/{id}/printed`
 

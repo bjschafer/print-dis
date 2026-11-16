@@ -141,7 +141,7 @@ create table api_tokens (
 
 Notes on the choices:
 
-- **Statuses match the existing sheet** (Requested, Needs info, Printing, Ready for pickup, Delivered) plus `cancelled`. `delivered` and `cancelled` are terminal and hidden from the board.
+- **Statuses match the existing sheet** (Requested, Needs info, Printing, Ready for pickup, Delivered) plus `cancelled`. `delivered` and `cancelled` are terminal and hidden from the board. Ready for pickup is only for requests someone else will collect: moving your own request into `ready`, by button, drag or API, delivers it instead (`core.ResolveStatus`), and its page offers Delivered but not Ready. A request already in `ready` stays there.
 - **Colors are a list of snapshots.** A request lists zero or more colors (none means any color), each one of: a filament picked from Spoolman, a rough color from a fixed palette, an exact hex color, or just a note. The Spoolman ID is kept for linking, but the label, material and color are copied at pick time so a request still reads correctly after that filament is deleted or Spoolman is down. The list is a jsonb column rather than a table because it is only ever read and written with its request (migration `00005` moved the old single-filament columns into it).
 - **`printed_count` is the whole of progress tracking.** "3 of 10 printed" is enough; copies do not have individual states.
 - **`request_events` is both the comment thread and the audit trail.** A "needs info" exchange happens there.
@@ -162,7 +162,7 @@ The request page lists eligible printers and says why each of the others was exc
 
 ## 4. Screens
 
-Server-rendered HTML with `html/template`, htmx for partial updates, and SortableJS for dragging cards. Both scripts are vendored into the repo and embedded in the binary; there is no Node toolchain and no build step for the frontend. It must be usable on a phone.
+Server-rendered HTML with `html/template`, htmx for partial updates, and SortableJS for dragging cards. Both scripts are vendored into the repo and embedded in the binary; there is no Node toolchain and no build step for the frontend. It must be usable on a phone, and can be added to a phone's home screen: a web app manifest (`display: standalone`) and PNG icons drawn at first request from the logo in the accent color, plus an `apple-touch-icon` for iOS. There is no service worker and no offline mode; the app needs the server anyway.
 
 The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (light when the OS asks for it), a nav rail that becomes a bottom tab bar on phones, and panels with header strips. Board columns are lanes tinted with their status color, with cards as lighter raised tiles on them; a card is striped with its colors, top to bottom, when they are known. A firm date due within three days is a solid orange pill, the card's only alarm. Printer tiles above the board are a small dashboard of flat panels with header strips: color only in the state badge and progress bar, and progress in large type. No decorative gradients. The accent color comes from `ACCENT_COLOR`. Icons are an inline SVG sprite in `layout.html`; all styling is one hand-written `app.css`. Only admins can drag cards, so only their cards lift on hover and show a grab cursor. Avatars show a person's initials (first and last word of the name) on a hue chosen by a hash of their name, so people are told apart at a glance.
 
@@ -174,7 +174,7 @@ The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (lig
 | `GET /requests/new` | New request form. Accepts `?url=` to prefill from a link (section 6), or `?from={id}` to clone a request (below). Admins get a "for" field to pick or create a person. |
 | `GET /requests/{id}` | Detail: all fields, eligible printers, comment thread, history. Edit in place, subject to section 2. A Clone button opens the new-request form copied from it. |
 | `POST /requests/{id}/status` | Status change (admin; requesters may only cancel). Records an event. |
-| `POST /requests/{id}/move` | Reorder within or across columns from a drag. |
+| `POST /requests/{id}/move` | Reorder within or across columns from a drag. Answers 204, or 200 when the request landed somewhere other than the column it was dropped in (your own request dropped on Ready is delivered), so the board takes the card off. |
 | `POST /requests/{id}/comments` | Add a comment. |
 | `POST /requests/{id}/files` | Upload one or more files (section 6a). |
 | `GET /files/{id}` | Download a file, subject to the same visibility as its request. |
@@ -191,6 +191,7 @@ The look borrows from printer UIs like Fluidd and Bambuddy: dark by default (lig
 | `/api/v1/...` | The JSON API (section 6b). |
 | `GET /auth/login`, `/auth/callback`, `POST /auth/logout` | OIDC code flow with PKCE. |
 | `GET /healthz`, `GET /readyz` | Liveness, and readiness including a database ping. |
+| `GET /manifest.webmanifest`, `GET /apple-touch-icon.png`, `GET /icon-*.png` | The web app manifest and its icons. Public, since browsers fetch them without a session. |
 
 Every state-changing route requires a CSRF token, except the API's, which never read the session cookie (section 6b).
 

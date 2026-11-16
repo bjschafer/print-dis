@@ -162,6 +162,56 @@ func TestDeliverFromBoard(t *testing.T) {
 	h.mustNotContain(body, "Lamp shade")
 }
 
+// The owner's own request has nobody to pick it up: Ready delivers it,
+// by button, by drag, and by API. A friend's still waits in Ready.
+func TestOwnRequestSkipsReady(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	owner := h.owner()
+	alice := h.friend("Alice")
+	file := func(title string, by *core.User) int64 {
+		r := &core.Request{Title: title, Status: core.StatusPrinting, RequesterID: by.ID, CreatedByID: owner.ID, Quantity: 1, Timing: core.TimingWhenever}
+		if err := h.store.CreateRequest(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+		return r.ID
+	}
+	status := func(id int64) core.Status {
+		got, err := h.store.GetRequest(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got.Status
+	}
+	dragged, buttoned, viaAPI, hers := file("Mine dragged", owner), file("Mine buttoned", owner), file("Mine by API", owner), file("Hers", alice)
+
+	// Only Delivered is offered, not a Ready that would do the same.
+	_, body := h.get("/requests/" + itoa(buttoned))
+	h.mustNotContain(body, `name="status" value="ready"`)
+	h.mustContain(body, `name="status" value="delivered"`)
+	_, body = h.get("/requests/" + itoa(hers))
+	h.mustContain(body, `name="status" value="ready"`)
+
+	code, _, _ := h.post("/requests/"+itoa(dragged)+"/move", url.Values{"status": {"ready"}, "order": {itoa(dragged)}}, "X-CSRF-Token", h.csrf)
+	if code != http.StatusOK || status(dragged) != core.StatusDelivered {
+		t.Fatalf("drag own to ready: %d, now %s", code, status(dragged))
+	}
+	if code, _, _ := h.post("/requests/"+itoa(buttoned)+"/status", url.Values{"status": {"ready"}}); code != http.StatusSeeOther || status(buttoned) != core.StatusDelivered {
+		t.Fatalf("own to ready: %d, now %s", code, status(buttoned))
+	}
+	var got apiRequestJSON
+	if code, _, raw := h.api("POST", "/api/v1/requests/"+itoa(viaAPI)+"/status", h.token(owner), map[string]string{"status": "ready"}, &got); code != http.StatusOK || got.Status != core.StatusDelivered {
+		t.Fatalf("API own to ready: %d %s", code, raw)
+	}
+	_, body = h.get("/requests/" + itoa(dragged))
+	h.mustContain(body, "printing -&gt; delivered")
+
+	code, _, _ = h.post("/requests/"+itoa(hers)+"/move", url.Values{"status": {"ready"}, "order": {itoa(hers)}}, "X-CSRF-Token", h.csrf)
+	if code != http.StatusNoContent || status(hers) != core.StatusReady {
+		t.Fatalf("drag hers to ready: %d, now %s", code, status(hers))
+	}
+}
+
 func TestCSRFRequired(t *testing.T) {
 	h := newHarness(t)
 	h.get("/")

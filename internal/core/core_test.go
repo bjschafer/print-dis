@@ -186,6 +186,33 @@ func TestCanSetStatus(t *testing.T) {
 	}
 }
 
+func TestResolveStatus(t *testing.T) {
+	owner := &User{ID: 1, IsAdmin: true}
+	alice := &User{ID: 2}
+	mine := func(s Status) *Request { return &Request{RequesterID: owner.ID, Status: s} }
+	hers := func(s Status) *Request { return &Request{RequesterID: alice.ID, Status: s} }
+	tests := []struct {
+		name string
+		u    *User
+		r    *Request
+		to   Status
+		want Status
+	}{
+		{"own request to ready is delivered", owner, mine(StatusPrinting), StatusReady, StatusDelivered},
+		{"own request from requested", owner, mine(StatusRequested), StatusReady, StatusDelivered},
+		{"own request back from delivered", owner, mine(StatusDelivered), StatusReady, StatusDelivered},
+		{"own request already ready stays", owner, mine(StatusReady), StatusReady, StatusReady},
+		{"own request to printing", owner, mine(StatusRequested), StatusPrinting, StatusPrinting},
+		{"friend's request to ready", owner, hers(StatusPrinting), StatusReady, StatusReady},
+		{"nil user", nil, hers(StatusPrinting), StatusReady, StatusReady},
+	}
+	for _, tt := range tests {
+		if got := ResolveStatus(tt.u, tt.r, tt.to); got != tt.want {
+			t.Errorf("%s: got %s, want %s", tt.name, got, tt.want)
+		}
+	}
+}
+
 func TestCanDeleteFile(t *testing.T) {
 	admin := &User{ID: 1, IsAdmin: true}
 	alice := &User{ID: 2}

@@ -8,7 +8,7 @@
   </div>
   <div class="status-actions">
     <a class="button" href="/requests/new?from={{$r.ID}}" title="File a new request copied from this one">{{template "icon" "copy"}}Clone</a>
-    {{range statuses}}{{if canSetStatus $.User $r .}}
+    {{range statuses}}{{if and (canSetStatus $.User $r .) (eq (resolveStatus $.User $r .) .)}}
     <form method="post" action="/requests/{{$r.ID}}/status" class="inline">
       <input type="hidden" name="csrf" value="{{$.CSRF}}">
       <input type="hidden" name="status" value="{{.}}">

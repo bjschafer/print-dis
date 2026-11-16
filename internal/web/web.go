@@ -60,6 +60,7 @@ type Server struct {
 	Deps
 	handler http.Handler
 	pages   map[string]*template.Template
+	pwa     pwaAssets
 }
 
 // New builds the handler and its routes.
@@ -92,6 +93,10 @@ func (s *Server) routes() http.Handler {
 	public.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok\n")) })
 	public.HandleFunc("GET /readyz", s.readyz)
 	public.HandleFunc("GET /favicon.svg", s.favicon)
+	public.HandleFunc("GET /manifest.webmanifest", s.manifest)
+	for _, ic := range appIcons {
+		public.HandleFunc("GET "+ic.path, s.appIcon)
+	}
 	static, _ := fs.Sub(staticFS, "static")
 	public.Handle("GET /static/", http.StripPrefix("/static/", cacheStatic(http.FileServerFS(static))))
 

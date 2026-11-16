@@ -770,7 +770,7 @@ func (s *Server) setStatus(w http.ResponseWriter, r *http.Request) {
 		forbidden(w)
 		return
 	}
-	if err := s.Store.SetStatus(r.Context(), req.ID, to, u.ID); err != nil {
+	if err := s.Store.SetStatus(r.Context(), req.ID, core.ResolveStatus(u, req, to), u.ID); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
@@ -801,8 +801,16 @@ func (s *Server) moveRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Too many cards.", http.StatusBadRequest)
 		return
 	}
-	if err := s.Store.Move(r.Context(), req.ID, to, order, u.ID); err != nil {
+	landed := core.ResolveStatus(u, req, to)
+	if err := s.Store.Move(r.Context(), req.ID, landed, order, u.ID); err != nil {
 		s.serverError(w, r, err)
+		return
+	}
+	// 204: the card stays where it was dropped. 200: it landed elsewhere
+	// (your own request dropped on Ready is delivered), so the board takes
+	// it off.
+	if landed != to {
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

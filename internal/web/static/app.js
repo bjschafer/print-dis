@@ -177,6 +177,10 @@
             credentials: "same-origin",
           }).then((r) => {
             if (!r.ok) throw new Error(r.status);
+            // A 200 means the card landed somewhere other than the column
+            // it was dropped in (your own request dropped on Ready is
+            // delivered), so it leaves the board.
+            if (r.status === 200) evt.item.remove();
             updateCounts(board);
           }).catch(() => {
             alert("Could not move that card. The board will reload.");

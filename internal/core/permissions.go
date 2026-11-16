@@ -40,6 +40,16 @@ func CanSetStatus(u *User, r *Request, to Status) bool {
 	return isAdmin(u)
 }
 
+// ResolveStatus is where a change to `to` by u actually lands. Moving your
+// own request into ready delivers it: there is nobody to hand it to.
+// Changes to anything else, and requests already in ready, land as asked.
+func ResolveStatus(u *User, r *Request, to Status) Status {
+	if to == StatusReady && r != nil && r.Status != StatusReady && owns(u, r) {
+		return StatusDelivered
+	}
+	return to
+}
+
 // CanMove: dragging cards on the board is for admins.
 func CanMove(u *User) bool { return isAdmin(u) }
 

@@ -75,6 +75,9 @@ var funcs = template.FuncMap{
 	"canEdit":       core.CanEdit,
 	"canComment":    core.CanComment,
 	"canSetStatus":  core.CanSetStatus,
+	// resolveStatus: the detail page hides a status button that would land
+	// somewhere else (Ready on your own request, which is Delivered).
+	"resolveStatus": core.ResolveStatus,
 	"canMove":       core.CanMove,
 	"canCancel":     core.CanCancel,
 	// canDeliver: a Ready card on the board offers "Delivered" to whoever
