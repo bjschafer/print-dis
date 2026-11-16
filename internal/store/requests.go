@@ -249,7 +249,8 @@ func (s *Store) UpdateRequest(ctx context.Context, r *core.Request, byUser int64
 }
 
 // SetStatus changes status, moves the request to the end of the new column,
-// and records a status event.
+// and records a status event. Moving into ready or delivered also marks
+// every copy printed (core.CompletesPrinting), with its own edit event.
 func (s *Store) SetStatus(ctx context.Context, id int64, to core.Status, byUser int64) error {
 	return pgx.BeginFunc(ctx, s.Pool, func(tx pgx.Tx) error {
 		return setStatus(ctx, tx, id, to, byUser, nil)
@@ -258,7 +259,8 @@ func (s *Store) SetStatus(ctx context.Context, id int64, to core.Status, byUser 
 
 func setStatus(ctx context.Context, tx pgx.Tx, id int64, to core.Status, byUser int64, position *float64) error {
 	var from core.Status
-	if err := tx.QueryRow(ctx, `select status from requests where id = $1 for update`, id).Scan(&from); err != nil {
+	var quantity, printed int
+	if err := tx.QueryRow(ctx, `select status, quantity, printed_count from requests where id = $1 for update`, id).Scan(&from, &quantity, &printed); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
@@ -273,7 +275,16 @@ func setStatus(ctx context.Context, tx pgx.Tx, id int64, to core.Status, byUser 
 		where id = $1`, id, to, position); err != nil {
 		return err
 	}
-	return addEvent(ctx, tx, id, byUser, core.EventStatus, core.StatusChangeBody(from, to))
+	if err := addEvent(ctx, tx, id, byUser, core.EventStatus, core.StatusChangeBody(from, to)); err != nil {
+		return err
+	}
+	if !core.CompletesPrinting(to) || printed >= quantity {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `update requests set printed_count = quantity where id = $1`, id); err != nil {
+		return err
+	}
+	return addEvent(ctx, tx, id, byUser, core.EventEdit, "changed printed")
 }
 
 // Move puts request id into column to, ordering that column as order (a list

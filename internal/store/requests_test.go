@@ -112,3 +112,75 @@ func TestRequestLifecycle(t *testing.T) {
 		t.Fatalf("missing: %v", err)
 	}
 }
+
+func TestReadyMarksEveryCopyPrinted(t *testing.T) {
+	ctx := context.Background()
+	s := storetest.New(t)
+	admin, err := s.EnsureDevUser(ctx, "owner@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mk := func(qty, printed int) *core.Request {
+		r := &core.Request{RequesterID: admin.ID, CreatedByID: admin.ID, Title: "part", Quantity: qty, Printed: printed,
+			Status: core.StatusPrinting, Timing: core.TimingFlexible}
+		if err := s.CreateRequest(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	check := func(id int64, wantPrinted int, wantBodies ...string) {
+		t.Helper()
+		got, err := s.GetRequest(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Printed != wantPrinted {
+			t.Errorf("request %d printed = %d, want %d", id, got.Printed, wantPrinted)
+		}
+		evs, err := s.ListEvents(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var bodies []string
+		for _, e := range evs {
+			bodies = append(bodies, e.Body)
+		}
+		if len(bodies) != len(wantBodies) {
+			t.Fatalf("request %d events = %q, want %q", id, bodies, wantBodies)
+		}
+		for i := range bodies {
+			if bodies[i] != wantBodies[i] {
+				t.Fatalf("request %d events = %q, want %q", id, bodies, wantBodies)
+			}
+		}
+	}
+
+	ready := mk(10, 3)
+	if err := s.SetStatus(ctx, ready.ID, core.StatusReady, admin.ID); err != nil {
+		t.Fatal(err)
+	}
+	check(ready.ID, 10, "printing -> ready", "changed printed")
+	// Moving back out leaves the count alone.
+	if err := s.SetStatus(ctx, ready.ID, core.StatusPrinting, admin.ID); err != nil {
+		t.Fatal(err)
+	}
+	check(ready.ID, 10, "printing -> ready", "changed printed", "ready -> printing")
+
+	dragged := mk(4, 0)
+	if err := s.Move(ctx, dragged.ID, core.StatusDelivered, []int64{dragged.ID}, admin.ID); err != nil {
+		t.Fatal(err)
+	}
+	check(dragged.ID, 4, "printing -> delivered", "changed printed")
+
+	done := mk(2, 2)
+	if err := s.SetStatus(ctx, done.ID, core.StatusReady, admin.ID); err != nil {
+		t.Fatal(err)
+	}
+	check(done.ID, 2, "printing -> ready")
+
+	cancelled := mk(5, 1)
+	if err := s.SetStatus(ctx, cancelled.ID, core.StatusCancelled, admin.ID); err != nil {
+		t.Fatal(err)
+	}
+	check(cancelled.ID, 1, "printing -> cancelled")
+}

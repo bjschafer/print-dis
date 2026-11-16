@@ -186,6 +186,24 @@ func TestCanSetStatus(t *testing.T) {
 	}
 }
 
+func TestCompletesPrinting(t *testing.T) {
+	for _, tt := range []struct {
+		to   Status
+		want bool
+	}{
+		{StatusRequested, false},
+		{StatusNeedsInfo, false},
+		{StatusPrinting, false},
+		{StatusReady, true},
+		{StatusDelivered, true},
+		{StatusCancelled, false},
+	} {
+		if got := CompletesPrinting(tt.to); got != tt.want {
+			t.Errorf("CompletesPrinting(%s) = %v, want %v", tt.to, got, tt.want)
+		}
+	}
+}
+
 func TestResolveStatus(t *testing.T) {
 	owner := &User{ID: 1, IsAdmin: true}
 	alice := &User{ID: 2}

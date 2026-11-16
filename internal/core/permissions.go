@@ -50,6 +50,13 @@ func ResolveStatus(u *User, r *Request, to Status) Status {
 	return to
 }
 
+// CompletesPrinting reports whether a request moving into status to is
+// finished printing, so every copy should count as printed: ready and
+// delivered both mean it is done. Cancelled keeps whatever was printed.
+func CompletesPrinting(to Status) bool {
+	return to == StatusReady || to == StatusDelivered
+}
+
 // CanMove: dragging cards on the board is for admins.
 func CanMove(u *User) bool { return isAdmin(u) }
 
