@@ -45,6 +45,10 @@ func TestFromEnv(t *testing.T) {
 		{"bad max", with("UPLOAD_MAX_BYTES", "-1"), "UPLOAD_MAX_BYTES"},
 		{"bad accent", with("ACCENT_COLOR", "green"), "ACCENT_COLOR"},
 		{"accent too long", with("ACCENT_COLOR", "#12345678"), "ACCENT_COLOR"},
+		{"smtp", with("SMTP_ADDR", "smtp.smtp.svc.cluster.local:25", "MAIL_FROM", "prints@example.com"), ""},
+		{"smtp without from", with("SMTP_ADDR", "smtp:25"), "MAIL_FROM"},
+		{"smtp without port", with("SMTP_ADDR", "smtp", "MAIL_FROM", "prints@example.com"), "SMTP_ADDR"},
+		{"bad from", with("SMTP_ADDR", "smtp:25", "MAIL_FROM", "not an address"), "MAIL_FROM"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -65,6 +69,27 @@ func TestFromEnv(t *testing.T) {
 				t.Fatalf("error = %v, want containing %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestMailFrom(t *testing.T) {
+	for in, want := range map[string]string{
+		"prints@example.com":          `"print-dis" <prints@example.com>`,
+		"Prints <prints@example.com>": `"Prints" <prints@example.com>`,
+		" prints@example.com ":        `"print-dis" <prints@example.com>`,
+	} {
+		m := map[string]string{"DATABASE_URL": "postgres://x", "BASE_URL": "http://localhost:8080", "DEV_USER": "me@example.com", "SMTP_ADDR": "smtp:25", "MAIL_FROM": in}
+		c, err := FromEnv(env(m))
+		if err != nil {
+			t.Fatalf("%q: %v", in, err)
+		}
+		if got := c.MailFrom.String(); got != want {
+			t.Errorf("%q: got %s, want %s", in, got, want)
+		}
+	}
+	c, err := FromEnv(env(map[string]string{"DATABASE_URL": "postgres://x", "BASE_URL": "http://localhost:8080", "DEV_USER": "me@example.com", "MAIL_FROM": "prints@example.com"}))
+	if err != nil || c.SMTPAddr != "" || c.MailFrom != nil {
+		t.Errorf("MAIL_FROM alone: %+v, %v", c, err)
 	}
 }
 

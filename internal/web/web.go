@@ -53,6 +53,8 @@ type Deps struct {
 	Previewer Previewer
 	// PrinterStatus gives live printer status; nil turns it off.
 	PrinterStatus StatusSource
+	// Mailer queues notification emails; nil turns email off.
+	Mailer Mailer
 }
 
 // Server is the application's http.Handler.

@@ -345,6 +345,7 @@ func (s *Server) apiCreateRequest(w http.ResponseWriter, r *http.Request) {
 		s.apiServerError(w, r, err)
 		return
 	}
+	s.notifyNew(ctx, u, []*core.Request{created})
 	w.Header().Set("Location", "/api/v1/requests/"+strconv.FormatInt(created.ID, 10))
 	writeJSON(w, http.StatusCreated, s.apiRequest(created))
 }
@@ -455,10 +456,12 @@ func (s *Server) apiSetStatus(w http.ResponseWriter, r *http.Request) {
 		apiError(w, http.StatusForbidden, "You cannot make that status change.")
 		return
 	}
-	if err := s.Store.SetStatus(r.Context(), req.ID, core.ResolveStatus(u, req, in.Status), u.ID); err != nil {
+	landed := core.ResolveStatus(u, req, in.Status)
+	if err := s.Store.SetStatus(r.Context(), req.ID, landed, u.ID); err != nil {
 		s.apiServerError(w, r, err)
 		return
 	}
+	s.notifyStatus(r.Context(), u, req, landed)
 	s.apiReload(w, r, req.ID)
 }
 

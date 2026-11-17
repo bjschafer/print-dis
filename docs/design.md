@@ -270,6 +270,18 @@ So a script can file and track requests: the motivating case is walking the Voro
 - **Re-runs.** A request may carry a `key`, unique across requests (the sheet import's keys live in the same column). Filing with a key already in use answers 200 with the existing request instead of 201, so a script can be run again after adding parts and files only what is new.
 - **Remote use.** Off the LAN, `prints.cmdcentral.xyz` is behind Cloudflare Access (section 8, step 5), which would answer a script with its login page. Scripts run from the LAN, where the host resolves to traefik; using it remotely would need an Access service token, which is not set up.
 
+## 6c. Email
+
+Plain-text notifications through an SMTP relay: in the cluster, the Postfix at `smtp.smtp.svc.cluster.local:25`, which needs no authentication and relays out through Cloudflare. Email is off when `SMTP_ADDR` is unset, as in `make run`.
+
+- **Who is told what** (`core.EmailsRequester`, `core.NewRequestRecipients`):
+  - The requester, when their request moves to ready ("ready for pickup") or needs info ("a question"), by the button, a drag or the API. Not when they made the change themselves, and not for other statuses. Your own request skips ready (section 3), so nobody is emailed about it.
+  - Every admin with an email address, when someone files a request, except whoever filed it. A form split by color sends one email listing every request it filed.
+  - Someone with no email address (a placeholder filed without one) gets nothing.
+- **Never in the way.** Handlers put messages on an in-memory queue of 100 after the change is saved. One goroutine sends them, with a 30-second limit per attempt and three retries spread over about six minutes; a message that still fails, or does not fit in a full queue, is logged and dropped, and anything queued at shutdown is lost. There is no outbox table: a missed email is a nuisance, not lost data, since the board always has the truth.
+- **The message** is `text/plain` UTF-8 in quoted-printable, with `Auto-Submitted: auto-generated`. The subject is folded onto one line, so a title cannot add headers. It links to the request at `BASE_URL`. The relay replaces `Message-ID` itself.
+- **Not yet:** a per-person setting to turn emails off, and emails for comments.
+
 ## 7. Stack and layout
 
 - **Go**, current stable. `net/http` with the standard library router.
@@ -292,6 +304,8 @@ So a script can file and track requests: the motivating case is walking the Voro
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION` | For the `s3` backend. Path-style addressing is always used. |
 | `UPLOAD_MAX_BYTES` | Per-file limit. Default 209715200 (200 MiB). |
 | `DEV_USER` | Local development only: skips OIDC and signs in as an admin with this email. The server refuses to start with it set unless `BASE_URL` is a localhost origin. |
+| `SMTP_ADDR` | Optional relay `host:port`, e.g. `smtp.smtp.svc.cluster.local:25`. Email is off when unset (section 6c). No authentication or TLS. |
+| `MAIL_FROM` | Sender, e.g. `print-dis <prints@cmdcentral.net>`; required with `SMTP_ADDR`. Named "print-dis" when given as a bare address. |
 | `LISTEN_ADDR` | Default `:8080`. |
 
 ```
@@ -305,13 +319,14 @@ internal/preview/     link fetch and SSRF guard
 internal/printerstatus/  Moonraker and Bambuddy polling
 internal/files/       Blobs interface, s3 and dir backends
 internal/meshsize/    bounding boxes of STL, OBJ and 3MF files
+internal/email/       SMTP sender and background queue
 ```
 
 ### Testing
 
 - `internal/core` is pure and gets table-driven tests: eligibility, and every row of the permissions table in section 2.
 - Store and handler tests run against a real Postgres named by `TEST_DATABASE_URL` and are skipped when it is unset. CI provides one as a service container.
-- Spoolman, preview and printer status tests use `httptest` servers, including the failure paths.
+- Spoolman, preview and printer status tests use `httptest` servers, including the failure paths. Email tests use a fake SMTP server, including a closed port and one that never answers.
 - `make check` runs vet, `golangci-lint` and the tests. It must pass before any milestone is called done.
 
 ## 8. Deployment
@@ -359,7 +374,7 @@ Each milestone ends with `make check` passing and the listed behaviour demonstra
 
 ### Later, not planned in detail
 
-- Notifications: email the requester on `ready` and `needs_info`; notify the owner of new requests.
+- Notifications beyond section 6c: opting out, comment emails.
 - A Prometheus metrics endpoint.
 
 ## 10. Open decisions

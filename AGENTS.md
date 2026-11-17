@@ -32,6 +32,7 @@ internal/preview/     link fetch and SSRF guard
 internal/printerstatus/  Moonraker and Bambuddy status polling
 internal/files/       Blobs interface, s3 and dir backends
 internal/meshsize/    bounding boxes of STL, OBJ and 3MF files
+internal/email/       SMTP sender and background queue
 ```
 
 ## Conventions
@@ -41,5 +42,5 @@ internal/meshsize/    bounding boxes of STL, OBJ and 3MF files
 - New schema goes in a new numbered file under `internal/store/migrations`; never edit an applied migration.
 - Frontend: server-rendered HTML, htmx and SortableJS vendored under `internal/web/static` and embedded. No Node, no build step. Must work on a phone.
 - Every state-changing route is POST and checks the CSRF token. The exception is `/api/v1/` (`internal/web/api.go`): it authenticates by bearer token only, never reads the session cookie, and so needs no CSRF token. Do not mount it inside the session middleware. API reference: `docs/api.md`.
-- Outbound HTTP (Spoolman, link preview, printer status) always has a timeout and a tested failure path; the app must start and work when any of them is down.
+- Outbound HTTP (Spoolman, link preview, printer status) and SMTP always has a timeout and a tested failure path; the app must start and work when any of them is down.
 - Errors shown to users are plain sentences; details go to the log.

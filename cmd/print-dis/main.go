@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bjschafer/print-dis/internal/config"
+	"github.com/bjschafer/print-dis/internal/email"
 	"github.com/bjschafer/print-dis/internal/files"
 	"github.com/bjschafer/print-dis/internal/preview"
 	"github.com/bjschafer/print-dis/internal/printerstatus"
@@ -75,6 +76,15 @@ func serve() error {
 	})
 	go mon.Run(ctx)
 	deps.PrinterStatus = mon
+	if cfg.SMTPAddr != "" {
+		q := email.NewQueue(&email.SMTP{
+			Addr:     cfg.SMTPAddr,
+			From:     *cfg.MailFrom,
+			Hostname: cfg.BaseURL.Hostname(),
+		}, log)
+		go q.Run(ctx)
+		deps.Mailer = q
+	}
 	h, err := web.New(ctx, deps)
 	if err != nil {
 		return err
@@ -86,7 +96,7 @@ func serve() error {
 	}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
-	log.Info("listening", "addr", cfg.ListenAddr, "base_url", cfg.BaseURL.String(), "dev_user", cfg.DevUser != "")
+	log.Info("listening", "addr", cfg.ListenAddr, "base_url", cfg.BaseURL.String(), "dev_user", cfg.DevUser != "", "email", cfg.SMTPAddr != "")
 
 	select {
 	case err := <-errc:

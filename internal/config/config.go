@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/mail"
 	"net/url"
 	"os"
 	"strconv"
@@ -39,6 +40,11 @@ type Config struct {
 
 	// AccentColor is the UI accent as "#rrggbb", or "" for the default.
 	AccentColor string
+
+	// SMTPAddr is the relay's host:port; "" turns email off.
+	SMTPAddr string
+	// MailFrom is the sender, parsed from MAIL_FROM; set when SMTPAddr is.
+	MailFrom *mail.Address
 }
 
 // FromEnv reads configuration using getenv (os.Getenv in production).
@@ -64,6 +70,7 @@ func FromEnv(getenv func(string) string) (*Config, error) {
 		S3SecretAccessKey: getenv("S3_SECRET_ACCESS_KEY"),
 		S3Region:          getenv("S3_REGION"),
 		UploadMaxBytes:    200 << 20,
+		SMTPAddr:          strings.TrimSpace(getenv("SMTP_ADDR")),
 	}
 	if c.ListenAddr == "" {
 		c.ListenAddr = ":8080"
@@ -99,6 +106,22 @@ func FromEnv(getenv func(string) string) (*Config, error) {
 			c.AccentColor = h
 		} else {
 			errs = append(errs, fmt.Errorf("ACCENT_COLOR %q is not a hex color like #00ae42", raw))
+		}
+	}
+	if c.SMTPAddr != "" {
+		if _, port, err := net.SplitHostPort(c.SMTPAddr); err != nil || port == "" {
+			errs = append(errs, fmt.Errorf("SMTP_ADDR %q is not host:port", c.SMTPAddr))
+		}
+		raw := strings.TrimSpace(getenv("MAIL_FROM"))
+		if raw == "" {
+			errs = append(errs, errors.New("MAIL_FROM is required when SMTP_ADDR is set"))
+		} else if a, err := mail.ParseAddress(raw); err != nil {
+			errs = append(errs, fmt.Errorf("MAIL_FROM %q is not an email address", raw))
+		} else {
+			if a.Name == "" {
+				a.Name = "print-dis"
+			}
+			c.MailFrom = a
 		}
 	}
 	switch c.FilesBackend {

@@ -530,6 +530,7 @@ func (s *Server) createRequest(w http.ResponseWriter, r *http.Request) {
 	if msg := s.fillNewRequests(r, mr, firstFile, src, keep, reqs, u); msg != "" {
 		s.flash(r, msg)
 	}
+	s.notifyNew(r.Context(), u, reqs)
 	if len(reqs) > 1 {
 		redirect(w, r, "/")
 		return
@@ -770,10 +771,12 @@ func (s *Server) setStatus(w http.ResponseWriter, r *http.Request) {
 		forbidden(w)
 		return
 	}
-	if err := s.Store.SetStatus(r.Context(), req.ID, core.ResolveStatus(u, req, to), u.ID); err != nil {
+	landed := core.ResolveStatus(u, req, to)
+	if err := s.Store.SetStatus(r.Context(), req.ID, landed, u.ID); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
+	s.notifyStatus(r.Context(), u, req, landed)
 	back := r.PostFormValue("back")
 	if back != "/" {
 		back = "/requests/" + strconv.FormatInt(req.ID, 10)
@@ -806,6 +809,7 @@ func (s *Server) moveRequest(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	s.notifyStatus(r.Context(), u, req, landed)
 	// 204: the card stays where it was dropped. 200: it landed elsewhere
 	// (your own request dropped on Ready is delivered), so the board takes
 	// it off.
