@@ -45,7 +45,8 @@
       "matchFileNames": ["internal/web/thirdparty/thirdparty.go"],
       "groupName": null,
       "prBodyNotes": [
-        "This PR moves a pin in `internal/web/thirdparty/thirdparty.go`. `.github/workflows/vendor-js.yml` fetches the new script into `internal/web/static/` as a second commit and dispatches CI for it; until that commit lands, `TestVendoredFilesMatchPins` is red.",
+        "This PR moves a pin in `internal/web/thirdparty/thirdparty.go`. `.github/workflows/vendor-js.yml` fetches the new script into `internal/web/static/` as a second commit; until that commit lands, `TestVendoredFilesMatchPins` is red.",
+        "CI for that commit waits for **Approve workflows to run** on this PR (GitHub treats github-actions[bot] as a first-time contributor). Check the second commit's diff, approve, then click through the board on a phone before merging.",
         "If the second commit never appears, run `make vendor-js` locally and push the result."
       ]
     }
