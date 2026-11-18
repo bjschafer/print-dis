@@ -32,7 +32,8 @@ jobs:
       - run: go vet ./...
       - uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.15
+          # renovate: datasource=github-releases depName=golangci/golangci-lint
+          version: v2.15.0
       - run: go test -race -cover ./...
 
   image:

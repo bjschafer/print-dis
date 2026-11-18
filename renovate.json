@@ -1,0 +1,53 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "labels": ["dependencies"],
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+  "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+  "packageRules": [
+    {
+      "description": "Nothing automerges. A merge to main publishes an image, and main has no required status checks, so GitHub's auto-merge would land a PR before CI had run on it.",
+      "matchPackageNames": ["*"],
+      "automerge": false
+    },
+    {
+      "description": "One weekly PR for minor and patch Go module bumps instead of one per golang.org/x module. Majors stay separate: they change import paths and need reading.",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["require", "indirect"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "go modules (non-major)"
+    },
+    {
+      "description": "This is an application, not a library, so the go directive is the toolchain: setup-go reads it via go-version-file. Bump it like any other pin, in the same PR as the golang builder image in the Dockerfile, so CI and the published image build with the same Go.",
+      "matchDepNames": ["go"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "bump"
+    },
+    {
+      "matchDepNames": ["go", "golang"],
+      "groupName": "go toolchain"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "github actions (non-major)"
+    },
+    {
+      "description": "CI's Postgres matches the production cluster's major, and scripts/devdb.sh's image follows CI. A new major moves deliberately with the cluster, not on Renovate's schedule.",
+      "matchDatasources": ["docker"],
+      "matchDepNames": ["postgres"],
+      "allowedVersions": "<18"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Tool versions in workflow `with:` blocks, annotated with a `# renovate: datasource=... depName=...` comment on the line above. Currently the golangci-lint version passed to golangci-lint-action.",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n\\s*version: (?<currentValue>\\S+)"
+      ]
+    }
+  ]
+}
