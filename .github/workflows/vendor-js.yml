@@ -35,7 +35,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     steps:
       # The branch itself, not the detached merge commit, since we push to it.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.head_ref }}
       - uses: actions/setup-go@v5
