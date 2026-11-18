@@ -43,7 +43,7 @@ func (s Script) VersionMarker() string { return fmt.Sprintf(s.Marker, s.Version)
 // Scripts are the vendored scripts. renovate.json's regex expects each entry
 // on one line, starting with the Package then the Version field.
 var Scripts = []Script{
-	{Package: "htmx.org", Version: "2.0.4", Path: "dist/htmx.min.js", File: "htmx.min.js", Marker: `version:"%s"`},
+	{Package: "htmx.org", Version: "2.0.11", Path: "dist/htmx.min.js", File: "htmx.min.js", Marker: `version:"%s"`},
 	{Package: "sortablejs", Version: "1.15.6", Path: "Sortable.min.js", File: "Sortable.min.js", Marker: "Sortable %s - MIT"},
 }
 
