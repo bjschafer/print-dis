@@ -40,8 +40,8 @@ type Script struct {
 // VersionMarker is Marker filled in with Version.
 func (s Script) VersionMarker() string { return fmt.Sprintf(s.Marker, s.Version) }
 
-// Scripts are the vendored scripts. Keep each entry on one line in this
-// field order: renovate.json matches `{Package: "...", Version: "..."`.
+// Scripts are the vendored scripts. renovate.json's regex expects each entry
+// on one line, starting with the Package then the Version field.
 var Scripts = []Script{
 	{Package: "htmx.org", Version: "2.0.4", Path: "dist/htmx.min.js", File: "htmx.min.js", Marker: `version:"%s"`},
 	{Package: "sortablejs", Version: "1.15.6", Path: "Sortable.min.js", File: "Sortable.min.js", Marker: "Sortable %s - MIT"},
