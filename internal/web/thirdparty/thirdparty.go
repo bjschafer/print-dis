@@ -44,7 +44,7 @@ func (s Script) VersionMarker() string { return fmt.Sprintf(s.Marker, s.Version)
 // on one line, starting with the Package then the Version field.
 var Scripts = []Script{
 	{Package: "htmx.org", Version: "2.0.11", Path: "dist/htmx.min.js", File: "htmx.min.js", Marker: `version:"%s"`},
-	{Package: "sortablejs", Version: "1.15.6", Path: "Sortable.min.js", File: "Sortable.min.js", Marker: "Sortable %s - MIT"},
+	{Package: "sortablejs", Version: "1.15.7", Path: "Sortable.min.js", File: "Sortable.min.js", Marker: "Sortable %s - MIT"},
 }
 
 // Fetch downloads s's package from registry, checks the tarball against the
