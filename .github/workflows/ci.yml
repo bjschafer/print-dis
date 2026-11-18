@@ -63,7 +63,7 @@ jobs:
             type=raw,value=main,enable={{is_default_branch}}
             # unix timestamp, monotonically increasing, for the image updater
             type=raw,value={{branch}}-{{date 'X'}},enable={{is_default_branch}}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: ${{ github.event_name == 'push' }}
