@@ -5,6 +5,7 @@
   "schedule": ["before 6am on monday"],
   "prConcurrentLimit": 5,
   "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"],
+  "gitIgnoredAuthors": ["41898282+github-actions[bot]@users.noreply.github.com"],
   "packageRules": [
     {
       "description": "Nothing automerges. A merge to main publishes an image, and main has no required status checks, so GitHub's auto-merge would land a PR before CI had run on it.",
@@ -38,6 +39,15 @@
       "matchDatasources": ["docker"],
       "matchDepNames": ["postgres"],
       "allowedVersions": "<18"
+    },
+    {
+      "description": "htmx and SortableJS, vendored into internal/web/static. One PR each, never grouped: each needs a click-through on a phone, not just green CI.",
+      "matchFileNames": ["internal/web/thirdparty/thirdparty.go"],
+      "groupName": null,
+      "prBodyNotes": [
+        "This PR moves a pin in `internal/web/thirdparty/thirdparty.go`. `.github/workflows/vendor-js.yml` fetches the new script into `internal/web/static/` as a second commit and dispatches CI for it; until that commit lands, `TestVendoredFilesMatchPins` is red.",
+        "If the second commit never appears, run `make vendor-js` locally and push the result."
+      ]
     }
   ],
   "customManagers": [
@@ -48,6 +58,13 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n\\s*version: (?<currentValue>\\S+)"
       ]
+    },
+    {
+      "customType": "regex",
+      "description": "npm packages vendored into internal/web/static, pinned one per line in internal/web/thirdparty/thirdparty.go.",
+      "managerFilePatterns": ["/^internal/web/thirdparty/thirdparty\\.go$/"],
+      "matchStrings": ["\\{Package: \"(?<depName>[^\"]+)\", Version: \"(?<currentValue>[^\"]+)\""],
+      "datasourceTemplate": "npm"
     }
   ]
 }

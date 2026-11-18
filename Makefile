@@ -41,6 +41,12 @@ test:
 .PHONY: check
 check: vet lint test
 
+# Fetch the htmx and SortableJS versions pinned in internal/web/thirdparty
+# from npm into internal/web/static, checked against npm's integrity hashes.
+.PHONY: vendor-js
+vendor-js:
+	go run ./internal/web/thirdparty/fetch
+
 # Regenerate the README images in docs/images from made-up data. Needs
 # `make db` and chromium on PATH.
 .PHONY: screenshots

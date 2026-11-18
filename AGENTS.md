@@ -8,6 +8,7 @@ A print-request queue for one owner and their friends. `docs/design.md` is the s
 - `make run`: build and serve on :8080 with `DEV_USER` sign-in and files in `./.files`.
 - `make check`: vet, golangci-lint, tests. Must pass before any work is called done.
 - `make screenshots`: regenerate the README images in `docs/images` from made-up data (needs `make db` and chromium). Re-run when the UI changes enough that they look stale.
+- `make vendor-js`: fetch the htmx and SortableJS versions pinned in `internal/web/thirdparty/thirdparty.go` into `internal/web/static`. Change a version there, never the files by hand. Renovate bumps the pins and `.github/workflows/vendor-js.yml` runs this on its branch.
 - Tests that need Postgres read `TEST_DATABASE_URL` and skip without it. Locally:
   `TEST_DATABASE_URL='postgres://postgres:pg@localhost:55432/printdis?sslmode=disable' make check`
 

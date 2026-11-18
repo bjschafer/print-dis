@@ -1,0 +1,66 @@
+name: Vendor JS
+
+# Renovate can move a pin in internal/web/thirdparty/thirdparty.go but cannot
+# fetch the script it describes: postUpgradeTasks is self-hosted only. So a
+# Renovate htmx or SortableJS PR arrives with a pin and the old file, which
+# TestVendoredFilesMatchPins fails. This is the other half: it runs
+# `make vendor-js` on the branch and pushes the new file back.
+#
+# The push uses GITHUB_TOKEN, which starts no workflow runs (so this cannot
+# loop, and CI would never see the new commit). It dispatches CI for the
+# branch instead; workflow_dispatch is the one event GITHUB_TOKEN may start.
+"on":
+  pull_request:
+    branches: [main]
+    paths:
+      - internal/web/thirdparty/thirdparty.go
+
+concurrency:
+  group: vendor-js-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    name: Fetch pinned scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    # Gate on who opened the PR, not on the branch name: anyone can open a PR
+    # from a branch called renovate/anything. Fork PRs get a read-only token,
+    # so the head-repo test fails them here rather than at the push.
+    if: >-
+      github.event.pull_request.user.login == 'renovate[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      # The branch itself, not the detached merge commit, since we push to it.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make vendor-js
+      - name: Push the fetched scripts and run CI on them
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "Files already match the pins; nothing to push."
+            exit 0
+          fi
+          # renovate.json lists this author under gitIgnoredAuthors; without
+          # that Renovate sees the branch as modified by someone else and
+          # stops rebasing it.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Vendor the scripts pinned in thirdparty.go"
+          git push origin "HEAD:$HEAD_REF"
+          gh workflow run ci.yml --ref "$HEAD_REF"
+      - name: Flag that the scripts were not updated
+        if: failure()
+        run: |
+          echo "::error::internal/web/static was NOT updated on this branch, so it still holds the previous versions. Run 'make vendor-js' locally and push the result, or close this PR."
+          exit 1
