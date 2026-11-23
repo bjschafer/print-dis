@@ -1,5 +1,5 @@
-github.com/alexedwards/scs/pgxstore v0.0.0-20251002162104-209de6e426de h1:wNJVpr0ag/BL2nRGBIESdLe1qoljXIolF/qPi1gleRA=
-github.com/alexedwards/scs/pgxstore v0.0.0-20251002162104-209de6e426de/go.mod h1:hwveArYcjyOK66EViVgVU5Iqj7zyEsWjKXMQhDJrTLI=
+github.com/alexedwards/scs/pgxstore v0.0.0-20261119174900-ed2e92329119 h1:bVnX1wVk9gz8A/pHLXrkOxYJeCWXJ299LKu7YQzY4OE=
+github.com/alexedwards/scs/pgxstore v0.0.0-20261119174900-ed2e92329119/go.mod h1:hwveArYcjyOK66EViVgVU5Iqj7zyEsWjKXMQhDJrTLI=
 github.com/alexedwards/scs/v2 v2.9.0 h1:xa05mVpwTBm1iLeTMNFfAWpKUm4fXAW7CeAViqBVS90=
 github.com/alexedwards/scs/v2 v2.9.0/go.mod h1:ToaROZxyKukJKT/xLcVQAChi5k6+Pn1Gvmdl7h3RRj8=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
