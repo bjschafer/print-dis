@@ -205,7 +205,7 @@ Every state-changing route requires a CSRF token, except the API's, which never 
 Read-only, against the in-cluster service `http://spoolman.spoolman.svc.cluster.local:8000`.
 
 - Fetch `GET /api/v1/filament` and `GET /api/v1/spool`, and cache both in memory for five minutes.
-- The form asks for a material first, as chips: Any, the common ones (PLA, PETG, ABS, ASA, TPU), every material Spoolman has, and Other with a text box. Someone who only cares about material picks it and leaves color on Any.
+- The form asks for a material first, as chips: Any, the common ones (PLA, PETG, PETG-GF, ABS, ASA, TPU), every material Spoolman has, and Other with a text box. Someone who only cares about material picks it and leaves color on Any.
 - Then one or more colors, each with: a row of rough palette colors (`core.RoughColors`) plus Any and an exact color picker; a collapsible "filament on the shelf" grid of swatch tiles, grouped by material, in-stock first, with grams left, filtered by the chosen material and a search box; and a free-text note. "Add another color" adds a slot (up to eight); without script it re-renders the form with a blank slot instead of saving.
 - Multi-color filaments (`multi_color_hexes`) show as a pie swatch.
 - Picking a filament snapshots its ID, label, material and colors; the client's values for those are never read. When the request names no material, the picked filaments' material is used.

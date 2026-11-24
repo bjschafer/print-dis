@@ -125,4 +125,4 @@ func ColorsMaterial(cs []ColorChoice) string {
 }
 
 // CommonMaterials are offered on the form even when Spoolman has none.
-var CommonMaterials = []string{"PLA", "PETG", "ABS", "ASA", "TPU"}
+var CommonMaterials = []string{"PLA", "PETG", "PETG-GF", "ABS", "ASA", "TPU"}
